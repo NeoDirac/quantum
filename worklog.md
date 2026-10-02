@@ -405,3 +405,106 @@ Stage Summary:
 - Consider a "study streak" / daily goal tracker (without gamification excess).
 - The graph decision tree could support pan/zoom for large graphs (currently scroll only).
 - Add a print/export feature for study notes (concepts marked as favorites).
+
+---
+Task ID: 9
+Agent: web-dev-reviewer (cron, Phase 4)
+Task: QA + Phase 4 development (study streak tracker, more exercises, adaptive exam, print/export notes, styling polish)
+
+Work Log:
+- Reviewed worklog: Phase 3 complete with 21 exercises, graph decision tree, bookmarks, wave packet phase view
+- QA with agent-browser: confirmed all views render, no console errors, lint clean, server stable
+- Identified next-phase items from worklog recommendations
+
+Phase 4 — Study streak / daily goal tracker (new feature, full stack):
+- Prisma: added StudyDay model (studentId, date YYYY-MM-DD, exercisesDone, conceptsRead,
+  goalsMet, minutesStudied) with compound unique [studentId, date]; ran db:push
+- API: /api/study (GET returns 14-day series + current streak + longest streak + totals;
+  POST records activity for today, upserts the day row incrementing the right field)
+  * Streak computation: consecutive days with activity (ending today or yesterday)
+  * Longest streak: scans all history
+- StudyStreakWidget component: shows current streak (flame icon), today's goal progress
+  (target icon, 3 exercises/day), 14-day totals, 14-day activity bar chart (today highlighted
+  in orange), subtle nudge messages (non-gamified: "constancia sobre intensidad")
+- Wired activity recording:
+  * exercise-view: recordAttempt() also POSTs /api/study {activity:'exercise'}
+  * concept-view: useEffect records /api/study {activity:'concept'} once per concept visit
+- Widget placed on dashboard between quick stats and study flow
+
+Phase 4 — More exercises (exercises-phase4.ts, 4 new, total 25):
+- ex-2-1c: Teorema de normalización — E debe ser real (decomposing E=E_R+iE_I, |Ψ|² argument)
+- ex-2-2e: Superposición par/impar y evolución temporal (pozo simétrico, ⟨x⟩ oscila por paridad mixta)
+- ex-2-6c: Resolución gráfica de trascendentales del pozo finito (z=la, z₀, N≈⌊z₀/π⌋+1)
+- ex-2-7c: Composición de matrices de transfer (dos deltas en serie, interferencia Fabry-Pérot)
+- Merged via ALL_EXERCISES = Phase1 + Phase2 + Phase3 + Phase4
+
+Phase 4 — Adaptive exam mode (exam-mode.tsx):
+- Fetches student's weak concepts (mastery < 80%) when entering setup via /api/progress
+- Adaptive sampling: ~half the exam targets weakest concepts first, then section coverage,
+  then random fill. Falls back to balanced random for new students
+- Added "Examen adaptativo" toggle (checkbox) in setup screen with explanation and
+  weak-concept chips showing concept title + mastery %
+- Uses Target icon; violet theme to distinguish from regular exam
+
+Phase 4 — Print/export study notes (bookmarks-view.tsx):
+- "Exportar / imprimir notas" button in bookmarks header (appears only when bookmarks exist)
+- Generates a printable HTML document (opens new window, triggers print dialog):
+  * Serif font (Georgia) for academic feel
+  * Concepts: title, section, intuition layer, math layer
+  * Exercises: title, section, statement, final answer
+  * blocksToHtml() helper converts all Block types (p, math, callout, list, steps, kv) to HTML
+  * Page-break-inside:avoid for clean printing
+  * Date stamp and chapter header
+
+Phase 4 — Styling polish:
+- Concept view: added "Capas leídas: ●●●○○ 3/5" progress indicator (5 gradient pills that
+  fill as layers open) next to bookmark button — gives at-a-glance reading progress
+- Exercise view: replaced plain text meta with colored pill badges:
+  * Section: teal pill
+  * Type: sky pill
+  * Difficulty: emerald (★), amber (★★), rose (★★★) pills with star icons
+- Bookmarks view: export button in header (top-right, standard action button pattern)
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 25 exercises visible (was 21), all 4 new exercises render; study streak
+  widget shows on dashboard ("días seguidos"); adaptive exam toggle renders with
+  weak-concept info; concept layer progress indicator ("Capas leídas") shows; export
+  button appears in bookmarks when bookmarks exist
+- VLM assessment of bookmarks view: "clean, professional, well-organized, clear visual
+  hierarchy, good whitespace, consistent typography; Export button appropriately placed"
+- Server stays alive across all tests (start-dev.sh setsid detachment)
+
+Stage Summary:
+- Phase 4 complete. Platform now has: 25 exercises (was 21), study streak/daily goal
+  tracker (full stack), adaptive exam mode (weights by weak concepts), print/export study
+  notes, concept layer progress indicator, refined exercise difficulty badges.
+- All features verified working in browser. Lint clean. Dev server stable.
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. Cumulative enhancements across 4 phases:
+  * Study streak / daily goal tracker (DB + API + widget, non-gamified nudges)
+  * 4 more exercises: normalization theorem, odd/even superposition, transcendental solving,
+    transfer matrix composition
+  * Adaptive exam mode (weights questions by student's weak concepts)
+  * Print/export study notes (generates printable HTML from bookmarks)
+  * Concept layer progress indicator + refined exercise difficulty pill badges
+
+## Current goals / completed modifications / verification results
+- DONE: study streak, more exercises, adaptive exam, print/export, styling polish.
+- Content now: 16 concepts, 8 model problems, 25 exercises, graph decision tree.
+- All major features from worklog recommendations now implemented:
+  graph decision tree ✓, bookmarks ✓, adaptive review ✓, more exercises ✓,
+  quantitative visualizations ✓, wave packet phase ✓, study streak ✓,
+  adaptive exam ✓, print/export ✓.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: ~25/50+ Griffiths Ch.2 problems. Next: add 2.3 recursion formula Hermite,
+  2.4 group vs phase velocity conceptual, 2.5 delta well + barrier comparison,
+  2.6 number of bound states as function of z₀.
+- Mobile sidebar uses overlay; bottom-sheet pattern would improve mobile UX.
+- Graph decision tree could support pan/zoom for large graphs.
+- Study streak widget: add a weekly calendar view (not just 14-day strip).
+- Exam mode: add a timer + question review screen before finishing.
+- Add a "concept relationships" graph view (prerequisites + related, from concept data).
+- Consider keyboard shortcuts (j/k for next/prev concept, ? for help).

@@ -1,6 +1,7 @@
 import type { Exercise } from '@/lib/content-types'
 import { EXERCISES_PHASE2 } from './exercises-phase2'
 import { EXERCISES_PHASE3 } from './exercises-phase3'
+import { EXERCISES_PHASE4 } from './exercises-phase4'
 
 // Ejercicios originales para el Capítulo 2, organizados por sección.
 // Las preguntas, pistas y soluciones están escritas para esta plataforma;
@@ -680,8 +681,8 @@ export const EXERCISES: Exercise[] = [
   },
 ]
 
-// Combined exports (original Phase 1 + Phase 2 + Phase 3 expansion)
-export const ALL_EXERCISES: Exercise[] = [...EXERCISES, ...EXERCISES_PHASE2, ...EXERCISES_PHASE3]
+// Combined exports (original Phase 1 + Phase 2 + Phase 3 + Phase 4 expansion)
+export const ALL_EXERCISES: Exercise[] = [...EXERCISES, ...EXERCISES_PHASE2, ...EXERCISES_PHASE3, ...EXERCISES_PHASE4]
 // Backwards-compatible alias: components importing { EXERCISES } get the full set.
 export { ALL_EXERCISES as EXERCISES }
 

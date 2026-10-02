@@ -49,6 +49,8 @@ export function ExerciseView({ exercise }: { exercise: Exercise }) {
         conceptId: exercise.conceptIds[0], correct, errorType, hintsUsed,
         solutionRevealed: showSolution || allStepsOpen,
       })
+      // record daily study activity (best-effort)
+      apiPost('/api/study', { studentId, activity: 'exercise', count: 1 }).catch(() => {})
     } catch (e) {
       // silent — progress tracking is best-effort
     }
@@ -85,12 +87,15 @@ export function ExerciseView({ exercise }: { exercise: Exercise }) {
   return (
     <article className="space-y-5">
       <header className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-          <span>Sección {exercise.sectionId}</span>
-          <span>·</span>
-          <span>{TYPE_LABEL[exercise.type] ?? exercise.type}</span>
-          <span>·</span>
-          <span className="text-amber-600 dark:text-amber-400">{DIFF_LABEL[exercise.difficulty]}</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+          <span className="rounded-full bg-teal-50 px-2 py-0.5 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300">Sección {exercise.sectionId}</span>
+          <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300">{TYPE_LABEL[exercise.type] ?? exercise.type}</span>
+          <span className={cn('inline-flex items-center gap-0.5 rounded-full px-2 py-0.5',
+            exercise.difficulty === 1 ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+            : exercise.difficulty === 2 ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'
+            : 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300')}>
+            {DIFF_LABEL[exercise.difficulty]}
+          </span>
         </div>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{exercise.title}</h1>

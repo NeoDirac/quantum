@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Concept } from '@/lib/content-types'
 import { RenderBlocks, RenderBlock } from '@/components/render-blocks'
 import { WhyBox } from '@/components/why-box'
 import { BookmarkButton } from '@/components/bookmark-button'
+import { apiPost, getOrCreateStudentId } from '@/lib/student'
 import { cn } from '@/lib/utils'
 import { Lightbulb, Sigma, Atom, BookOpen, ClipboardCheck, ChevronRight } from 'lucide-react'
 
@@ -27,6 +28,14 @@ const toneClass = {
 
 export function ConceptView({ concept }: { concept: Concept }) {
   const [openLayers, setOpenLayers] = useState<Set<number>>(new Set([0]))
+  const recordedRef = useRef<string | null>(null)
+  // Record "concept read" once per concept visit (best-effort, for daily streak)
+  useEffect(() => {
+    if (recordedRef.current === concept.id) return
+    recordedRef.current = concept.id
+    const studentId = getOrCreateStudentId()
+    apiPost('/api/study', { studentId, activity: 'concept', count: 1 }).catch(() => {})
+  }, [concept.id])
   const toggle = (i: number) => {
     setOpenLayers(prev => {
       const next = new Set(prev)
@@ -55,8 +64,18 @@ export function ConceptView({ concept }: { concept: Concept }) {
             ))}
           </div>
         )}
-        <div className="pt-1">
+        <div className="flex flex-wrap items-center gap-3 pt-1">
           <BookmarkButton itemType="concept" itemId={concept.id} size="sm" />
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>Capas leídas:</span>
+            <div className="flex gap-0.5">
+              {[0, 1, 2, 3, 4].map(i => (
+                <span key={i} className={cn('h-1.5 w-4 rounded-full transition-colors',
+                  openLayers.has(i) ? 'bg-gradient-to-r from-teal-500 to-emerald-500' : 'bg-muted')} />
+              ))}
+            </div>
+            <span className="tabular-nums">{openLayers.size}/5</span>
+          </div>
         </div>
       </header>
 

@@ -10,8 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Timer, CheckCircle2, XCircle, RotateCcw, AlertTriangle, Trophy, ArrowRight } from 'lucide-react'
-import { apiPost, getOrCreateStudentId } from '@/lib/student'
+import { Timer, CheckCircle2, XCircle, RotateCcw, AlertTriangle, Trophy, ArrowRight, Target } from 'lucide-react'
+import { apiPost, apiGet, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
 import { ERROR_TYPE_LABELS, type ErrorType } from '@/lib/content-types'
 import { cn } from '@/lib/utils'
@@ -34,30 +34,68 @@ export function ExamMode() {
   const [questions, setQuestions] = useState<ExamQ[]>([])
   const [current, setCurrent] = useState(0)
   const [startTime, setStartTime] = useState<number>(0)
+  const [weakConcepts, setWeakConcepts] = useState<{ conceptId: string; mastery: number }[]>([])
+  const [adaptiveMode, setAdaptiveMode] = useState(true)
 
-  // Pick a balanced sample: at least 1 conceptual, 1 computation, 1 identify, spanning sections
+  // Fetch the student's weak concepts when entering setup, to weight the exam.
+  useEffect(() => {
+    if (phase !== 'setup') return
+    let mounted = true
+    const studentId = getOrCreateStudentId()
+    apiGet(`/api/progress?studentId=${encodeURIComponent(studentId)}`)
+      .then(d => {
+        if (!mounted) return
+        const weak = (d.conceptProgress || [])
+          .filter((r: any) => r.mastery < 80)
+          .sort((a: any, b: any) => a.mastery - b.mastery)
+          .map((r: any) => ({ conceptId: r.conceptId, mastery: r.mastery }))
+        if (mounted) setWeakConcepts(weak)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [phase])
+
+  // Adaptive sample: weight selection toward weak concepts (if available & adaptiveMode on),
+  // but still ensure section coverage. Falls back to balanced random for new students.
   const sample = useMemo(() => {
     const want = 8
     const pool = [...EXERCISES]
-    // shuffle
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[pool[i], pool[j]] = [pool[j], pool[i]]
+    const picked: typeof EXERCISES = []
+    const usedIds = new Set<string>()
+
+    if (adaptiveMode && weakConcepts.length > 0) {
+      // 1) Pick exercises targeting the weakest concepts first (up to ~half the exam).
+      const weakTarget = Math.min(Math.floor(want / 2), weakConcepts.length)
+      for (let i = 0; i < weakTarget && picked.length < want; i++) {
+        const cid = weakConcepts[i].conceptId
+        const candidates = pool.filter(e => e.conceptIds.includes(cid) && !usedIds.has(e.id))
+        if (candidates.length > 0) {
+          const e = candidates[Math.floor(Math.random() * candidates.length)]
+          picked.push(e); usedIds.add(e.id)
+        }
+      }
     }
-    // try to cover all sections
-    const bySection = new Map<string, Exercise[]>()
-    pool.forEach(e => { if (!bySection.has(e.sectionId)) bySection.set(e.sectionId, []); bySection.get(e.sectionId)!.push(e) })
-    const picked: Exercise[] = []
+    // 2) Ensure section coverage: one from each section not yet represented.
+    const bySection = new Map<string, typeof EXERCISES>()
+    pool.forEach(e => { if (!usedIds.has(e.id)) { if (!bySection.has(e.sectionId)) bySection.set(e.sectionId, []); bySection.get(e.sectionId)!.push(e) } })
     for (const [sid, list] of bySection) {
       if (picked.length >= want) break
-      picked.push(list[0])
+      if (!picked.find(p => p.sectionId === sid) && list.length > 0) {
+        const e = list[Math.floor(Math.random() * list.length)]
+        picked.push(e); usedIds.add(e.id)
+      }
     }
-    while (picked.length < want && pool.length) {
-      const e = pool.pop()!
-      if (!picked.find(p => p.id === e.id)) picked.push(e)
+    // 3) Fill remaining slots randomly from the unused pool.
+    const remaining = pool.filter(e => !usedIds.has(e.id))
+    for (let i = remaining.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[remaining[i], remaining[j]] = [remaining[j], remaining[i]]
     }
-    return picked
-  }, [phase])
+    while (picked.length < want && remaining.length > 0) {
+      picked.push(remaining.pop()!)
+    }
+    return picked.slice(0, want)
+  }, [phase, adaptiveMode, weakConcepts])
 
   const start = () => {
     // build questions from sampled exercises (use first check-like structure if available, else a "did you solve?" framing)
@@ -126,7 +164,32 @@ export function ExamMode() {
         <Card>
           <CardContent className="p-6 space-y-4">
             <div className="text-sm">
-              El examen selecciona <span className="font-semibold">8 ejercicios</span> de muestra, balanceados por sección. Para cada uno, abre el problema, inténtalo sin pistas y autorreporta si lo resolviste o en qué fallaste.
+              El examen selecciona <span className="font-semibold">8 ejercicios</span> balanceados por sección. Para cada uno, abre el problema, inténtalo sin pistas y autorreporta si lo resolviste o en qué fallaste.
+            </div>
+            {/* Adaptive mode toggle */}
+            <div className="rounded-lg border border-violet-200/60 bg-violet-50/40 p-4 dark:border-violet-900/50 dark:bg-violet-950/20">
+              <label className="flex cursor-pointer items-start gap-3">
+                <input type="checkbox" checked={adaptiveMode} onChange={e => setAdaptiveMode(e.target.checked)} className="mt-0.5 accent-violet-600" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Target className="h-4 w-4 text-violet-600" /> Examen adaptativo
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {weakConcepts.length > 0
+                      ? `Se priorizarán ${Math.min(4, weakConcepts.length)} preguntas sobre tus conceptos más débiles (tienes ${weakConcepts.length} concepto(s) con dominio < 80%).`
+                      : 'Aún no tienes datos de progreso. El examen será balanceado por sección; al resolver ejercicios, futuros exámenes priorizarán tus debilidades.'}
+                  </p>
+                </div>
+              </label>
+              {weakConcepts.length > 0 && adaptiveMode && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {weakConcepts.slice(0, 6).map(w => (
+                    <span key={w.conceptId} className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/50 dark:text-violet-300">
+                      {CONCEPT_ID_TO_TITLE[w.conceptId] ?? w.conceptId} · {w.mastery}%
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <Button onClick={start} size="lg">
               <Timer className="mr-2 h-4 w-4" /> Comenzar examen

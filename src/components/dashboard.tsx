@@ -8,6 +8,7 @@ import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { StudyStreakWidget } from '@/components/study-streak-widget'
 import { Atom, BookOpen, ListChecks, Network, GraduationCap, Waves, Timer, GitBranch, ArrowRight, Sparkles, BrainCircuit, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +46,9 @@ export function Dashboard() {
         <StatCard label="Ejercicios" value={exCount} icon={ListChecks} tone="sky" />
         <StatCard label="Problemas modelo" value={MODEL_PROBLEMS.length} icon={GraduationCap} tone="violet" />
       </div>
+
+      {/* Study streak widget */}
+      <StudyStreakWidget />
 
       {/* Learning flow */}
       <Card>

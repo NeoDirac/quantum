@@ -22,6 +22,7 @@ model Student {
   examResults       ExamResult[]
   trainingSessions  TrainingSession[]
   bookmarks         Bookmark[]
+  studyDays         StudyDay[]
 }
 
 // Per-concept mastery tracking. conceptId matches the id in /src/data/concepts.ts
@@ -109,4 +110,23 @@ model Bookmark {
 
   @@unique([studentId, itemType, itemId])
   @@index([studentId, itemType])
+}
+
+// Daily study activity for streak / daily-goal tracking.
+// One row per student per calendar day (date stored as YYYY-MM-DD string).
+model StudyDay {
+  id          String   @id @default(cuid())
+  studentId   String
+  date        String   // YYYY-MM-DD (local date)
+  exercisesDone  Int   @default(0)
+  conceptsRead  Int    @default(0)
+  goalsMet       Int   @default(0)  // how many daily goals were met that day
+  minutesStudied Int   @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, date])
+  @@index([studentId, date])
 }

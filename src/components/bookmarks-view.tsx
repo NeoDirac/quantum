@@ -7,8 +7,31 @@ import { getExercise } from '@/data/exercises'
 import { apiGet, getOrCreateStudentId } from '@/lib/student'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Star, BookOpen, ListChecks, ArrowRight, Trash2 } from 'lucide-react'
+import { Star, BookOpen, ListChecks, ArrowRight, Trash2, Printer } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { Block } from '@/lib/content-types'
+
+// Convert content Blocks to simple HTML for the print/export view.
+function blocksToHtml(blocks: Block[]): string {
+  return blocks.map(b => {
+    switch (b.kind) {
+      case 'p': return `<p>${escapeHtml(b.text)}</p>`
+      case 'math': return `<span style="font-style:italic;font-family:Cambria Math,serif">${escapeHtml(b.tex)}</span>`
+      case 'math-block': return `<div style="margin:8px 0;font-family:Cambria Math,serif;font-style:italic;text-align:center">${escapeHtml(b.tex)}</div>`
+      case 'eq-row': return `<div style="margin:6px 0;padding:6px 10px;background:#f5f5f5;border-radius:4px"><em>${escapeHtml(b.tex)}</em></div>`
+      case 'callout': return `<div style="margin:8px 0;padding:8px 12px;border-left:3px solid #0f766e;background:#f0fdfa;border-radius:4px">${b.title ? `<strong>${escapeHtml(b.title)}</strong><br/>` : ''}${blocksToHtml(b.blocks)}</div>`
+      case 'list': return b.ordered
+        ? `<ol>${b.items.map(it => `<li>${blocksToHtml(it)}</li>`).join('')}</ol>`
+        : `<ul>${b.items.map(it => `<li>${blocksToHtml(it)}</li>`).join('')}</ul>`
+      case 'steps': return b.items.map((it, i) => `<div style="margin:6px 0"><strong>Paso ${i + 1}.</strong> ${blocksToHtml(it)}</div>`).join('')
+      case 'kv': return b.pairs.map(p => `<div style="margin:4px 0"><strong>${blocksToHtml(p.k)}:</strong> ${blocksToHtml(p.v)}</div>`).join('')
+      default: return ''
+    }
+  }).join('')
+}
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 interface BookmarkRow {
   id: string
@@ -47,12 +70,64 @@ export function BookmarksView() {
   const exercises = bookmarks.filter(b => b.itemType === 'exercise')
   const shown = tab === 'concept' ? concepts : exercises
 
+  const exportNotes = () => {
+    // Build a printable HTML document with the bookmarked concepts' first 2 layers (intuition + math).
+    const conceptNotes = concepts.map(b => {
+      const c = ALL_CONCEPTS.find(x => x.id === b.itemId)
+      if (!c) return ''
+      return `<section style="margin-bottom:24px;page-break-inside:avoid">
+        <h2 style="color:#0f766e;border-bottom:2px solid #0f766e;padding-bottom:4px">${c.title}</h2>
+        <p style="color:#666;font-size:13px">Sección ${c.sectionId} · ${c.subtitle}</p>
+        <h3 style="font-size:15px;margin-top:12px">Intuición física</h3>
+        ${blocksToHtml(c.layer1Intuition)}
+        <h3 style="font-size:15px;margin-top:12px">Matemática</h3>
+        ${blocksToHtml(c.layer2Math)}
+      </section>`
+    }).join('')
+    const exNotes = exercises.map(b => {
+      const e = getExercise(b.itemId)
+      if (!e) return ''
+      return `<section style="margin-bottom:24px;page-break-inside:avoid">
+        <h2 style="color:#0369a1;border-bottom:2px solid #0369a1;padding-bottom:4px">${e.title}</h2>
+        <p style="color:#666;font-size:13px">Sección ${e.sectionId}</p>
+        <h3 style="font-size:15px;margin-top:12px">Enunciado</h3>
+        ${blocksToHtml(e.statement)}
+        ${e.finalAnswer ? `<h3 style="font-size:15px;margin-top:12px">Respuesta</h3>${blocksToHtml(e.finalAnswer)}` : ''}
+      </section>`
+    }).join('')
+    const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Mis notas de estudio — Mecánica Cuántica</title>
+      <style>body{font-family:Georgia,serif;max-width:780px;margin:32px auto;padding:0 16px;line-height:1.6;color:#222}
+      h1{color:#0f766e;border-bottom:3px solid #0f766e;padding-bottom:8px}
+      h2{font-size:18px} h3{font-size:15px;color:#555}
+      .meta{color:#888;font-size:12px;margin-bottom:24px}
+      @media print{body{margin:0}}</style></head>
+      <body>
+        <h1>Mis notas de estudio</h1>
+        <p class="meta">Mecánica Cuántica · Griffiths Cap. 2 · Generado el ${new Date().toLocaleDateString()}</p>
+        ${concepts.length > 0 ? `<h1 style="font-size:20px;color:#0f766e">Conceptos favoritos (${concepts.length})</h1>${conceptNotes}` : ''}
+        ${exercises.length > 0 ? `<h1 style="font-size:20px;color:#0369a1">Ejercicios favoritos (${exercises.length})</h1>${exNotes}` : ''}
+      </body></html>`
+    const w = window.open('', '_blank')
+    if (w) {
+      w.document.write(html)
+      w.document.close()
+      setTimeout(() => w.print(), 400)
+    }
+  }
+
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-          <Star className="h-6 w-6 text-amber-500" /> Mis favoritos
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
+            <Star className="h-6 w-6 text-amber-500" /> Mis favoritos
+          </h1>
+          {(concepts.length > 0 || exercises.length > 0) && (
+            <Button variant="outline" size="sm" onClick={exportNotes}>
+              <Printer className="mr-1.5 h-3.5 w-3.5" /> Exportar / imprimir notas
+            </Button>
+          )}
+        </div>
         <p className="text-muted-foreground">
           Conceptos y ejercicios que has marcado para revisar más tarde. Pulsa la estrella en cualquier concepto o ejercicio para añadirlo aquí.
         </p>
