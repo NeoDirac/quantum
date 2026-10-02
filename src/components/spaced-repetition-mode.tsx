@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { Brain, Zap, CheckCircle2, XCircle, RotateCcw, CalendarClock, Layers, TrendingUp, ArrowRight } from 'lucide-react'
 import { apiGet, apiPost, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
+import { SessionSummaryExportButton } from '@/components/session-summary'
 import { cn } from '@/lib/utils'
 
 interface DueCard {
@@ -316,8 +317,22 @@ export function SpacedRepetitionMode() {
                 </div>
               ))}
             </div>
-            <div className="flex justify-center gap-2 pt-3">
+            <div className="flex flex-wrap justify-center gap-2 pt-3">
               <Button variant="outline" onClick={() => { setCramMode(false); setPhase('overview') }}><RotateCcw className="mr-1.5 h-4 w-4" /> Volver</Button>
+              <SessionSummaryExportButton data={{
+                title: cramMode ? 'Resumen de cram (pre-examen)' : 'Resumen de repaso espaciado',
+                sessionType: cramMode ? 'Cram' : 'Repaso SM-2',
+                date: new Date().toLocaleString(),
+                stats: [
+                  { label: 'Tarjetas revisadas', value: String(results.length) },
+                  { label: 'Buenas (≥4)', value: String(goodCount) },
+                  { label: 'Calidad media', value: `${avgQuality.toFixed(1)}/5` },
+                  { label: 'Modo', value: cramMode ? 'Cram (no reprograma)' : 'Espaciado (SM-2)' },
+                ],
+                notes: cramMode
+                  ? 'Sesión de cram: autoevaluación sin reprogramar. Para retención a largo plazo, usa el modo espaciado regular.'
+                  : 'Las tarjetas se han reprogramado según tu desempeño. Vuelve cuando estén vencidas para mantener la retención.',
+              }} />
               <Button onClick={() => setView({ name: 'progress' })}>Ver progreso <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </div>
           </CardContent>

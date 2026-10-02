@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Exercise } from '@/lib/content-types'
 import { RenderBlocks } from '@/components/render-blocks'
 import { WhyBox } from '@/components/why-box'
@@ -16,6 +16,7 @@ import {
 import { apiPost, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
 import { BookmarkButton } from '@/components/bookmark-button'
+import { recordView } from '@/lib/recently-viewed'
 import { ERROR_TYPE_LABELS } from '@/lib/content-types'
 import type { ErrorType } from '@/lib/content-types'
 
@@ -40,6 +41,11 @@ export function ExerciseView({ exercise }: { exercise: Exercise }) {
   const { toast } = useToast()
 
   const allGuidedDone = guidedDone.every(Boolean) || exercise.guided.length === 0
+
+  // Record this exercise visit for the "recently viewed" dashboard section.
+  useEffect(() => {
+    recordView({ type: 'exercise', id: exercise.id, title: exercise.title, sectionId: exercise.sectionId })
+  }, [exercise.id, exercise.title, exercise.sectionId])
 
   const recordAttempt = async (correct: boolean, errorType?: ErrorType, hintsUsed: number = hintLevel) => {
     const studentId = getOrCreateStudentId()

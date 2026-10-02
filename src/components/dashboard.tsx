@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { StudyStreakWidget } from '@/components/study-streak-widget'
+import { RecentlyViewedList } from '@/components/recently-viewed-list'
 import { Atom, BookOpen, ListChecks, Network, GraduationCap, Waves, Timer, GitBranch, ArrowRight, Sparkles, BrainCircuit, Star, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +50,9 @@ export function Dashboard() {
 
       {/* Study streak widget */}
       <StudyStreakWidget />
+
+      {/* Recently viewed */}
+      <RecentlyViewedList />
 
       {/* Learning flow */}
       <Card>

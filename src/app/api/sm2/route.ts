@@ -17,10 +17,11 @@ export async function GET(req: NextRequest) {
 
     const now = new Date()
     const dueCards = await db.sM2Card.findMany({
-      where: { studentId, dueAt: { lte: now } },
+      where: { studentId, dueAt: { lte: now }, suspended: false },
       orderBy: { dueAt: 'asc' },
     })
-    const totalCards = await db.sM2Card.count({ where: { studentId } })
+    const totalCards = await db.sM2Card.count({ where: { studentId, suspended: false } })
+    const suspendedCount = await db.sM2Card.count({ where: { studentId, suspended: true } })
     const reviewedToday = await db.sM2Card.count({
       where: { studentId, lastReviewAt: { gte: startOfDay(now) } },
     })
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
       })
       upcoming.push({ date: dayStart.toISOString().slice(0, 10), count })
     }
-    return NextResponse.json({ dueCards, totalCards, reviewedToday, upcoming })
+    return NextResponse.json({ dueCards, totalCards, reviewedToday, upcoming, suspendedCount })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }
@@ -105,6 +106,29 @@ export async function POST(req: NextRequest) {
       })
     }
     return NextResponse.json({ ok: true, card })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
+}
+
+// PATCH /api/sm2 { studentId, exerciseId, suspended: boolean }
+//   Suspends or unsuspends a card (temporarily removes from rotation).
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json()
+    const { studentId, exerciseId, suspended } = body
+    if (!studentId || !exerciseId || typeof suspended !== 'boolean') {
+      return NextResponse.json({ error: 'studentId, exerciseId, suspended required' }, { status: 400 })
+    }
+    const card = await db.sM2Card.findUnique({ where: { studentId_exerciseId: { studentId, exerciseId } } })
+    if (!card) {
+      return NextResponse.json({ error: 'card not found' }, { status: 404 })
+    }
+    const updated = await db.sM2Card.update({
+      where: { id: card.id },
+      data: { suspended },
+    })
+    return NextResponse.json({ ok: true, card: updated })
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -768,3 +768,94 @@ Stage Summary:
 - Concept graph: add a force-directed layout option (currently circular).
 - Consider adding a "concept difficulty" rating (student-rated) for personalized ordering.
 - Add a "recently viewed" section on the dashboard for quick return.
+
+---
+Task ID: 13
+Agent: web-dev-reviewer (cron, Phase 8)
+Task: QA + Phase 8 development (recently viewed, session summary export, exam flagged filter, SM-2 suspend, more exercises)
+
+Work Log:
+- Reviewed worklog: Phase 7 complete with 37 exercises, SM-2 cram mode, exam flagging, concept graph pan/zoom
+- QA with agent-browser: confirmed all views render, no console errors, lint clean, server stable
+- Identified next-phase items from worklog recommendations
+
+Phase 8 — Recently viewed section (new feature):
+- Created src/lib/recently-viewed.ts: localStorage-backed hook with recordView(), useRecentlyViewed(),
+  clearRecentlyViewed(). Tracks last 8 visited concepts/exercises (dedupes, moves to front).
+- recordView() wired into concept-view (on mount) and exercise-view (on mount via useEffect)
+- RecentlyViewedList component: shows chips with type icon, title, section badge, hover lift,
+  click to navigate. "Limpiar" button to clear. Only renders when items exist.
+- Placed on dashboard between study streak widget and learning flow
+- Fixed lint: used useState initializer (lazy load) to avoid set-state-in-effect rule
+
+Phase 8 — Study session summary export (new feature):
+- Created src/components/session-summary.tsx: exportSessionSummary() generates a printable HTML
+  document (opens new window, triggers print dialog) with:
+  * Session type badge, date, title
+  * Stats table (label/value pairs)
+  * Optional details section
+  * Optional concept gaps (red highlighted)
+  * Optional notes
+  * Serif font (Georgia), academic styling, page-break friendly
+- SessionSummaryExportButton component (Printer icon, "Exportar / imprimir resumen")
+- Wired into 3 done screens:
+  * Exam done: stats (questions, correct, accuracy, time, adaptive, flagged), concept gaps, notes
+  * Training done: stats (mode, problems, correct, accuracy), notes
+  * SM-2 done: stats (cards, good, avg quality, mode), notes (cram vs spaced)
+
+Phase 8 — Exam "review flagged only" filter:
+- Added flaggedOnly state to ExamMode
+- Checkbox in review screen header: "Mostrar solo marcadas (N)" (only shows when flagged exist)
+- Questions list filters: if flaggedOnly, hides non-flagged questions
+- Works alongside existing "Ir a la primera marcada" button
+
+Phase 8 — SM-2 suspend card (full stack):
+- Prisma: added `suspended Boolean @default(false)` to SM2Card model; ran db:push
+- API: /api/sm2 PATCH endpoint { studentId, exerciseId, suspended } — toggles suspension
+- GET endpoint: filters suspended cards from dueCards, excludes from totalCards count,
+  adds suspendedCount to response
+- Server restarted to pick up new Prisma client
+- Tested end-to-end: POST creates card, PATCH suspends, GET shows due:0/suspended:1
+
+Phase 8 — More exercises (exercises-phase8.ts, 4 new, total 41):
+- ex-2-2g: Parity theorem in symmetric infinite well ([Π,Ĥ]=0, par/impar classification)
+- ex-2-3i: Number operator N=a†a derivation (Ĥ=ℏω(N+½), hermitian, spectrum)
+- ex-2-5e: Delta well bound state wavefunction (ψ=√κ e^{-κ|x|}, normalization, salto verification)
+- ex-2-7e: Transmission resonance conditions (T=1 when 2k'a=nπ, Fabry-Pérot analogy)
+- Merged via ALL_EXERCISES = Phase1+2+3+4+5+6+7+8
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 41 exercises visible (was 37), all 4 new exercises render; recently viewed section
+  appears after visiting a concept; session summary export button appears on exam done screen;
+  SM-2 suspend API tested end-to-end (POST→PATCH→GET)
+- Server stays alive across all tests
+
+Stage Summary:
+- Phase 8 complete. Platform now has: 41 exercises (was 37), recently viewed section, session
+  summary export (exam/training/SM-2), exam flagged-only filter, SM-2 suspend card, 4 more exercises.
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. Cumulative enhancements across 8 phases:
+  * Recently viewed section (localStorage-backed, quick return to last concepts)
+  * Study session summary export (printable HTML for exam/training/SM-2 done screens)
+  * Exam "review flagged only" filter
+  * SM-2 suspend card (DB + API + filtering)
+  * 4 more exercises: parity theorem, number operator, delta wavefunction, transmission resonance
+
+## Current goals / completed modifications / verification results
+- DONE: recently viewed, session summary, exam filter, SM-2 suspend, more exercises.
+- Content now: 16 concepts, 8 model problems, 41 exercises, graph decision tree,
+  concept relationships graph (with pan/zoom), SM-2 cards (with cram + suspend),
+  search palette, recently viewed, session summaries.
+- All major features from worklog recommendations now implemented across 8 phases.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: ~41/50+ Griffiths Ch.2 problems. Next: add 2.1 uncertainty principle application,
+  2.3 generating function Hermite, 2.4 momentum-space wavefunction, 2.6 even/odd splitting.
+- SM-2: add a "card statistics" view (per-exercise ease factor, interval, review count history).
+- Exam: add a "question pool" configuration (choose which sections to include).
+- Concept graph: add a force-directed layout option (currently circular).
+- Add a "concept difficulty" rating (student-rated) for personalized ordering.
+- Consider adding collaborative features (shared bookmarks) — would need auth.
+- Add a "study calendar" view showing past activity + planned future reviews.

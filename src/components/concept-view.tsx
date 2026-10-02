@@ -7,6 +7,7 @@ import { RenderBlocks, RenderBlock } from '@/components/render-blocks'
 import { WhyBox } from '@/components/why-box'
 import { BookmarkButton } from '@/components/bookmark-button'
 import { apiPost, getOrCreateStudentId } from '@/lib/student'
+import { recordView } from '@/lib/recently-viewed'
 import { useUI } from '@/lib/store'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { cn } from '@/lib/utils'
@@ -31,12 +32,13 @@ const toneClass = {
 export function ConceptView({ concept }: { concept: Concept }) {
   const [openLayers, setOpenLayers] = useState<Set<number>>(new Set([0]))
   const recordedRef = useRef<string | null>(null)
-  // Record "concept read" once per concept visit (best-effort, for daily streak)
+  // Record "concept read" once per concept visit (best-effort, for daily streak + recently viewed)
   useEffect(() => {
     if (recordedRef.current === concept.id) return
     recordedRef.current = concept.id
     const studentId = getOrCreateStudentId()
     apiPost('/api/study', { studentId, activity: 'concept', count: 1 }).catch(() => {})
+    recordView({ type: 'concept', id: concept.id, title: concept.title, sectionId: concept.sectionId })
   }, [concept.id])
   const toggle = (i: number) => {
     setOpenLayers(prev => {

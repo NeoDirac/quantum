@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { GitBranch, Timer, Target, CheckCircle2, ArrowRight, RotateCcw } from 'lucide-react'
 import { apiPost, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
+import { SessionSummaryExportButton } from '@/components/session-summary'
 import { cn } from '@/lib/utils'
 import { SECTIONS } from '@/data/structure'
 
@@ -130,8 +131,20 @@ export function TrainingMode() {
             <div className="text-muted-foreground">
               {done} problemas · {correct} correctos · {secondsLeft !== null ? `${Math.floor((1800 - (secondsLeft ?? 0)) / 60)} min` : ''}
             </div>
-            <div className="flex justify-center gap-2 pt-2">
+            <div className="flex flex-wrap justify-center gap-2 pt-2">
               <Button variant="outline" onClick={() => setMode(null)}><RotateCcw className="mr-1.5 h-4 w-4" /> Otra sesión</Button>
+              <SessionSummaryExportButton data={{
+                title: 'Resumen de entrenamiento',
+                sessionType: 'Entrenamiento',
+                date: new Date().toLocaleString(),
+                stats: [
+                  { label: 'Modo', value: MODES.find(m => m.id === mode)?.label ?? String(mode) },
+                  { label: 'Problemas resueltos', value: String(done) },
+                  { label: 'Correctos', value: String(correct) },
+                  { label: 'Precisión', value: done > 0 ? `${Math.round((correct / done) * 100)}%` : '—' },
+                ],
+                notes: 'Sesión de práctica intensiva. Vuelve a los problemas incorrectos usando el modo examen o el repaso adaptativo.',
+              }} />
               <Button onClick={() => setView({ name: 'progress' })}>Ver progreso <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </div>
           </CardContent>

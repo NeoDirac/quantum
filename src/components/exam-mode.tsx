@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Timer, CheckCircle2, XCircle, RotateCcw, AlertTriangle, Trophy, ArrowRight, Target, Flag } from 'lucide-react'
 import { apiPost, apiGet, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
+import { SessionSummaryExportButton } from '@/components/session-summary'
 import { ERROR_TYPE_LABELS, type ErrorType } from '@/lib/content-types'
 import { cn } from '@/lib/utils'
 
@@ -41,6 +42,7 @@ export function ExamMode() {
   const [timeLimitMin, setTimeLimitMin] = useState<number | null>(null) // null = no limit
   const [elapsed, setElapsed] = useState(0)
   const [questionStart, setQuestionStart] = useState<number>(0)
+  const [flaggedOnly, setFlaggedOnly] = useState(false)
 
   // Fetch the student's weak concepts when entering setup, to weight the exam.
   useEffect(() => {
@@ -375,8 +377,18 @@ export function ExamMode() {
             Puedes cambiar cualquier respuesta antes de finalizar, o saltar a una pregunta sin contestar.
           </p>
         </header>
+        {/* Flagged-only filter */}
+        {questions.some(q => q.flagged) && (
+          <div className="flex items-center gap-2">
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input type="checkbox" checked={flaggedOnly} onChange={e => setFlaggedOnly(e.target.checked)} className="accent-amber-600" />
+              <span className="text-muted-foreground">Mostrar solo marcadas ({questions.filter(q => q.flagged).length})</span>
+            </label>
+          </div>
+        )}
         <div className="grid gap-2">
           {questions.map((q, i) => {
+            if (flaggedOnly && !q.flagged) return null
             const ex = EXERCISES.find(e => e.id === q.exerciseId)!
             const answered = q.picked !== null
             const correct = q.picked === 'solved'
@@ -496,10 +508,27 @@ export function ExamMode() {
               ¡Sin errores! Has demostrado soltura en todos los conceptos del examen.
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button onClick={() => setPhase('setup')} variant="outline">
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" /> Otro examen
             </Button>
+            <SessionSummaryExportButton data={{
+              title: 'Resumen de examen',
+              sessionType: 'Examen',
+              date: new Date().toLocaleString(),
+              stats: [
+                { label: 'Preguntas totales', value: String(questions.length) },
+                { label: 'Correctas', value: String(correct) },
+                { label: 'Precisión', value: `${Math.round((correct / questions.length) * 100)}%` },
+                { label: 'Tiempo', value: `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` },
+                { label: 'Adaptativo', value: adaptiveMode ? 'Sí' : 'No' },
+                { label: 'Marcadas', value: String(questions.filter(q => q.flagged).length) },
+              ],
+              conceptGaps: gapList.map(([cid, n]) => ({ concept: CONCEPT_ID_TO_TITLE[cid] ?? cid, count: n })),
+              notes: gapList.length > 0
+                ? 'Repasa los conceptos listados arriba antes del examen real. Usa el modo "Repaso adaptativo" para reforzarlos.'
+                : '¡Sin conceptos a reforzar! Has demostrado soltura en todos los temas del examen.',
+            }} />
             <Button onClick={() => setView({ name: 'progress' })} variant="ghost">
               Ver mi progreso <ArrowRight className="ml-1 h-3.5 w-3.5" />
             </Button>
