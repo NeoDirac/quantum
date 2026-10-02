@@ -38,6 +38,12 @@ function mkScale(vw: number, vh: number, X: number, ymin: number, ymax: number) 
   return { sx, sy, vw, vh }
 }
 
+// Minimal complex number helpers (Re/Im pairs) for the wave-packet phase view.
+type Cx = { re: number; im: number }
+function cmul(a: Cx, b: Cx): Cx { return { re: a.re * b.re - a.im * b.im, im: a.re * b.im + a.im * b.re } }
+function cdiv(a: Cx, b: Cx): Cx { const d = b.re * b.re + b.im * b.im; return { re: (a.re * b.re + a.im * b.im) / d, im: (a.im * b.re - a.re * b.im) / d } }
+function cexp(a: Cx): Cx { const e = Math.exp(a.re); return { re: e * Math.cos(a.im), im: e * Math.sin(a.im) } }
+
 // ============ INFINITE WELL ============
 function InfiniteWellViz() {
   const [n, setN] = useState(2)
@@ -270,8 +276,9 @@ function WavePacketViz() {
   const [sigma, setSigma] = useState(0.6)
   const [t, setT] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const [showPhase, setShowPhase] = useState(false)
   const m = 1, hbar = 1
-  const vw = 460, vh = 220
+  const vw = 460, vh = 260
   const X = 12
 
   // animated playback
@@ -297,7 +304,9 @@ function WavePacketViz() {
   const alpha = hbar / (2 * m * sigma * sigma)
   const spreadSigma = (t: number) => sigma * Math.sqrt(1 + (alpha * t) ** 2)
 
-  const { sx, sy } = mkScale(vw, vh, X, 0, 1.0)
+  const { sx, sy } = mkScale(vw, vh, X, -0.5, 0.7)
+
+  // Probability density path |Ψ|²
   const probPath = useMemo(() => {
     const pts = 401
     const s = spreadSigma(t)
@@ -310,6 +319,31 @@ function WavePacketViz() {
       arr.push(`${i === 0 ? 'M' : 'L'}${sx(x)},${sy(p)}`)
     }
     return arr.join(' ')
+  }, [k0, sigma, t])
+
+  // Complex Ψ(x,t) = (1/√(1+iαt)) exp(-(x-vg·t)²/(4σ²(1+iαt))) e^{i(k₀x - ω₀t)}
+  // Real and imaginary parts for phase visualization
+  const { rePath, imPath } = useMemo(() => {
+    const pts = 401
+    const s = spreadSigma(t)
+    const center = vg * t
+    const denom = { re: 1, im: alpha * t }  // 1 + iαt
+    const amp = 1 / Math.sqrt(Math.sqrt(2 * Math.PI) * s)
+    const re: string[] = []
+    const im: string[] = []
+    for (let i = 0; i < pts; i++) {
+      const x = -X + (2 * X * i) / (pts - 1)
+      const dx = x - center
+      // exponent = -dx²/(4σ²·denom)
+      const denomScaled = cmul({ re: 4 * sigma * sigma, im: 0 }, denom)
+      const exponent = cmul({ re: -dx * dx, im: 0 }, cdiv({ re: 1, im: 0 }, denomScaled))
+      const env = cexp(exponent)
+      const phase = { re: Math.cos(k0 * x - omega0 * t), im: Math.sin(k0 * x - omega0 * t) }
+      const psi = cmul(cmul({ re: amp, im: 0 }, env), phase)
+      re.push(`${i === 0 ? 'M' : 'L'}${sx(x)},${sy(psi.re)}`)
+      im.push(`${i === 0 ? 'M' : 'L'}${sx(x)},${sy(psi.im)}`)
+    }
+    return { rePath: re.join(' '), imPath: im.join(' ') }
   }, [k0, sigma, t])
 
   const s0 = sigma
@@ -336,6 +370,10 @@ function WavePacketViz() {
           {playing ? '⏸ Pausar' : '▶ Reproducir evolución'}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => { setT(0); setPlaying(false) }}>Reiniciar</Button>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" checked={showPhase} onChange={e => setShowPhase(e.target.checked)} className="accent-sky-600" />
+          Mostrar partes Re/Im de <M>{`\\Psi`}</M> (fase)
+        </label>
         <div className="ml-auto text-xs text-muted-foreground">
           <M>{`v_g = \\hbar k_0/m`}</M> = <span className="font-mono tabular-nums">{vg.toFixed(2)}</span> · <M>{`\\omega_0 = \\hbar k_0^2/2m`}</M> = <span className="font-mono tabular-nums">{omega0.toFixed(2)}</span>
         </div>
@@ -352,16 +390,34 @@ function WavePacketViz() {
           </div>
         </CardContent>
       </Card>
-      <Plot axisLabels={{ x: 'x', y: '|Ψ(x,t)|²' }}>
+      <Plot axisLabels={{ x: 'x', y: showPhase ? 'Re/Im Ψ' : '|Ψ(x,t)|²' }}>
         <line x1={0} y1={sy(0)} x2={vw} y2={sy(0)} stroke="currentColor" className="text-muted-foreground/40" />
         {/* center marker */}
         <line x1={sx(vg * t)} y1={0} x2={sx(vg * t)} y2={vh} stroke="oklch(0.6 0.15 200 / 0.4)" strokeWidth={1} strokeDasharray="2 3" />
-        <polyline points={probPath} fill="oklch(0.55 0.15 200 / 0.18)" stroke="oklch(0.55 0.15 200)" strokeWidth={2} />
+        {showPhase ? (
+          <>
+            <polyline points={rePath} fill="none" stroke="oklch(0.55 0.15 200)" strokeWidth={1.8} />
+            <polyline points={imPath} fill="none" stroke="oklch(0.6 0.2 20)" strokeWidth={1.8} strokeDasharray="3 2" />
+          </>
+        ) : (
+          <polyline points={probPath} fill="oklch(0.55 0.15 200 / 0.18)" stroke="oklch(0.55 0.15 200)" strokeWidth={2} />
+        )}
       </Plot>
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        {showPhase ? (
+          <>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-4" style={{ background: 'oklch(0.55 0.15 200)' }} /> <M>{`\\Re(\\Psi)`}</M></span>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-4 border-t-2 border-dashed" style={{ borderColor: 'oklch(0.6 0.2 20)' }} /> <M>{`\\Im(\\Psi)`}</M></span>
+          </>
+        ) : (
+          <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3" style={{ background: 'oklch(0.55 0.15 200 / 0.3)' }} /> <M>{`|\\Psi(x,t)|^2`}</M></span>
+        )}
+      </div>
       <p className="rounded-md border border-sky-200/60 bg-sky-50/40 p-3 text-xs text-muted-foreground dark:border-sky-900/50 dark:bg-sky-950/20">
         <span className="font-medium text-foreground">Física:</span> cada onda plana componente gira a su propia frecuencia <M>{`\\omega(k) = \\hbar k^2/2m`}</M>.
         Como <M>{`\\omega`}</M> no es lineal en <M>{`k`}</M>, las fases relativas se desalinean y el paquete se ensancha.
         El centro, sin embargo, avanza sin deformarse según <M>{`v_g = d\\omega/dk`}</M> — la velocidad de grupo recupera la mecánica clásica.
+        {showPhase && <> Activa la vista de Re/Im para ver cómo las oscilaciones internas (fase <M>{`k_0 x - \\omega_0 t`}</M>) se modulan por la envolvente gaussiana.</>}
       </p>
     </div>
   )

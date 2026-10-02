@@ -305,3 +305,103 @@ Stage Summary:
 - The exam mode samples randomly; could weight by student's weak concepts (like review mode does).
 - Wave packet could show real/imaginary parts of Ψ (not just |Ψ|²) to illustrate phase evolution.
 - Mobile sidebar could use a bottom-sheet pattern instead of overlay for better UX.
+
+---
+Task ID: 8
+Agent: web-dev-reviewer (cron, Phase 3)
+Task: QA + Phase 3 development (graph-style decision tree, bookmarks feature, more exercises, wave packet phase view, styling polish)
+
+Work Log:
+- Reviewed worklog: Phase 2 complete with 17 exercises, 8 model problems, adaptive review mode
+- QA with agent-browser: confirmed all views render, no console errors, lint clean
+- Identified next-phase items from worklog recommendations
+
+Phase 3 — Graph-style decision tree (decision-tree-view.tsx rewrite):
+- Replaced linear card navigation with interactive SVG graph visualization
+- BFS-layered layout: computes node depth, positions nodes by depth layer
+- 23 nodes rendered as colored rounded rectangles with wrapped question text
+- Edges drawn as arrows (active path highlighted in teal with label badges)
+- Node states: current (solid teal), in-path (light teal), terminal (emerald), unvisited (muted)
+- Click any node to navigate; breadcrumb path also clickable
+- View toggle: "Grafo" (graph) vs "Lista" (list = original card flow), default graph
+- Legend explaining node colors; horizontal scroll for wide graphs
+- Fixed critical bug: lucide-react `Map` icon collided with JS global `Map` constructor
+  → renamed import to `MapIcon`; this was crashing the whole page (Runtime TypeError)
+- Added guards for empty arrays (Math.max on empty → -Infinity)
+
+Phase 3 — Bookmarks/favorites feature (new, full stack):
+- Prisma: added Bookmark model (studentId, itemType, itemId, note, createdAt) with
+  compound unique [studentId, itemType, itemId]; ran db:push
+- API: /api/bookmarks (GET list, POST toggle, DELETE) — upsert/toggle semantics
+- BookmarkButton component: star icon, toggles bookmarked state, toast feedback,
+  loads initial state from API; size sm/md variants
+- BookmarksView: lists starred concepts/exercises with tab toggle, item cards link
+  back to the concept/exercise, remove button, empty-state CTA
+- Integrated BookmarkButton into concept-view header and exercise-view header
+- Added "Mis favoritos" nav item in sidebar (Star icon) and dashboard shortcut card
+- Added 'bookmarks' to UI store View type + page router
+
+Phase 3 — More exercises (exercises-phase3.ts, 4 new, total 21):
+- ex-2-3d: Deriva el espectro del oscilador con [a,a†]=1 (full algebraic derivation)
+- ex-2-3e: Teorema del virial en el oscilador (⟨T⟩=⟨V⟩=½E_n, verified algebraically)
+- ex-2-4b: Transformada de Fourier del paquete gaussiano (Parseval, Δx·Δk saturation)
+- ex-2-5b: Coeficientes T y R de la barrera delta (with limits E→∞, E→0)
+- Merged via ALL_EXERCISES = Phase1 + Phase2 + Phase3
+
+Phase 3 — Wave packet phase visualization (visualizations.tsx):
+- Added "Mostrar partes Re/Im de Ψ (fase)" checkbox toggle
+- Computes complex Ψ(x,t) = (1/√(1+iαt)) exp(-(x-vg t)²/(4σ²(1+iαt))) e^{i(k₀x-ω₀t)}
+- Renders Re(Ψ) (solid blue) and Im(Ψ) (dashed orange) when toggled
+- Added module-scope complex helpers (cmul, cdiv, cexp) to avoid in-component hoisting issues
+- Phase explanation: shows how internal oscillations modulate gaussian envelope
+
+Phase 3 — Styling polish:
+- Concept view layers: framer-motion animated expand/collapse (height+opacity),
+  numbered badges with gradient when open, icon scale on open, shadow transitions
+- Footer: gradient background, logo badge, two-line structured content, italic motto
+- Dashboard: added bookmarks shortcut card with star icon and gradient background
+- Sidebar: active concept gets teal tint + gradient left bar (from Phase 2, confirmed)
+- Server stability: created start-dev.sh using setsid for fully-detached background
+  process (fixes issue where compound shell commands killed the dev server)
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 21 exercises visible (was 17), new exercises (ladder, Fourier, delta
+  barrier, virial) all render; graph decision tree shows 23 nodes and navigation works;
+  wave packet phase toggle shows 2 polylines (Re/Im); bookmarks view renders with
+  concept/exercise tabs; bookmark star toggles and persists to DB
+- VLM assessment of bookmarks view: "clean, highly navigable, readable, clear empty state"
+- Server stays alive across all tests (setsid detachment fixed the kill-on-shell-exit issue)
+
+Stage Summary:
+- Phase 3 complete. Platform now has: 21 exercises (was 17), graph-style decision tree,
+  bookmarks feature (full stack: DB + API + UI), wave packet Re/Im phase view,
+  animated concept layers, polished footer.
+- All features verified working in browser. Lint clean. Dev server stable.
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. Cumulative enhancements across 3 phases:
+  * Graph-style decision tree (SVG, interactive, 23 nodes, path highlighting)
+  * Bookmarks/favorites (star concepts & exercises, persist to DB, dedicated view)
+  * 4 more exercises: ladder operator derivation, virial theorem, Fourier transform,
+    delta barrier T/R
+  * Wave packet Re/Im phase visualization (complex Ψ computation)
+  * Animated concept layer expansion (framer-motion)
+  * Polished footer with logo badge and gradient
+
+## Current goals / completed modifications / verification results
+- DONE: graph decision tree, bookmarks, more exercises, wave packet phase, styling polish.
+- Content now: 16 concepts, 8 model problems, 21 exercises, graph decision tree.
+- Visualizations: infinite well, quantitative Hermite HO, animated wave packet (with
+  phase toggle), finite well, barrier.
+- All verified via agent-browser + VLM.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: ~21/50+ Griffiths Ch.2 problems. Next: add 2.1 normalization theorem,
+  2.2 odd/even superposition time evolution, 2.6 transcendental graphical solving,
+  2.7 transfer matrix composition.
+- Exam mode samples randomly; could weight by student's weak concepts (like review mode).
+- Mobile sidebar uses overlay; a bottom-sheet pattern would improve mobile UX.
+- Consider a "study streak" / daily goal tracker (without gamification excess).
+- The graph decision tree could support pan/zoom for large graphs (currently scroll only).
+- Add a print/export feature for study notes (concepts marked as favorites).

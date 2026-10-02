@@ -8,7 +8,7 @@ import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Atom, BookOpen, ListChecks, Network, GraduationCap, Waves, Timer, GitBranch, ArrowRight, Sparkles, BrainCircuit } from 'lucide-react'
+import { Atom, BookOpen, ListChecks, Network, GraduationCap, Waves, Timer, GitBranch, ArrowRight, Sparkles, BrainCircuit, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function Dashboard() {
@@ -152,6 +152,20 @@ export function Dashboard() {
           </button>
         </Card>
       </div>
+
+      {/* Bookmarks shortcut */}
+      <Card className="cursor-pointer border-amber-200/40 bg-gradient-to-r from-amber-50/30 to-transparent dark:from-amber-950/10 lift-on-hover">
+        <button className="flex w-full items-center gap-4 p-5 text-left" onClick={() => setView({ name: 'bookmarks' })}>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300">
+            <Star className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold">Mis favoritos</div>
+            <p className="text-sm text-muted-foreground">Conceptos y ejercicios marcados para revisar más tarde. Pulsa la estrella ⭐ en cualquier página para añadirlo.</p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      </Card>
     </div>
   )
 }

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { apiPost, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
+import { BookmarkButton } from '@/components/bookmark-button'
 import { ERROR_TYPE_LABELS } from '@/lib/content-types'
 import type { ErrorType } from '@/lib/content-types'
 
@@ -91,7 +92,10 @@ export function ExerciseView({ exercise }: { exercise: Exercise }) {
           <span>·</span>
           <span className="text-amber-600 dark:text-amber-400">{DIFF_LABEL[exercise.difficulty]}</span>
         </div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{exercise.title}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{exercise.title}</h1>
+          <BookmarkButton itemType="exercise" itemId={exercise.id} size="sm" />
+        </div>
       </header>
 
       {/* Statement */}

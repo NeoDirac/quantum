@@ -12,6 +12,7 @@ import { Visualizations } from '@/components/visualizations'
 import { ExamMode } from '@/components/exam-mode'
 import { TrainingMode } from '@/components/training-mode'
 import { ReviewMode } from '@/components/review-mode'
+import { BookmarksView } from '@/components/bookmarks-view'
 import { ProgressDashboard } from '@/components/progress-dashboard'
 import { getConcept } from '@/data/concepts'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
@@ -43,6 +44,7 @@ export default function Home() {
       case 'exam': return <ExamMode />
       case 'training': return <TrainingMode />
       case 'review': return <ReviewMode />
+      case 'bookmarks': return <BookmarksView />
       case 'progress': return <ProgressDashboard />
       default: return <Dashboard />
     }
@@ -83,15 +85,20 @@ export default function Home() {
       </div>
 
       {/* Sticky footer */}
-      <footer className="mt-auto border-t border-border bg-muted/30">
-        <div className="mx-auto flex max-w-5xl flex-col gap-2 px-4 py-4 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
-          <div>
-            Plataforma de estudio de mecánica cuántica · basada en Griffiths · Capítulo {chapter.number}.
-            Contenido pedagógico original para esta herramienta.
+      <footer className="mt-auto border-t border-border bg-gradient-to-r from-muted/40 via-muted/30 to-muted/40">
+        <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-teal-500 to-emerald-600 text-white">
+              <Atom className="h-3.5 w-3.5" />
+            </div>
+            <div>
+              <div className="font-medium text-foreground/80">Mecánica Cuántica · Griffiths Cap. {chapter.number}</div>
+              <div className="text-[11px]">Plataforma de estudio · contenido pedagógico original</div>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span>Elige el método pensando, no memorizando.</span>
-            <Github className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-4">
+            <span className="italic">"Elige el método pensando, no memorizando."</span>
+            <Github className="h-3.5 w-3.5 shrink-0" />
           </div>
         </div>
       </footer>

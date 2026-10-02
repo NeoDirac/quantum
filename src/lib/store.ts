@@ -15,6 +15,7 @@ export type View =
   | { name: 'exam' }
   | { name: 'training' }
   | { name: 'review' }
+  | { name: 'bookmarks' }
   | { name: 'progress' }
 
 interface UIState {

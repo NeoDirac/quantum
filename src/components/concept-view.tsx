@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import type { Concept } from '@/lib/content-types'
 import { RenderBlocks, RenderBlock } from '@/components/render-blocks'
 import { WhyBox } from '@/components/why-box'
+import { BookmarkButton } from '@/components/bookmark-button'
 import { cn } from '@/lib/utils'
 import { Lightbulb, Sigma, Atom, BookOpen, ClipboardCheck, ChevronRight } from 'lucide-react'
 
@@ -53,16 +55,21 @@ export function ConceptView({ concept }: { concept: Concept }) {
             ))}
           </div>
         )}
+        <div className="pt-1">
+          <BookmarkButton itemType="concept" itemId={concept.id} size="sm" />
+        </div>
       </header>
 
       <div className="space-y-2.5">
         {LAYERS.map((L, i) => {
           const open = openLayers.has(i)
           const Icon = L.icon
+          const layerNum = ['1', '2', '3', '4', '5'][i]
           return (
             <section
               key={L.key}
-              className={cn('overflow-hidden rounded-xl border', toneClass[L.tone as keyof typeof toneClass])}
+              className={cn('overflow-hidden rounded-xl border transition-all', toneClass[L.tone as keyof typeof toneClass],
+                open ? 'shadow-sm' : 'hover:shadow-sm')}
             >
               <button
                 type="button"
@@ -70,18 +77,32 @@ export function ConceptView({ concept }: { concept: Concept }) {
                 className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03]"
               >
                 <span className="flex items-center gap-2.5">
-                  <span className={cn('flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold', toneClass[L.tone as keyof typeof toneClass])}>
-                    <Icon className="h-3.5 w-3.5" />
+                  <span className={cn('flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold tabular-nums shadow-sm',
+                    open ? 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white' : 'bg-background/70 text-foreground border border-border')}>
+                    {layerNum}
                   </span>
-                  <span className="text-sm font-semibold sm:text-base">Capa {i + 1}: {L.label}</span>
+                  <span className="flex items-center gap-1.5 text-sm font-semibold sm:text-base">
+                    <Icon className={cn('h-4 w-4 transition-transform', open && 'scale-110')} />
+                    {L.label}
+                  </span>
                 </span>
                 <ChevronRight className={cn('h-4 w-4 shrink-0 text-muted-foreground transition-transform', open && 'rotate-90')} />
               </button>
-              {open && (
-                <div className="border-t border-current/10 px-4 py-4">
-                  <LayerContent concept={concept} layer={L.key} />
-                </div>
-              )}
+              <AnimatePresence initial={false}>
+                {open && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="overflow-hidden"
+                  >
+                    <div className="border-t border-current/10 px-4 py-4">
+                      <LayerContent concept={concept} layer={L.key} />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </section>
           )
         })}
