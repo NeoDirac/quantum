@@ -7,7 +7,7 @@ import { ExerciseView } from '@/components/exercise-view'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
-import { Brain, Zap, CheckCircle2, XCircle, RotateCcw, CalendarClock, Layers, TrendingUp, ArrowRight } from 'lucide-react'
+import { Brain, Zap, CheckCircle2, XCircle, RotateCcw, CalendarClock, Layers, TrendingUp, ArrowRight, BarChart3 } from 'lucide-react'
 import { apiGet, apiPost, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
 import { SessionSummaryExportButton } from '@/components/session-summary'
@@ -278,6 +278,22 @@ export function SpacedRepetitionMode() {
                 </p>
                 <Button variant="outline" onClick={() => { setCramMode(true); startReview() }}>
                   <Zap className="mr-2 h-4 w-4" /> Empezar cram (10 aleatorios)
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Card statistics */}
+            <Card className="border-violet-200/50 bg-violet-50/20 dark:bg-violet-950/10">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <BarChart3 className="h-4 w-4 text-violet-600" /> Estadísticas de tarjetas
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Ve el estado de todas tus tarjetas: facilidad, intervalo, próxima revisión,
+                  número de revisiones. Suspende las que no quieras ver temporalmente.
+                </p>
+                <Button variant="outline" onClick={() => setView({ name: 'sm2-stats' })}>
+                  <BarChart3 className="mr-2 h-4 w-4" /> Ver estadísticas
                 </Button>
               </CardContent>
             </Card>

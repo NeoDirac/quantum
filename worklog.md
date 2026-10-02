@@ -859,3 +859,80 @@ Stage Summary:
 - Add a "concept difficulty" rating (student-rated) for personalized ordering.
 - Consider adding collaborative features (shared bookmarks) — would need auth.
 - Add a "study calendar" view showing past activity + planned future reviews.
+
+---
+Task ID: 14
+Agent: web-dev-reviewer (cron, Phase 9)
+Task: QA + Phase 9 development (SM-2 card stats, exam question pool, study calendar, more exercises)
+
+Work Log:
+- Reviewed worklog: Phase 8 complete with 41 exercises, recently viewed, session summaries, SM-2 suspend
+- QA with agent-browser: confirmed all views render, no console errors, lint clean, server stable
+- Identified next-phase items from worklog recommendations
+
+Phase 9 — SM-2 card statistics view (new feature, full stack):
+- API: /api/sm2/cards (GET) returns ALL SM-2 cards with full statistics (ease, interval, reps,
+  dueAt, totalReviews, suspended) — not just due ones
+- SM2CardStats component: summary stats (total, pending, avg ease, avg interval) + sortable table
+  with per-exercise: ease (color-coded: green ≥2.5, amber 2.0-2.5, rose <2.0), interval, reps,
+  total reviews, next due date, status (active/suspended), suspend/unsuspend toggle button
+- Added 'sm2-stats' to UI store + page router; linked from spaced-repetition overview ("Ver estadísticas")
+- Suspend toggle uses PATCH /api/sm2 endpoint; reloads after toggle
+
+Phase 9 — Exam question pool configuration (new feature):
+- Added selectedSections state (Set of section IDs, defaults to all 7)
+- Section pool UI in exam setup: clickable chips per section, toggle on/off, live count of
+  available exercises and how many will be selected
+- Sampling logic filters pool by selectedSections before adaptive/balanced selection
+- Start button disabled when no sections selected or pool empty
+
+Phase 9 — Study calendar view (new feature):
+- StudyCalendarView component: monthly calendar grid with past activity + upcoming SM-2 reviews
+- Fetches 60-day study activity + all SM-2 cards, builds activity map (date → {exercises, concepts, reviews})
+- Calendar grid: days with past activity in green, upcoming reviews in blue, today highlighted amber
+- Month navigation (previous/next, next disabled for future months beyond current)
+- Each day cell shows exercise/concept counts or review counts
+- Summary stats: total activity (60 days), upcoming reviews (30 days), SM-2 card count
+- Upcoming reviews list with date chips and counts
+- Added 'study-calendar' to UI store + sidebar ("Calendario", CalendarDays icon) + page router
+
+Phase 9 — More exercises (exercises-phase9.ts, 4 new, total 45):
+- ex-2-1e: Uncertainty principle application to infinite well (Δx~a/2 → E_min~ℏ²/2ma² vs exact π²)
+- ex-2-3j: Generating function of Hermite polynomials (e^{2ξt−t²}, dH_n/dξ=2nH_{n−1})
+- ex-2-4e: Momentum-space wavefunction (φ(p) Fourier, |φ(p)|² distribution, Parseval, Heisenberg)
+- ex-2-6f: Even/odd splitting in finite well (reduces 4→2 constants, fundamental always even)
+- Merged via ALL_EXERCISES = Phase1+2+3+4+5+6+7+8+9
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 45 exercises visible (was 41), all 4 new exercises render; SM-2 card stats link
+  visible; exam question pool with section chips renders; study calendar renders with month nav
+- Server stays alive across all tests
+
+Stage Summary:
+- Phase 9 complete. Platform now has: 45 exercises (was 41), SM-2 card statistics view, exam
+  question pool configuration, study calendar view, 4 more exercises.
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. Cumulative enhancements across 9 phases:
+  * SM-2 card statistics (full table with ease/interval/reviews, suspend toggle)
+  * Exam question pool (section selection chips, live count)
+  * Study calendar (monthly grid, past activity + future reviews, month navigation)
+  * 4 more exercises: uncertainty application, generating function, momentum-space, even/odd splitting
+
+## Current goals / completed modifications / verification results
+- DONE: SM-2 card stats, exam question pool, study calendar, more exercises.
+- Content now: 16 concepts, 8 model problems, 45 exercises, graph decision tree,
+  concept relationships graph (with pan/zoom), SM-2 cards (with cram + suspend + stats),
+  search palette, recently viewed, session summaries, study calendar.
+- All major features from worklog recommendations now implemented across 9 phases.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: ~45/50+ Griffiths Ch.2 problems. Next: add 2.1 probabilistic interpretation,
+  2.2 expansion coefficients, 2.3 WKB intro, 2.7 phase shift analysis.
+- SM-2: add a "review history" timeline per card (when reviewed, quality given).
+- Exam: add difficulty filtering (only ★, only ★★, etc.).
+- Concept graph: add a force-directed layout option (currently circular).
+- Add a "concept difficulty" rating (student-rated) for personalized ordering.
+- Consider adding collaborative features (shared bookmarks) — would need auth.
+- Add export of progress dashboard data (CSV/JSON for external analysis).

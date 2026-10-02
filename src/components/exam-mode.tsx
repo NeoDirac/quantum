@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Timer, CheckCircle2, XCircle, RotateCcw, AlertTriangle, Trophy, ArrowRight, Target, Flag } from 'lucide-react'
+import { Timer, CheckCircle2, XCircle, RotateCcw, AlertTriangle, Trophy, ArrowRight, Target, Flag, Layers, Star } from 'lucide-react'
 import { apiPost, apiGet, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
 import { SessionSummaryExportButton } from '@/components/session-summary'
@@ -43,6 +43,8 @@ export function ExamMode() {
   const [elapsed, setElapsed] = useState(0)
   const [questionStart, setQuestionStart] = useState<number>(0)
   const [flaggedOnly, setFlaggedOnly] = useState(false)
+  const [selectedSections, setSelectedSections] = useState<Set<string>>(new Set(['2.1', '2.2', '2.3', '2.4', '2.5', '2.6', '2.7']))
+  const [selectedDifficulties, setSelectedDifficulties] = useState<Set<number>>(new Set([0, 1, 2, 3]))
 
   // Fetch the student's weak concepts when entering setup, to weight the exam.
   useEffect(() => {
@@ -66,7 +68,8 @@ export function ExamMode() {
   // but still ensure section coverage. Falls back to balanced random for new students.
   const sample = useMemo(() => {
     const want = 8
-    const pool = [...EXERCISES]
+    // Filter pool by selected sections AND difficulties
+    const pool = [...EXERCISES].filter(e => selectedSections.has(e.sectionId) && selectedDifficulties.has(e.difficulty))
     const picked: typeof EXERCISES = []
     const usedIds = new Set<string>()
 
@@ -102,7 +105,7 @@ export function ExamMode() {
       picked.push(remaining.pop()!)
     }
     return picked.slice(0, want)
-  }, [phase, adaptiveMode, weakConcepts])
+  }, [phase, adaptiveMode, weakConcepts, selectedSections, selectedDifficulties])
 
   const start = () => {
     // build questions from sampled exercises (use first check-like structure if available, else a "did you solve?" framing)
@@ -208,6 +211,7 @@ export function ExamMode() {
   }
 
   if (phase === 'setup') {
+    const poolCount = EXERCISES.filter(e => selectedSections.has(e.sectionId) && selectedDifficulties.has(e.difficulty)).length
     return (
       <div className="space-y-5">
         <header className="space-y-1">
@@ -270,7 +274,75 @@ export function ExamMode() {
                 Si se agota el tiempo, el examen pasa a la pantalla de revisión con lo que tengas contestado.
               </p>
             </div>
-            <Button onClick={start} size="lg">
+            {/* Section pool configuration */}
+            <div className="rounded-lg border border-teal-200/60 bg-teal-50/40 p-4 dark:border-teal-900/50 dark:bg-teal-950/20">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <Layers className="h-4 w-4 text-teal-600" /> Secciones incluidas
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {SECTIONS.filter(s => s.chapterId === 'ch2').map(s => {
+                  const active = selectedSections.has(s.id)
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setSelectedSections(prev => {
+                        const next = new Set(prev)
+                        if (next.has(s.id)) next.delete(s.id)
+                        else next.add(s.id)
+                        return next
+                      })}
+                      className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'border-teal-400 bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-100'
+                          : 'border-border text-muted-foreground hover:bg-muted')}
+                    >
+                      <span className="font-mono">{s.id}</span> {s.title}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Selecciona las secciones de las que saldrán las preguntas. El examen selecciona
+                <span className="font-semibold text-foreground"> {Math.min(8, poolCount)}</span> ejercicios
+                de un total de <span className="font-semibold text-foreground">{poolCount}</span> disponibles.
+              </p>
+            </div>
+            {/* Difficulty filter */}
+            <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <Star className="h-4 w-4 text-amber-600" /> Dificultad
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { d: 0, label: 'Sin estrellas', star: '' },
+                  { d: 1, label: 'Esencial', star: '★' },
+                  { d: 2, label: 'Más difícil', star: '★★' },
+                  { d: 3, label: 'Retador', star: '★★★' },
+                ].map(opt => {
+                  const active = selectedDifficulties.has(opt.d)
+                  return (
+                    <button
+                      key={opt.d}
+                      type="button"
+                      onClick={() => setSelectedDifficulties(prev => {
+                        const next = new Set(prev)
+                        if (next.has(opt.d)) next.delete(opt.d)
+                        else next.add(opt.d)
+                        return next
+                      })}
+                      className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'border-amber-400 bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100'
+                          : 'border-border text-muted-foreground hover:bg-muted')}
+                    >
+                      {opt.star} {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <Button onClick={start} size="lg" disabled={selectedSections.size === 0 || selectedDifficulties.size === 0 || sample.length === 0}>
               <Timer className="mr-2 h-4 w-4" /> Comenzar examen
             </Button>
           </CardContent>

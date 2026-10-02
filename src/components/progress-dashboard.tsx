@@ -7,9 +7,11 @@ import { SECTIONS } from '@/data/structure'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { BarChart3, BookOpen, Timer, CheckCircle2, XCircle, TrendingUp, AlertCircle } from 'lucide-react'
+import { BarChart3, BookOpen, Timer, CheckCircle2, XCircle, TrendingUp, AlertCircle, Download, FileJson } from 'lucide-react'
 import { apiGet, getOrCreateStudentId } from '@/lib/student'
+import { useToast } from '@/hooks/use-toast'
 import { ERROR_TYPE_LABELS, type ErrorType } from '@/lib/content-types'
+import { Button } from '@/components/ui/button'
 
 interface ProgressData {
   conceptProgress: { conceptId: string; mastery: number; correctCount: number; errorsCount: number; errorBreakdown: Record<string, number> }[]
@@ -23,9 +25,42 @@ interface ProgressData {
 
 export function ProgressDashboard() {
   const { setView } = useUI()
+  const { toast } = useToast()
   const [data, setData] = useState<ProgressData | null>(null)
   const [loading, setLoading] = useState(true)
   const studentId = getOrCreateStudentId()
+
+  const exportCSV = () => {
+    if (!data) return
+    const rows = [
+      ['Tipo', 'ID', 'Sección', 'Dominio', 'Correctos', 'Errores', 'Detalle errores'],
+      ...data.conceptProgress.map(c => ['Concepto', c.conceptId, '', String(c.mastery), String(c.correctCount), String(c.errorsCount),
+        Object.entries(c.errorBreakdown).map(([k, v]) => `${ERROR_TYPE_LABELS[k as ErrorType] ?? k}:${v}`).join('; ')]),
+      ...data.recentAttempts.map(a => ['Intento', a.exerciseId, a.sectionId, '', a.correct ? '1' : '0', a.correct ? '0' : '1',
+        a.errorType ? ERROR_TYPE_LABELS[a.errorType as ErrorType] ?? a.errorType : '']),
+    ]
+    const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `progreso-qm-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: 'CSV exportado', description: `${rows.length - 1} filas` })
+  }
+
+  const exportJSON = () => {
+    if (!data) return
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `progreso-qm-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    toast({ title: 'JSON exportado' })
+  }
 
   useEffect(() => {
     let mounted = true
@@ -52,9 +87,21 @@ export function ProgressDashboard() {
   return (
     <div className="space-y-5">
       <header className="space-y-1">
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
-          <BarChart3 className="h-6 w-6 text-teal-600" /> Mi progreso
-        </h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-teal-600" /> Mi progreso
+          </h1>
+          {data && (data.totalAttempts > 0 || data.conceptProgress.length > 0) && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={exportCSV}>
+                <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportJSON}>
+                <FileJson className="mr-1.5 h-3.5 w-3.5" /> JSON
+              </Button>
+            </div>
+          )}
+        </div>
         <p className="text-muted-foreground">Tu dominio por concepto, tu historial de errores y tus sesiones de estudio.</p>
       </header>
 

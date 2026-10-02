@@ -17,7 +17,9 @@ export type View =
   | { name: 'training' }
   | { name: 'review' }
   | { name: 'spaced-repetition' }
+  | { name: 'sm2-stats' }
   | { name: 'bookmarks' }
+  | { name: 'study-calendar' }
   | { name: 'progress' }
 
 interface UIState {

@@ -14,7 +14,9 @@ import { ExamMode } from '@/components/exam-mode'
 import { TrainingMode } from '@/components/training-mode'
 import { ReviewMode } from '@/components/review-mode'
 import { SpacedRepetitionMode } from '@/components/spaced-repetition-mode'
+import { SM2CardStats } from '@/components/sm2-card-stats'
 import { BookmarksView } from '@/components/bookmarks-view'
+import { StudyCalendarView } from '@/components/study-calendar-view'
 import { ProgressDashboard } from '@/components/progress-dashboard'
 import { getConcept } from '@/data/concepts'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
@@ -52,7 +54,9 @@ export default function Home() {
       case 'training': return <TrainingMode />
       case 'review': return <ReviewMode />
       case 'spaced-repetition': return <SpacedRepetitionMode />
+      case 'sm2-stats': return <SM2CardStats />
       case 'bookmarks': return <BookmarksView />
+      case 'study-calendar': return <StudyCalendarView />
       case 'progress': return <ProgressDashboard />
       default: return <Dashboard />
     }

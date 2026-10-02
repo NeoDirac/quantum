@@ -148,9 +148,24 @@ model SM2Card {
   suspended   Boolean  @default(false) // temporarily removed from rotation
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  reviewEvents SM2ReviewEvent[]
 
   student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, exerciseId])
   @@index([studentId, dueAt])
+}
+
+// Individual review event for an SM-2 card (quality + timestamp).
+model SM2ReviewEvent {
+  id          String   @id @default(cuid())
+  cardId      String
+  quality     Int      // 0-5
+  interval    Int      // resulting interval after this review
+  easeFactor  Float    // resulting ease after this review
+  createdAt   DateTime @default(now())
+
+  card        SM2Card  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, createdAt])
 }

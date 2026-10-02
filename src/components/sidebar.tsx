@@ -8,7 +8,7 @@ import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
-  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap
+  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -148,6 +148,7 @@ export function Sidebar() {
             {navItem('Modo examen', Timer, view.name === 'exam', () => setView({ name: 'exam' }))}
             {navItem('Entrenamiento', GitBranch, view.name === 'training', () => setView({ name: 'training' }))}
             {navItem('Mi progreso', BarChart3, view.name === 'progress', () => setView({ name: 'progress' }))}
+            {navItem('Calendario', CalendarDays, view.name === 'study-calendar', () => setView({ name: 'study-calendar' }))}
           </div>
         </div>
       </aside>

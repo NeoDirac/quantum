@@ -6,6 +6,8 @@ import { EXERCISES_PHASE5 } from './exercises-phase5'
 import { EXERCISES_PHASE6 } from './exercises-phase6'
 import { EXERCISES_PHASE7 } from './exercises-phase7'
 import { EXERCISES_PHASE8 } from './exercises-phase8'
+import { EXERCISES_PHASE9 } from './exercises-phase9'
+import { EXERCISES_PHASE10 } from './exercises-phase10'
 
 // Ejercicios originales para el Capítulo 2, organizados por sección.
 // Las preguntas, pistas y soluciones están escritas para esta plataforma;
@@ -685,8 +687,8 @@ export const EXERCISES: Exercise[] = [
   },
 ]
 
-// Combined exports (original Phase 1 + Phase 2-8 expansion)
-export const ALL_EXERCISES: Exercise[] = [...EXERCISES, ...EXERCISES_PHASE2, ...EXERCISES_PHASE3, ...EXERCISES_PHASE4, ...EXERCISES_PHASE5, ...EXERCISES_PHASE6, ...EXERCISES_PHASE7, ...EXERCISES_PHASE8]
+// Combined exports (original Phase 1 + Phase 2-10 expansion)
+export const ALL_EXERCISES: Exercise[] = [...EXERCISES, ...EXERCISES_PHASE2, ...EXERCISES_PHASE3, ...EXERCISES_PHASE4, ...EXERCISES_PHASE5, ...EXERCISES_PHASE6, ...EXERCISES_PHASE7, ...EXERCISES_PHASE8, ...EXERCISES_PHASE9, ...EXERCISES_PHASE10]
 // Backwards-compatible alias: components importing { EXERCISES } get the full set.
 export { ALL_EXERCISES as EXERCISES }
 
