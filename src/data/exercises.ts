@@ -1,4 +1,5 @@
 import type { Exercise } from '@/lib/content-types'
+import { EXERCISES_PHASE2 } from './exercises-phase2'
 
 // Ejercicios originales para el Capítulo 2, organizados por sección.
 // Las preguntas, pistas y soluciones están escritas para esta plataforma;
@@ -678,12 +679,17 @@ export const EXERCISES: Exercise[] = [
   },
 ]
 
+// Combined exports (original Phase 1 + Phase 2 expansion)
+export const ALL_EXERCISES: Exercise[] = [...EXERCISES, ...EXERCISES_PHASE2]
+// Backwards-compatible alias: components importing { EXERCISES } get the full set.
+export { ALL_EXERCISES as EXERCISES }
+
 export function getExercisesForSection(sectionId: string) {
-  return EXERCISES.filter(e => e.sectionId === sectionId)
+  return ALL_EXERCISES.filter(e => e.sectionId === sectionId)
 }
 export function getExercise(id: string) {
-  return EXERCISES.find(e => e.id === id)
+  return ALL_EXERCISES.find(e => e.id === id)
 }
 export function getExercisesForConcept(conceptId: string) {
-  return EXERCISES.filter(e => e.conceptIds.includes(conceptId))
+  return ALL_EXERCISES.filter(e => e.conceptIds.includes(conceptId))
 }

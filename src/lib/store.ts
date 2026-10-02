@@ -14,6 +14,7 @@ export type View =
   | { name: 'visualizations'; preset?: string }
   | { name: 'exam' }
   | { name: 'training' }
+  | { name: 'review' }
   | { name: 'progress' }
 
 interface UIState {

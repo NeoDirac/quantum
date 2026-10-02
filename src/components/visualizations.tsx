@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { Slider } from '@/components/ui/slider'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { M } from '@/components/math'
 import { cn } from '@/lib/utils'
@@ -114,78 +115,254 @@ function InfiniteWellViz() {
   )
 }
 
-// ============ HARMONIC OSCILLATOR ============
+// ============ HARMONIC OSCILLATOR (quantitative, properly normalized Hermite) ============
+// Uses physics Hermite polynomials H_n and the standard normalization
+// ψ_n(x) = (1/(√(2^n n!))) (mω/πℏ)^{1/4} H_n(ξ) e^{-ξ²/2},  ξ = √(mω/ℏ) x.
+// We set m=ω=ℏ=1 (natural units), so ξ=x and the formula simplifies.
+// Normalization is computed numerically so |ψ|² integrates to 1 on the grid.
+function hermite(n: number, x: number): number {
+  if (n === 0) return 1
+  if (n === 1) return 2 * x
+  let hm2 = 1, hm1 = 2 * x, hn = 0
+  for (let k = 2; k <= n; k++) {
+    hn = 2 * x * hm1 - 2 * (k - 1) * hm2
+    hm2 = hm1; hm1 = hn
+  }
+  return hn
+}
+function factorial(n: number): number {
+  let f = 1
+  for (let i = 2; i <= n; i++) f *= i
+  return f
+}
+// normalized ψ_n(x) in natural units (m=ω=ℏ=1)
+function hoPsi(n: number, x: number): number {
+  const norm = 1 / Math.sqrt(Math.pow(2, n) * factorial(n) * Math.sqrt(Math.PI))
+  return norm * hermite(n, x) * Math.exp(-x * x / 2)
+}
+
 function HarmonicViz() {
-  const [n, setN] = useState(0)
-  const vw = 460, vh = 240
-  const X = 4 // x range
-  const { sx, sy } = mkScale(vw, vh, X, -1.2, 1.4)
-  const V = (x: number) => 0.5 * x * x
-  // normalized HO psi_n (physics Hermite). For viz use approximate scaled.
-  const psi = useMemo(() => {
-    // Use Hermite polynomial H_n and e^{-x^2/2}; normalize numerically.
-    function H(n: number, x: number): number {
-      if (n === 0) return 1
-      if (n === 1) return 2 * x
-      let hm2 = 1, hm1 = 2 * x, hn = 0
-      for (let k = 2; k <= n; k++) {
-        hn = 2 * x * hm1 - 2 * (k - 1) * hm2
-        hm2 = hm1; hm1 = hn
-      }
-      return hn
-    }
-    const N = n
-    const xs = Array.from({ length: 401 }, (_, i) => -X + (2 * X * i) / 400)
-    const vals = xs.map(x => H(N, x) * Math.exp(-x * x / 2))
-    // normalize by max for display
-    const m = Math.max(...vals.map(Math.abs))
-    return xs.map((x, i) => ({ x, y: vals[i] / m }))
+  const [n, setN] = useState(2)
+  const [showProb, setShowProb] = useState(true)
+  const vw = 460, vh = 260
+  const X = 5
+  const { sx, sy } = mkScale(vw, vh, X, -0.6, 1.0)
+  const V = (x: number) => 0.5 * x * x  // V(x) = (1/2) x^2 in natural units; E_n = n + 1/2
+
+  const data = useMemo(() => {
+    const pts = 501
+    const xs = Array.from({ length: pts }, (_, i) => -X + (2 * X * i) / (pts - 1))
+    const psiVals = xs.map(x => hoPsi(n, x))
+    const probVals = xs.map(x => hoPsi(n, x) ** 2)
+    // energy level for display
+    const E = n + 0.5
+    return { xs, psiVals, probVals, E }
   }, [n])
-  const E = n + 0.5
-  const path = psi.map((p, i) => `${i === 0 ? 'M' : 'L'}${sx(p.x)},${sy(p.y)}`).join(' ')
+
+  const { xs, psiVals, probVals, E } = data
+  const xTurning = Math.sqrt(2 * E) // classical turning point where V(x) = E
+
+  // psi scaled for display: shift by E and scale to fit; show ψ_n offset to its energy level
+  const psiPath = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${sx(x)},${sy(E + psiVals[i] * 0.55)}`).join(' ')
+  const probPath = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${sx(x)},${sy(E + probVals[i] * 4)}`).join(' ')
+  const probArea = `${probPath} L ${sx(xs[xs.length - 1])},${sy(E)} L ${sx(xs[0])},${sy(E)} Z`
   const vPath = useMemo(() => {
     const pts: string[] = []
     for (let i = 0; i <= 200; i++) {
       const x = -X + (2 * X * i) / 200
-      pts.push(`${i === 0 ? 'M' : 'L'}${sx(x)},${sy(V(x) / 8)}`)
+      pts.push(`${i === 0 ? 'M' : 'L'}${sx(x)},${sy(V(x))}`)
     }
     return pts.join(' ')
-  }, [])
+  }, [sx, sy, V])
+
+  // <⟨x²⟩ = (n + 1/2) in natural units; Δx = √(n+1/2)>
+  const dx = Math.sqrt(E)
+  // classical probability density (1/(π√(2E-x²))) inside turning points, 0 outside
+  const classProbPath = useMemo(() => {
+    const pts: string[] = []
+    for (let i = 0; i <= 200; i++) {
+      const x = -xTurning + (2 * xTurning * i) / 200
+      const denom = Math.sqrt(Math.max(0, 2 * E - x * x))
+      const p = denom > 0.001 ? 1 / (Math.PI * denom) : 0
+      // scale to comparable visibility with quantum |ψ|² (which peaks ~0.4 for n=2)
+      pts.push(`${i === 0 ? 'M' : 'L'}${sx(x)},${sy(E + p * 4)}`)
+    }
+    return pts.join(' ')
+  }, [xTurning, E, sx, sy])
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <div className="mb-1 flex items-center justify-between text-sm">
-            <span className="font-medium">Estado <M>{`n`}</M></span>
-            <span className="font-mono text-muted-foreground">{n}</span>
+        <div className="space-y-3">
+          <div>
+            <div className="mb-1 flex items-center justify-between text-sm">
+              <span className="font-medium">Estado cuántico <M>{`n`}</M></span>
+              <span className="font-mono text-muted-foreground tabular-nums">{n}</span>
+            </div>
+            <Slider value={[n]} min={0} max={8} step={1} onValueChange={v => setN(v[0])} />
           </div>
-          <Slider value={[n]} min={0} max={6} step={1} onValueChange={v => setN(v[0])} />
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input type="checkbox" checked={showProb} onChange={e => setShowProb(e.target.checked)} className="accent-teal-600" />
+            Mostrar <M>{`|\\psi_n|^2`}</M> y densidad clásica
+          </label>
         </div>
         <Card className="bg-muted/30">
           <CardContent className="p-4 text-sm space-y-2">
-            <div className="flex justify-between"><span className="text-muted-foreground">Energía <M>{`E_n`}</M></span><span className="font-mono">{E.toFixed(2)} ℏω</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Nodos</span><span className="font-mono">{n}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Energía <M>{`E_n = (n+\\tfrac12)\\hbar\\omega`}</M></span><span className="font-mono tabular-nums">{E.toFixed(2)} ℏω</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Nodos internos</span><span className="font-mono tabular-nums">{n}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Puntos de retorno clásicos <M>{`x_T = \\pm\\sqrt{2E}`}</M></span><span className="font-mono tabular-nums">±{xTurning.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Incertidumbre <M>{`\\Delta x = \\sqrt{n+\\tfrac12}`}</M></span><span className="font-mono tabular-nums">{dx.toFixed(2)}</span></div>
             <div className="mt-2 text-xs text-muted-foreground">
-              Los niveles están uniformemente espaciados en <M>{`\\hbar\\omega`}</M>. La energía mínima (n=0) es <M>{`\\tfrac12\\hbar\\omega`}</M>.
-              Observa cómo la onda penetra la región clásicamente prohibida (fuera de los puntos donde <M>{`E=V(x)`}</M>).
+              La onda cuántica (azul) <span className="font-medium">penetra la región prohibida</span> <M>{`|x| > x_T`}</M>,
+              donde la densidad clásica (línea naranja) es exactamente cero. A mayor <M>{`n`}</M>, más se acerca la distribución cuántica a la clásica (correspondencia).
             </div>
           </CardContent>
         </Card>
       </div>
-      <Plot axisLabels={{ x: 'x', y: 'ψ, V' }}>
-        {/* V(x) */}
+      <Plot axisLabels={{ x: 'x  (unidades naturales: m=ω=ℏ=1)', y: 'E, V(x)' }}>
+        {/* V(x) potential */}
         <polyline points={vPath} fill="none" stroke="currentColor" className="text-muted-foreground" strokeWidth={1.5} strokeDasharray="4 3" />
-        {/* classical turning point: where V=E */}
-        {(() => {
-          const xT = Math.sqrt(2 * E)
-          return <line x1={sx(xT)} y1={0} x2={sx(xT)} y2={vh} stroke="hsl(20 80% 50%)" strokeWidth={1} strokeDasharray="3 3" />
-        })()}
+        {/* forbidden region shading */}
+        <rect x={sx(xTurning)} y={0} width={sx(X) - sx(xTurning)} height={vh} fill="oklch(0.6 0.2 20 / 0.06)" />
+        <rect x={sx(-X)} y={0} width={sx(-xTurning) - sx(-X)} height={vh} fill="oklch(0.6 0.2 20 / 0.06)" />
+        {/* turning points */}
+        <line x1={sx(xTurning)} y1={0} x2={sx(xTurning)} y2={vh} stroke="oklch(0.6 0.2 20 / 0.5)" strokeWidth={1} strokeDasharray="2 3" />
+        <line x1={sx(-xTurning)} y1={0} x2={sx(-xTurning)} y2={vh} stroke="oklch(0.6 0.2 20 / 0.5)" strokeWidth={1} strokeDasharray="2 3" />
         <line x1={0} y1={sy(0)} x2={vw} y2={sy(0)} stroke="currentColor" className="text-muted-foreground/40" />
         {/* energy level */}
-        <line x1={0} y1={sy(E / 8)} x2={vw} y2={sy(E / 8)} stroke="hsl(20 80% 50%)" strokeWidth={1} strokeDasharray="4 3" />
-        {/* psi */}
-        <polyline points={path} fill="none" stroke="hsl(200 80% 50%)" strokeWidth={2} />
+        <line x1={0} y1={sy(E)} x2={vw} y2={sy(E)} stroke="oklch(0.55 0.18 20)" strokeWidth={1.2} strokeDasharray="5 3" />
+        <text x={sx(-X) + 4} y={sy(E) - 4} className="fill-amber-600 dark:fill-amber-400" fontSize={10}>E_{n} = {E.toFixed(2)}ℏω</text>
+        {/* |ψ|² area (quantum probability density) */}
+        {showProb && (
+          <>
+            <path d={probArea} fill="oklch(0.6 0.18 20 / 0.15)" />
+            <polyline points={probPath} fill="none" stroke="oklch(0.6 0.18 20)" strokeWidth={1.5} />
+            {/* classical probability density (for comparison) */}
+            <polyline points={classProbPath} fill="none" stroke="oklch(0.55 0.15 20 / 0.6)" strokeWidth={1} strokeDasharray="2 2" />
+          </>
+        )}
+        {/* ψ_n wavefunction (offset to its energy level) */}
+        <polyline points={psiPath} fill="none" stroke="oklch(0.55 0.15 200)" strokeWidth={2} />
       </Plot>
+      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-4" style={{ background: 'oklch(0.55 0.15 200)' }} /> <M>{`\\psi_n(x)`}</M> (desplazada a su energía)</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3" style={{ background: 'oklch(0.6 0.18 20 / 0.3)' }} /> <M>{`|\\psi_n(x)|^2`}</M> cuántica</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-4 border-t-2 border-dashed" style={{ borderColor: 'oklch(0.55 0.15 20 / 0.6)' }} /> densidad clásica</span>
+        <span className="flex items-center gap-1.5"><span className="inline-block h-2 w-3 rounded-sm" style={{ background: 'oklch(0.6 0.2 20 / 0.12)' }} /> región prohibida</span>
+      </div>
+      <p className="rounded-md border border-teal-200/60 bg-teal-50/40 p-3 text-xs text-muted-foreground dark:border-teal-900/50 dark:bg-teal-950/20">
+        <span className="font-medium text-foreground">Lectura física:</span> sube <M>{`n`}</M> y observa cómo la distribución cuántica
+        <M>{`|\\psi_n|^2`}</M> se aproxima a la clásica (uniforme entre los puntos de retorno, divergente en los extremos).
+        Es el <span className="font-medium">principio de correspondencia</span>: a alta energía, lo cuántico reproduce lo clásico.
+        La penetración en la región prohibida es <span className="font-medium">siempre</span> no nula — la firma del régimen cuántico.
+      </p>
+    </div>
+  )
+}
+
+// ============ WAVE PACKET EVOLUTION (free particle Gaussian packet) ============
+// A Gaussian wave packet for a free particle: φ(k) ∝ exp(-(k-k0)²/(4σ²)).
+// Ψ(x,t) = (1/√(2π)) ∫ φ(k) e^{i(kx - ωt)} dk,  ω = ℏk²/(2m).
+// Analytic form for Gaussian: Ψ(x,t) ∝ (1/√(1+i·αt)) exp(-(x-v_g t)²/(4σ²(1+iαt))) e^{i(k0 x - ω0 t)}
+// with α = ℏ/(2mσ²), v_g = ℏk0/m, ω0 = ℏk0²/(2m). We plot |Ψ(x,t)|².
+function WavePacketViz() {
+  const [k0, setK0] = useState(3)
+  const [sigma, setSigma] = useState(0.6)
+  const [t, setT] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const m = 1, hbar = 1
+  const vw = 460, vh = 220
+  const X = 12
+
+  // animated playback
+  useEffect(() => {
+    if (!playing) return
+    let raf: number
+    let last = performance.now()
+    const tick = (now: number) => {
+      const dt = (now - last) / 1000
+      last = now
+      setT(prev => {
+        const next = prev + dt * 0.6
+        return next > 20 ? 0 : next
+      })
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [playing])
+
+  const vg = (hbar * k0) / m
+  const omega0 = (hbar * k0 * k0) / (2 * m)
+  const alpha = hbar / (2 * m * sigma * sigma)
+  const spreadSigma = (t: number) => sigma * Math.sqrt(1 + (alpha * t) ** 2)
+
+  const { sx, sy } = mkScale(vw, vh, X, 0, 1.0)
+  const probPath = useMemo(() => {
+    const pts = 401
+    const s = spreadSigma(t)
+    const center = vg * t
+    const peak = 1 / (Math.sqrt(2 * Math.PI) * s)
+    const arr: string[] = []
+    for (let i = 0; i < pts; i++) {
+      const x = -X + (2 * X * i) / (pts - 1)
+      const p = Math.exp(-((x - center) ** 2) / (2 * s * s)) * peak
+      arr.push(`${i === 0 ? 'M' : 'L'}${sx(x)},${sy(p)}`)
+    }
+    return arr.join(' ')
+  }, [k0, sigma, t])
+
+  const s0 = sigma
+  const sNow = spreadSigma(t)
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 md:grid-cols-3">
+        <div>
+          <div className="mb-1 flex justify-between text-sm"><span className="font-medium">Momento central <M>{`k_0`}</M></span><span className="font-mono text-muted-foreground tabular-nums">{k0.toFixed(1)}</span></div>
+          <Slider value={[k0 * 10]} min={5} max={60} step={1} onValueChange={v => setK0(v[0] / 10)} />
+        </div>
+        <div>
+          <div className="mb-1 flex justify-between text-sm"><span className="font-medium">Ancho <M>{`\\sigma`}</M></span><span className="font-mono text-muted-foreground tabular-nums">{sigma.toFixed(2)}</span></div>
+          <Slider value={[sigma * 100]} min={20} max={150} step={5} onValueChange={v => setSigma(v[0] / 100)} />
+        </div>
+        <div>
+          <div className="mb-1 flex justify-between text-sm"><span className="font-medium">Tiempo <M>{`t`}</M></span><span className="font-mono text-muted-foreground tabular-nums">{t.toFixed(2)}</span></div>
+          <Slider value={[t * 100]} min={0} max={1500} step={5} onValueChange={v => setT(v[0] / 100)} />
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" variant={playing ? 'default' : 'outline'} onClick={() => setPlaying(p => !p)}>
+          {playing ? '⏸ Pausar' : '▶ Reproducir evolución'}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => { setT(0); setPlaying(false) }}>Reiniciar</Button>
+        <div className="ml-auto text-xs text-muted-foreground">
+          <M>{`v_g = \\hbar k_0/m`}</M> = <span className="font-mono tabular-nums">{vg.toFixed(2)}</span> · <M>{`\\omega_0 = \\hbar k_0^2/2m`}</M> = <span className="font-mono tabular-nums">{omega0.toFixed(2)}</span>
+        </div>
+      </div>
+      <Card className="bg-muted/30">
+        <CardContent className="p-4 text-sm space-y-2">
+          <div className="flex justify-between"><span className="text-muted-foreground">Ancho inicial <M>{`\\sigma_0`}</M></span><span className="font-mono tabular-nums">{s0.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Ancho actual <M>{`\\sigma(t) = \\sigma_0\\sqrt{1+(\\alpha t)^2}`}</M></span><span className="font-mono tabular-nums">{sNow.toFixed(2)}</span></div>
+          <div className="flex justify-between"><span className="text-muted-foreground">Centro del paquete <M>{`x_c = v_g t`}</M></span><span className="font-mono tabular-nums">{(vg * t).toFixed(2)}</span></div>
+          <div className="mt-2 text-xs text-muted-foreground">
+            El paquete se desplaza a la <span className="font-medium text-foreground">velocidad de grupo</span> <M>{`v_g`}</M> (= velocidad clásica <M>{`p_0/m`}</M>)
+            y se <span className="font-medium text-foreground">ensancha</span> por la dispersión de <M>{`\\omega(k)`}</M>.
+            Un <M>{`\\sigma`}</M> pequeño (partícula muy localizada) implica <M>{`\\Delta p`}</M> grande y ensanchamiento rápido: la incertidumbre de Heisenberg en acción.
+          </div>
+        </CardContent>
+      </Card>
+      <Plot axisLabels={{ x: 'x', y: '|Ψ(x,t)|²' }}>
+        <line x1={0} y1={sy(0)} x2={vw} y2={sy(0)} stroke="currentColor" className="text-muted-foreground/40" />
+        {/* center marker */}
+        <line x1={sx(vg * t)} y1={0} x2={sx(vg * t)} y2={vh} stroke="oklch(0.6 0.15 200 / 0.4)" strokeWidth={1} strokeDasharray="2 3" />
+        <polyline points={probPath} fill="oklch(0.55 0.15 200 / 0.18)" stroke="oklch(0.55 0.15 200)" strokeWidth={2} />
+      </Plot>
+      <p className="rounded-md border border-sky-200/60 bg-sky-50/40 p-3 text-xs text-muted-foreground dark:border-sky-900/50 dark:bg-sky-950/20">
+        <span className="font-medium text-foreground">Física:</span> cada onda plana componente gira a su propia frecuencia <M>{`\\omega(k) = \\hbar k^2/2m`}</M>.
+        Como <M>{`\\omega`}</M> no es lineal en <M>{`k`}</M>, las fases relativas se desalinean y el paquete se ensancha.
+        El centro, sin embargo, avanza sin deformarse según <M>{`v_g = d\\omega/dk`}</M> — la velocidad de grupo recupera la mecánica clásica.
+      </p>
     </div>
   )
 }
@@ -335,6 +512,7 @@ export function Visualizations() {
         <TabsList className="flex w-full flex-wrap justify-start">
           <TabsTrigger value="well">Pozo infinito</TabsTrigger>
           <TabsTrigger value="ho">Oscilador armónico</TabsTrigger>
+          <TabsTrigger value="packet">Paquete de onda</TabsTrigger>
           <TabsTrigger value="well-finite">Pozo finito</TabsTrigger>
           <TabsTrigger value="barrier">Barrera y túnel</TabsTrigger>
         </TabsList>
@@ -342,7 +520,10 @@ export function Visualizations() {
           <Card><CardHeader><CardTitle className="text-base">Pozo cuadrado infinito</CardTitle></CardHeader><CardContent><InfiniteWellViz /></CardContent></Card>
         </TabsContent>
         <TabsContent value="ho" className="mt-4">
-          <Card><CardHeader><CardTitle className="text-base">Oscilador armónico</CardTitle></CardHeader><CardContent><HarmonicViz /></CardContent></Card>
+          <Card><CardHeader><CardTitle className="text-base">Oscilador armónico (Hermite cuantitativo)</CardTitle></CardHeader><CardContent><HarmonicViz /></CardContent></Card>
+        </TabsContent>
+        <TabsContent value="packet" className="mt-4">
+          <Card><CardHeader><CardTitle className="text-base">Paquete de onda gaussiano (partícula libre)</CardTitle></CardHeader><CardContent><WavePacketViz /></CardContent></Card>
         </TabsContent>
         <TabsContent value="well-finite" className="mt-4">
           <Card><CardHeader><CardTitle className="text-base">Pozo finito: estados ligados</CardTitle></CardHeader><CardContent><FiniteWellViz /></CardContent></Card>

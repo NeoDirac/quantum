@@ -11,6 +11,7 @@ import { ModelProblemView } from '@/components/model-problem-view'
 import { Visualizations } from '@/components/visualizations'
 import { ExamMode } from '@/components/exam-mode'
 import { TrainingMode } from '@/components/training-mode'
+import { ReviewMode } from '@/components/review-mode'
 import { ProgressDashboard } from '@/components/progress-dashboard'
 import { getConcept } from '@/data/concepts'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
@@ -41,6 +42,7 @@ export default function Home() {
       case 'visualizations': return <Visualizations />
       case 'exam': return <ExamMode />
       case 'training': return <TrainingMode />
+      case 'review': return <ReviewMode />
       case 'progress': return <ProgressDashboard />
       default: return <Dashboard />
     }

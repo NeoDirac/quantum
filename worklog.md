@@ -195,3 +195,113 @@ Stage Summary:
   weakest concepts (data already tracked in ConceptProgress).
 - The decision tree could be rendered as an actual graph (D3/Mermaid) for a
   more visual feel; currently it's a navigable card flow which is clear but linear.
+
+---
+Task ID: 7
+Agent: web-dev-reviewer (cron)
+Task: QA + Phase 2 development (styling polish, more content, quantitative visualizations, adaptive review mode, more model problems)
+
+Work Log:
+- Reviewed worklog: project stable, 22 system requirements met in Phase 1
+- QA with agent-browser: tested dashboard, concept layers, visualizations, exercises, exam mode,
+  decision tree, API endpoints (/api/attempts, /api/progress, /api/exam, /api/training)
+- Confirmed no console errors, lint clean (0 errors, 0 warnings)
+- Verified progress tracking end-to-end: POST attempt → mastery updates → GET progress returns updated concept
+- VLM assessment of dashboard visual quality (8/10) identified: sidebar density, hover lift, math serif,
+  active states, footer contrast as improvement areas
+
+Phase 2 — Styling polish (globals.css + sidebar + dashboard):
+- Added subtle paper-like background texture (radial-gradient dots) for academic feel
+- Added scroll-margin-top for anchor scrolling (fixes sticky-header overlap on decision tree ¿Por qué?)
+- Added refined thin scrollbars (8px, rounded, hover-darken)
+- Added .lift-on-hover utility (translateY(-2px) + box-shadow on hover) — applied to dashboard cards
+- Added .nav-active-bar utility (left gradient indicator for active concept in sidebar)
+- Sidebar: active concept item now has teal tint + left gradient bar + larger dot indicator
+- Sidebar nav items: active uses teal→emerald gradient instead of solid primary; icon scale on hover
+- Dashboard hero: gradient background with blurred accent circles, gradient text on "resolver"
+- Dashboard study-flow cards: per-step gradient number badges (teal/amber/violet/sky/emerald/rose),
+  icon scale on hover, lift-on-hover
+- Dashboard section cards: badge-style concept/exercise counts, section id in teal pill
+- Dashboard training/exam/review cards: now 3-column grid with lift-on-hover
+
+Phase 2 — More original exercises (exercises-phase2.ts, 5 new exercises, total 17):
+- ex-2-2c: Valores esperados ⟨x⟩, ⟨x²⟩, Δx en el pozo infinito (con simetría para ⟨x⟩)
+- ex-2-2d: ⟨H⟩ constante vs ⟨x⟩ oscilante (distinguir constantes del movimiento)
+- ex-2-3b: ⟨x²⟩, ⟨p²⟩ por álgebra de operadores (a, a†) + verificación Heisenberg
+- ex-2-3c: Estado fundamental por a|0⟩=0 (derivación de gaussiana + verificación E₀=½ℏω)
+- ex-2-6b: Penetración en región prohibida del pozo finito (dependencia con E)
+- ex-2-7b: Simetría de la S-matrix para V par (S₁₁=S₂₂, S₁₂=S₂₁)
+- Re-exported as ALL_EXERCISES + alias EXERCISES so all components auto-include new set
+
+Phase 2 — Quantitative visualizations (visualizations.tsx):
+- Replaced qualitative HO viz with quantitative, properly-normalized Hermite ψ_n:
+  * Uses physics Hermite polynomials H_n + standard normalization 1/√(2^n n! √π)
+  * Shows ψ_n offset to its energy level E_n = (n+½)ℏω
+  * Shows |ψ_n|² (quantum prob density) + classical prob density 1/(π√(2E-x²)) for comparison
+  * Shading of forbidden region |x| > x_T, turning point markers
+  * Displays ⟨x²⟩, Δx = √(n+½), turning points ±√(2E)
+  * Principle of correspondence explained (quantum → classical as n→∞)
+- Added NEW wave-packet evolution visualization (WavePacketViz):
+  * Gaussian packet for free particle: |Ψ(x,t)|² with analytic form
+  * Sliders for k₀, σ, t + play/pause animation (requestAnimationFrame)
+  * Shows v_g = ℏk₀/m (group velocity = classical), ω₀ = ℏk₀²/2m
+  * Shows σ(t) = σ₀√(1+(αt)²) spreading, center x_c = v_g·t
+  * Explains dispersion + Heisenberg (small σ → large Δp → fast spreading)
+- Added "Paquete de onda" tab to main Visualizations component (5 tabs now)
+
+Phase 2 — Adaptive review mode (review-mode.tsx, new feature):
+- New view 'review' added to UI store + sidebar + page router
+- 4-phase flow: analyze → plan → running → done
+- Analyzes student's ConceptProgress from /api/progress
+- Builds plan: weakest concepts (mastery < 80%) first, up to 6, with reasons
+- Falls back to balanced 7-section starter plan if no progress data yet
+- Each plan item shows concept title, mastery %, error count, progress bar
+- Color-coded by weakness: rose (<50%), amber (<80%), emerald (≥80%)
+- Running phase: serves ExerciseView for each concept's representative exercise
+- Self-report correctness → records attempt → advances → updates mastery
+- Done phase: summary + links to progress dashboard
+
+Phase 2 — More model problems (model-problems.ts, 2 new, total 8):
+- mp-step-potential: Escalón de potencial (V=0 x<0, V=V₀ x>0)
+  * Two regimes: E>V₀ (transmission T=4kk'/(k+k')²) and E<V₀ (total reflection + penetration)
+- mp-finite-well-scattering: Pozo finito en régimen de dispersión (E>V₀)
+  * T(E) formula with resonances (sin(2k'a)=0 → T=1)
+  * Shows same potential can ligar (E<V₀) or dispersar (E>V₀)
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 17 exercises visible, wave packet viz renders, review mode full flow works,
+  new model problems (Escalón, Pozo finito dispersión) render correctly
+- VLM re-assessment: polished academic look, sidebar active states excellent visual anchoring,
+  card hover effects create coded visual system, "SaaS-meets-Textbook" aesthetic
+
+Stage Summary:
+- Phase 2 complete. Platform now has: 17 exercises (was 11), 8 model problems (was 6),
+  5 visualizations including animated wave packet (was 4), quantitative Hermite-based HO,
+  adaptive review mode, polished styling (hero gradient, hover lifts, active states,
+  scrollbars, paper texture, anchor scroll offset).
+- All features verified working in browser. Lint clean. Dev server stable.
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. All 22 original requirements + Phase 2 enhancements:
+  * Quantitative Hermite HO with classical comparison (principle of correspondence)
+  * Animated wave-packet evolution (dispersion + group velocity)
+  * Adaptive review mode that targets weakest concepts from real progress data
+  * 5 new exercises covering operator algebra, superposition dynamics, penetration, S-matrix symmetry
+  * 2 new model problem dissections (step potential, finite well scattering with resonances)
+  * Polished academic UI with gradient hero, hover lifts, active nav indicators, refined scrollbars
+
+## Current goals / completed modifications / verification results
+- DONE: QA pass, styling polish, more exercises, quantitative visualizations, adaptive review,
+  more model problems. All verified via agent-browser + VLM.
+- Content now: 16 concepts, 8 model problems, 17 exercises, full decision tree.
+- Visualizations: infinite well, quantitative Hermite HO, animated wave packet, finite well, barrier.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: still only ~17/50+ Griffiths Ch.2 problems. Next phase: add more 2.3 (ladder operator
+  derivations, recursion formula), 2.4 (Fourier transform exercises), 2.5 (delta barrier T/R).
+- Decision tree is navigable-card style; a true graph (D3/Mermaid) render would be more visual.
+- Consider adding a "bookmarks" feature: let students star concepts/exercises to revisit.
+- The exam mode samples randomly; could weight by student's weak concepts (like review mode does).
+- Wave packet could show real/imaginary parts of Ψ (not just |Ψ|²) to illustrate phase evolution.
+- Mobile sidebar could use a bottom-sheet pattern instead of overlay for better UX.

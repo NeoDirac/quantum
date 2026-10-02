@@ -8,7 +8,7 @@ import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
-  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves
+  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -32,15 +32,17 @@ export function Sidebar() {
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-        active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+        'group flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-all',
+        active
+          ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-sm'
+          : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
-      <icon className="h-4 w-4 shrink-0" />
+      <icon className={cn('h-4 w-4 shrink-0 transition-transform', !active && 'group-hover:scale-110')} />
       <span className="flex-1 text-left">{label}</span>
       {count !== undefined && (
-        <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-          active ? 'bg-primary-foreground/20' : 'bg-muted')}>
+        <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+          active ? 'bg-white/25' : 'bg-muted group-hover:bg-background')}>
           {count}
         </span>
       )}
@@ -94,23 +96,29 @@ export function Sidebar() {
                     <span className="text-[10px] text-muted-foreground">{conceptCount}</span>
                   </button>
                   {open && (
-                    <div className="ml-3 border-l border-sidebar-border pl-3">
-                      {ALL_CONCEPTS.filter(c => c.sectionId === s.id).map(c => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => setView({ name: 'concept', conceptId: c.id })}
-                          className={cn(
-                            'flex w-full items-start gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors',
-                            view.name === 'concept' && view.conceptId === c.id
-                              ? 'bg-muted font-medium text-foreground'
-                              : 'text-muted-foreground hover:text-foreground'
-                          )}
-                        >
-                          <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-current/40" />
-                          <span className="flex-1">{c.title}</span>
-                        </button>
-                      ))}
+                    <div className="ml-3 border-l border-sidebar-border pl-2.5">
+                      {ALL_CONCEPTS.filter(c => c.sectionId === s.id).map(c => {
+                        const isActive = view.name === 'concept' && view.conceptId === c.id
+                        return (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => setView({ name: 'concept', conceptId: c.id })}
+                            className={cn(
+                              'group flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-all',
+                              isActive
+                                ? 'bg-teal-50 font-medium text-teal-900 dark:bg-teal-950/40 dark:text-teal-100 nav-active-bar pl-3'
+                                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+                            )}
+                          >
+                            <span className={cn(
+                              'mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full transition-colors',
+                              isActive ? 'bg-teal-500' : 'bg-current/30 group-hover:bg-current/50'
+                            )} />
+                            <span className="flex-1 leading-snug">{c.title}</span>
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>
@@ -119,6 +127,7 @@ export function Sidebar() {
           </nav>
 
           <div className="space-y-1 border-t border-sidebar-border p-3">
+            {navItem('Repaso adaptativo', Brain, view.name === 'review', () => setView({ name: 'review' }))}
             {navItem('Modo examen', Timer, view.name === 'exam', () => setView({ name: 'exam' }))}
             {navItem('Entrenamiento', GitBranch, view.name === 'training', () => setView({ name: 'training' }))}
             {navItem('Mi progreso', BarChart3, view.name === 'progress', () => setView({ name: 'progress' }))}

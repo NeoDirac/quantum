@@ -265,6 +265,95 @@ export const MODEL_PROBLEMS: ModelProblem[] = [
       ]},
     ],
   },
+  {
+    id: 'mp-step-potential',
+    sectionId: '2.6',
+    title: 'Escalón de potencial',
+    potential: 'V = 0 para x<0, V = V₀ > 0 para x>0',
+    regime: 'scattering',
+    goal: [
+      { kind: 'p', text: 'El problema de dispersión más simple con cambio de k entre regiones: una sola frontera. Muestra cómo parte se refleja y parte se transmite, y la diferencia entre E>V₀ (transmisión oscilatoria) y E<V₀ (reflexión total con penetración).' },
+    ],
+    given: [
+      { kind: 'list', items: [
+        [{ kind: 'p', text: 'V a trozos: 0 a la izquierda, V₀>0 a la derecha, una sola frontera en x=0.' }],
+        [{ kind: 'p', text: 'Incidencia desde la izquierda con E>0.' }],
+      ]},
+    ],
+    find: [
+      { kind: 'p', text: 'Los coeficientes de reflexión R y transmisión T, y la forma de ψ en cada región.' },
+    ],
+    methodWhy: [
+      { kind: 'p', text: 'Solo hay dos regiones y una frontera. Cada región tiene V constante, así que la forma de ψ está fijada por el signo de E−V. Emparejar ψ y ψ\' en x=0 da dos ecuaciones para las constantes, que se resuelven en términos de la amplitud incidente A.' },
+    ],
+    equations: [
+      { kind: 'p', text: 'Para E>V₀: izquierda ψ = A e^{ikx} + B e^{-ikx} (k=√(2mE)/ℏ), derecha ψ = C e^{ik\'x} (k\'=√(2m(E−V₀))/ℏ).' },
+      { kind: 'p', text: 'Para E<V₀: izquierda igual, derecha ψ = C e^{-κx} (κ=√(2m(V₀−E))/ℏ), decae exponencialmente.' },
+    ],
+    conditions: [
+      { kind: 'list', items: [
+        [{ kind: 'p', text: 'ψ y ψ\' continuas en x=0 (V finito en la frontera, solo discontinuo).' }],
+        [{ kind: 'p', text: 'No hay onda viniendo de +∞ (solo transmitida hacia la derecha).' }],
+        [{ kind: 'p', text: 'Para E<V₀: ψ → 0 cuando x→+∞ (decaimiento, normalizable en la región prohibida).' }],
+      ]},
+    ],
+    result: [
+      { kind: 'p', text: 'Para E>V₀: R = ((k−k\')/(k+k\'))², T = (4kk\'/(k+k\')²). Para E<V₀: R=1 (reflexión total) pero ψ penetra hasta una profundidad ~1/κ (penetración cuántica).' },
+    ],
+    meaning: [
+      { kind: 'p', text: 'Para E>V₀, parte se transmite y parte se refleja — sorprendente clásicamente (la partícula debería pasar siempre). Para E<V₀, reflexión total pero con penetración: la partícula "se asoma" al lado prohibido, fenómeno inexistente en mecánica clásica. La diferencia es el régimen E vs V₀.' },
+    ],
+    generalize: [
+      { kind: 'list', items: [
+        [{ kind: 'p', text: 'Toda dispersión 1D con V a trozos sigue el mismo patrón: escribir ψ en cada región, emparejar, comparar corrientes.' }],
+        [{ kind: 'p', text: 'La condición R+T=1 siempre se cumple: es la conservación de probabilidad.' }],
+        [{ kind: 'p', text: 'La penetración en E<V₀ es la base del tunneling en barreras finitas (doble escalón).' }],
+      ]},
+    ],
+  },
+  {
+    id: 'mp-finite-well-scattering',
+    sectionId: '2.6',
+    title: 'Pozo finito en régimen de dispersión (E > V₀)',
+    potential: 'V = 0 en |x|<a, V = V₀ > 0 fuera',
+    regime: 'scattering',
+    goal: [
+      { kind: 'p', text: 'El mismo pozo finito, pero ahora con E>V₀: el régimen de dispersión. Muestra resonancias (T=1 a energías especiales) y que un mismo potencial puede ligar o dispersar según E.' },
+    ],
+    given: [
+      { kind: 'list', items: [
+        [{ kind: 'p', text: 'El mismo potencial par del pozo finito, pero ahora E>V₀.' }],
+        [{ kind: 'p', text: 'Incidencia desde la izquierda: ondas incidente, reflejada y transmitida.' }],
+      ]},
+    ],
+    find: [
+      { kind: 'p', text: 'T(E) y las energías de resonancia donde T=1.' },
+    ],
+    methodWhy: [
+      { kind: 'p', text: 'Tres regiones oscilatorias (E>V en todas). Emparejar ψ y ψ\' en ±a. Como V es par, las soluciones pueden clasificarse por paridad, pero aquí usamos la formulación de scattering (onda incidente + reflejada + transmitida). El cálculo da una T que depende de k y del ancho 2a.' },
+    ],
+    equations: [
+      { kind: 'math-block', tex: 'T = \\frac{1}{1 + \\dfrac{V_0^2 \\sin^2(2 k\' a)}{4 E (E - V_0)}}, \\quad k\' = \\sqrt{2m(E - V_0)}/\\hbar.' },
+    ],
+    conditions: [
+      { kind: 'list', items: [
+        [{ kind: 'p', text: 'ψ y ψ\' continuas en x=±a (V finito).' }],
+        [{ kind: 'p', text: 'Onda incidente + reflejada a la izquierda, solo transmitida a la derecha.' }],
+      ]},
+    ],
+    result: [
+      { kind: 'p', text: 'T oscila entre un mínimo y 1. Las resonancias (T=1) ocurren cuando sin(2k\'a)=0, es decir 2k\'a = nπ. En esas energías el pozo es "transparente".' },
+    ],
+    meaning: [
+      { kind: 'p', text: 'Las resonancias corresponden a estados casi-ligados del pozo: cuando la energía incidente coincide con un nivel que existiría en el pozo cerrado, la onda "encaja" y pasa sin reflexión. Es el análogo cuántico de las resonancias en óptica (láminas delgadas).' },
+    ],
+    generalize: [
+      { kind: 'list', items: [
+        [{ kind: 'p', text: 'Un mismo potencial admite dos regímenes: ligado (E<V₀, energías discretas) y dispersión (E>V₀, energías continuas con resonancias). El régimen lo decide E.' }],
+        [{ kind: 'p', text: 'La estructura de resonancias revela los estados ligados "virtuales" del pozo: una forma experimental de medir niveles.' }],
+      ]},
+    ],
+  },
 ]
 
 export function getModelProblemsForSection(sectionId: string) {

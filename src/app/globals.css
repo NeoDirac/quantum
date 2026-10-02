@@ -118,5 +118,85 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Subtle paper-like texture for academic feel */
+    background-image:
+      radial-gradient(circle at 1px 1px, oklch(0.5 0 0 / 0.018) 1px, transparent 0);
+    background-size: 24px 24px;
+  }
+  /* Scroll offset so anchored content isn't hidden behind the sticky header */
+  [id], section {
+    scroll-margin-top: 5rem;
+  }
+  /* Refined, thinner scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.7 0 0) transparent;
+  }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background-color: oklch(0.78 0 0 / 0.5);
+    border-radius: 9999px;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: oklch(0.6 0 0 / 0.7);
+  }
+}
+
+@layer components {
+  /* Serif font for inline math variables to distinguish them visually */
+  .math-var {
+    font-family: "Cambria Math", "Latin Modern Math", "STIX Two Math", Georgia, serif;
+    font-style: italic;
+  }
+  /* KaTeX should inherit nicely */
+  .katex { font-size: 1.05em; }
+  .katex-display { margin: 0.4em 0 !important; }
+
+  /* Subtle lift on hover for clickable cards */
+  .lift-on-hover {
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .lift-on-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -12px oklch(0.2 0 0 / 0.18);
+  }
+
+  /* Active nav indicator */
+  .nav-active-bar {
+    position: relative;
+  }
+  .nav-active-bar::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    background: linear-gradient(to bottom, oklch(0.65 0.15 180), oklch(0.55 0.18 160));
+    border-radius: 9999px;
+  }
+
+  /* Reading progress accent line under headings */
+  .accent-underline {
+    background-image: linear-gradient(to right, oklch(0.65 0.15 180 / 0.6), transparent);
+    background-size: 100% 2px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    padding-bottom: 0.15em;
+  }
+}
+
+@layer utilities {
+  /* Hide scrollbar but keep functionality (for horizontal chip rows) */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Focus ring refinement */
+  .focus-ring:focus-visible {
+    outline: 2px solid oklch(0.6 0.15 180);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
