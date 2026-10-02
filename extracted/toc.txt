@@ -1,0 +1,424 @@
+Introduction to
+Quantum Mechanics
+
+David J. Griffiths
+Reed College
+
+Prentice Hall
+Upper Saddle River, New Jersey 07458
+
+Fundamental Equations
+Schrodinger equation:
+
+Time independent Schrodinger equation:
+
+Ht/J = Et/¡,
+Standard Hamiltonian:
+
+t,.2
+
+H=--V 2 +V
+2m
+
+Time dependence of an expectation value:
+
+d{Q) = i {[H Q]) + (ºQ)
+dt
+1i
+'
+8t
+Generalized uncertainty principie:
+1
+
+u A<1B > 2i ([A, B])
+Heisenberg uncertainty principie:
+
+Caaonical commutator:
+[z,p]=ili
+Aacwar momentum:
+
+Pauli múric:ea:
+
+2
+
+Fundamental Constants
+Planck's constant :
+
+ñ
+
+1.05457 X 10- 34 J S
+
+Speed of light :
+
+e
+
+2.99792 x 108 m/s
+
+Mass of electron :
+
+me
+
+9.10939 x 10- 31 kg
+
+Mass of proton :
+
+?np
+
+1.67262 X 10- 21 kg
+
+Charge of electron :
+
+-e
+
+= -1.60218 X 1Q- l9 C
+
+Permittivity of space:
+
+fo
+
+8.85419 X 10- 12 C2 /J m
+
+Boltzmann constant :
+
+kB
+
+1.38066 X 10- 23 J /K
+
+Hydrogen Atom
+Fine structure constant : a
+
+e2 /41riohc
+
+Bohr radius:
+
+a
+
+41rioh 2 /1nee 2
+
+Bohr energies :
+
+En
+
+Ground state energy :
+
+-E1
+
+= 1, 2, 3, ...)
+mee /2{41rio)2ñ = a 2 mec2 /2
+
+Wave function:
+
+l/Jo
+
+J1ra3
+
+Rydberg formula:
+
+¡
+
+R(~ - ~)
+
+Rydberg constant :
+
+R
+
+-E1/21rñc
+
+l
+
+1/137.036
+
+= ñ/amec
+
+5.29177 X 10-ll m
+
+E1/n 2 (n
+
+2
+
+4
+
+1
+
+13.6057 eV
+
+e-r/a
+
+1.09737 X 10 7 /m
+
+Library of Congress Cataloging-in-Publication Data
+
+Griffiths, David J. (David Jeffrey)
+Introduction to quantum mechanics / David J. Griffiths.
+p. cm.
+Includes bibliographical references and index.
+ISBN 0-13-124405-1
+1. Quantum theory. I. Title.
+QC174.12.G75 1994
+530.1'2---dc20
+
+94-14133
+CIP
+
+Acquisitions Editor: Ray Henderson
+Assistant Acquisition Editor: Wendy Rivers
+Editorial Assistant: Pam Holland-Moritz
+Productíon Edítors: Rose Kernan and Fred Dahl
+Copy Editor: Rose Kernan
+Productíon Coordinator: Trudy Pisciotti
+
+© 1995 by Prentice Hall, Inc.
+Upper Saddle River, NJ 07458
+All rights reserved. No part of this book may be
+reproduced, in any form or by any means,
+without permission in writing from the publisher.
+
+Printed in the United States of America
+
+lO
+
+ISBN
+
+□ -13-124405-1
+
+Prentice-Hall International (UK) Lirnited, London
+Prentice-Hall of Australia Pty. Lirnited, Sydney
+
+ISBN 0-13-124405-1
+90000
+
+Prentice-Hall of Canada, Inc., Toronto
+Prentice-Hall Hispanoamericana, S. A., Mexico
+Prentice-Hall of India Prívate Limited, New Delhi
+Prentice-Hall of Japan, Inc., Tokyo
+Pearson Education Asia Pte. Ltd., Singapore
+Editora Prentice-Hall do Brasil, Ltda., Rio de Janeiro
+
+9 780131 244054
+
+CONTENTS
+
+PREFACE, vil
+
+PARTI
+
+THEORY
+CHAPTER 1
+
+THE WAVE FUNCTION, 1
+1.1 The Schrodinger Equation, 1
+1.2 The Statistical Interpretation, 2
+1.3 Probability, 5
+1.4 Normalization, 11
+1.5 Momentum, 14
+1.6 The Uncertainty Principie, 17
+
+CHAPTER2
+
+THE TIME-INDEPENDENT SCHRODINGER EQUATION, 20
+2.1 Stationary States, 20
+2.2 The Infinite Square Well, 24
+2.3 The Harmonic Oscillator, 31
+2.4 The Free Particle, 44
+2.5 The Delta-Function Potential, 50
+2.6 The Finite Square Well, 60
+
+iü
+
+.
+
+IV
+
+Contents
+2. 7 The Scattering Matrix, 66
+
+Further Problems for Chapter 2, 68
+
+CHAPTER 3
+
+FORMALISM, 75
+3.1 Linear Algebra, 75
+3.2 Function Spaces, 95
+3.3 The Generalized Statistical Interpretation, 104
+3.4 The Uncertainty Principie, 108
+Further Problems for Chapter 3, 116
+
+CHAPTER4
+
+QUANTUM MECHANICS IN THREE DIMENSIONS, 121
+4.1 Schrodinger Equations in Spherical Coordinates, 121
+4.2 The Hydrogen Atom, 133
+4.3 Angular Momentum, 145
+4.4 Spin, 154
+Further Problems for Chapter 4, 170
+
+CHAPTER 5
+
+IDENTICAL PARTICLES, 177
+5.1 Two-Particle Systems, 177
+5.2 Atoms, 186
+5.3 Solids, 193
+5.4 Quantum Statistical Mechanics, 204
+Further Problems for Chapter 5, 218
+
+PARTIi
+
+APPUCATIONS
+CHAPTER6
+
+TIME-INDEPENDENT PERTURBATION THEORY, 221
+6.1 Nondegenerate Perturbation Theory, 221
+6.2 Degenerate Perturbation Theory, 227
+6.3 The Fine Structure of Hydrogen, 235
+6.4 The Zeeman Effect, 244
+6.5 Hyperfined Splitting, 250
+Further Problems f or Chapter 6, 2 52
+
+Contents
+CHAPTER 7
+
+THE VARIATIONAL PRINCIPLE, 256
+7.1 Theory, 256
+7.2 The Ground State of Helium, 261
+7.3 The Hydrogen Molecule Ion, 266
+Further Problems for Chapter 7, 271
+
+CHAPTER8
+
+THE WKB APPROXIMATION, 274
+8.1 The "Classical" Region, 275
+8.2 Tunneling, 280
+8.3 The Connection Formulas, 284
+Further Problems for Chapter 8, 293
+
+CHAPTER9
+
+Tll\1E-DEPENDENT PERTURBATION THEORY, 298
+9.1 Two-Level Systems, 299
+9.2 Emission and Absorption of Radiation, 306
+9.3 Spontaneous Emission, 311
+Further Problemsfor Chapter 9,319
+
+CHAPTERlO
+
+THE ADIABATIC APPROXIMATION, 323
+10.1 The Adiabatic Theorem, 323
+10.2 Berry's Phase, 333
+Further Problemsfor Chapter 10,349
+
+CHAPTER 11
+
+SCATTERING, 352
+11.1 Introduction, 352
+11.2 Partial Wave Analysis, 357
+11.3 The Bonz Approximation, 363
+Further Problems f or Chapter 11, 373
+
+AFTERWORD, 374
+
+INDEX, 386
+
+v
+
+PREFACE
+
+Unlike Newton's mechanics, or Maxwell's electrodynamics, or Einstein's relativity,
+quantum theory was not created-or even definitively packaged-by one individual,
+and it retains to this day sorne of the scars of its exhilirating but traumatic youth.
+There is no general consensus as to what its fundamental principies are, how it should
+be taught, or what it really "means." Every competent physicist can "do" quantum
+mechanics, but the stories we tell ourselves about what we are doing are as various
+as the tales of Scheherazade, and almost as implausible. Richard Feynman (one of
+its greatest practitioners) remarked, "1 think I can safely say that nobody understands
+quantum mechanics."
+The purpose of this book is to teach you how to do quantum mechanics. Apart
+from sorne essential background in Chapter 1, the deeper quasi-philosophical questions are saved for the end. Ido not believe one can intelligently discuss what quantum
+mechanics means until one has a firm sense of what quantum mechanics does. But if
+you absolutely cannot wait, by ali means read the Afterword immediately following
+Chapter l.
+Not only is quantum theory conceptually rich, it is also technically difficult,
+and exact solutions to ali but the most artificial textbook examples are few and far
+between. It is therefore essential to develop special techniques for attacking more
+realistic problems. Accordingly, this book is divided into two parts 1 ; Part I covers
+the basic theory, and Part II assembles an arsenal of approximation schemes, with
+illustrative applications. Although it is important to keep the two parts logically
+separate, it is not necessary to study the material in the order presented here. Sorne
+instructors, for example, may wish to treat time-independent perturbation theory
+immediately after Chapter 2.
+
+1This structure was inspired by David Park's classic text Jntroduction to the Quantum Theory, 3rd
+
+ed., (New York: McGraw-Hill, 1992).
+
+vü
+
+viii
+
+Preface
+This book is intended for a one-semester or one-year course at the junior or
+senior level. A one-semester course will have to concentrate mainly on Part I; a
+full-year course should have room for supplementary material beyond Part 11. The
+reader must be familiar with the rudiments of linear algebra, complex numbers, and
+calculus up through partial derivatives; sorne acquaintance with Fourier analysis and
+the Dirac delta function would help. Elementary classical mechanics is essential, of
+course, and a little electrodynamics would be useful in places. As always, the more
+physics and math you know the easier it will be, and the more you will get out of your
+study. But I would like to emphasize that quantum mechanics is not, in my view,
+something that flows smoothly and naturally from earlier theories. On the contrary,
+it represents an abrupt and revolutionary departure from classical ideas, calling forth
+a wholly new and radically counterintuitive way of thinking about the world. That,
+indeed, is what makes it such a fascinating subject.
+At first glance, this book may strike you as forbiddingly mathematical. We encounter Legendre, Hermite, and Laguerre polynomials, spherical harmonics, Bessel,
+Neumann, and Hankel functions, Airy functions, and even the Riemann Zeta function
+-not to mention Fourier transforms, Hilbert spaces, Hermitian operators, ClebschGordan coefficients, and Lagrange multipliers. Is all this baggage really necessary?
+Perhaps not, but physics is like carpentry: Using the right tool makes the job easier,
+not more difficult, and teaching quantum mechanics without the appropriate mathematical equipment is like asking the student to dig a foundation with a screwdriver.
+(On the other hand, it can be tedious and diverting if the instructor feels obliged to
+give elaborate lessons on the proper use of each tool. My own instinct is to hand the
+students shovels and tell them to start digging. They may develop blisters at first, but I
+still think this is the most efficient and exciting way to learn.) At any rate, I can assure
+you that there is no deep mathematics in this book, and if you run into something
+unfamiliar, and you don't find my explanation adequate, by all means ask someone
+about it, or look it up. There are many good books on mathematical methods-1 particularly recommend Mary Boas, Mathematical Methods in the Physical Sciences,
+2nd ed., Wiley, New York (1983), and George Arfken, Mathematical Methods for
+Physicists, 3rd ed., Academic Press, Orlando (1985). But whatever you do, don't let
+the mathematics-which, for us, is only a tool-interfere with the physics.
+Several readers have noted that there are fewer worked examples in this book
+than is customary, and that sorne important material is relegated to the problems. This
+is no accident. I don 't believe you can learn quantum mechanics without doing many
+exercises for yourself. Instructors should, of course, go over as many problems in
+class as time allows, but students should be warned that this is not a subject about
+which anyone has natural intuitions-you're developing a whole new set of muscles
+here, and there is simply no substitute for calisthenics. Mark Semon suggested that I
+offer a "Michelin Guide" to the problems, with varying numbers of stars to indicate
+the level of difficulty and importance. This seemed like a good idea (though, like the
+quality of a restaurant, the significance of a problem is partly a matter of taste ); I have
+adopted the following rating scheme:
+
+Preface
+
+ix
+
+*
+an essential problem that every reader should study;
+** a somewhat more difficult or more peripheral problem;
+* * * an unusually challenging problem that may take over an hour.
+(No stars at all means fast food: OK if you're hungry, but not very nourishing.) Most
+of the one-star problems appear at the end of the relevant section; most of the three-star
+problems are at the end of the chapter. A solution manual is available (to instructors
+only) from the publisher.
+I have benefited from the comments and advice of many colleagues, who suggested problems, read early drafts, or used a preliminary version in their courses. I
+would like to thank in particular Burt Brody (Bard College), Ash Carter (Drew University), Peter Collings (Swarthmore College), Jeff Dunham (Middlebury College),
+Greg Elliott (University of Puget Sound), Larry Hunter (Amherst College), Mark
+Semon (Bates College), Stavros Theodorakis (University of Cyprus), Dan Velleman
+(Amherst College ), and all my colleagues at Reed College.
+Finally, I wish to thank David Park and John Rasmussen (and their publishers)
+for permission to reproduce Figure 8.6, which is taken from Park's lntroduction to the
+Quantum Theory (footnote 1), adapted from l. Perlman and J. O. Rasmussen, "Alpha
+Radioactivity,'' in Encyclopedia of Physics, vol. 42, Springer-Verlag, 1957.
+
+PARTI
+
+THEORY
+
+

@@ -1,0 +1,286 @@
+                                                                        Sec. 1.5: Momentum                 15
+
+average of these results. [I like to picture a row of bottles on a shelf, each containing
+a particle in the state "1 (relative to the center of the bottle). A graduate student with
+a ruler is assigned to each bottle, and at a signal they ali measure the positions of
+their respective particles. We then construct a histogram of the results, which should
+match l"11 2 , and compute the average, which should agree with (x). (Of course, since
+we're only using a finite sample, we can't expect perfect agreement, but the more
+bottles we use, the closer we ought to come.)] In short, the expectation value is the
+average of repeated measurements on an ensemble of identically prepared systems,
+not the average of repeated measurements on one and the same system.
+       Now, as_y.me goes on, (x) will change (because of the time dependence of "1),
+and we might be interested in knowing how fast it moves. Referring to Equations
+1.25 and 1.28, we see that9
+
+             -d(x) =
+               dt
+                        f      a
+                             x-1"1[
+                              at
+                                    2 dx = -iñ
+                                           2m
+                                                      f   x a- ( "1 *ª"'
+                                                           ax
+                                                                     -
+                                                                      ax
+                                                                           ª"'* ) dx.
+                                                                         - -"1
+                                                                            ax
+                                                                                                       [1.29]
+
+This expression can be simplified using integration by parts 10 :
+
+                             d (x) = _ .!:!!_
+                              dt       2m
+                                                f ("1* a\11ax - ª"'*
+                                                                 ax
+                                                                     "') dx.                           [1.30]
+
+[I used the fact that ax/ ax = 1, and threw away the boundary term, on the ground
+that "1 goes to zero at (±) infinity.] Performing another integration by parts on the
+second term, we conclude that
+
+                                      d(x) = _ iñ
+                                       dt      m
+                                                       ¡   "1* a"1 dx.
+                                                               ax
+                                                                                                       [1.31]
+
+       What are we to make ofthis result? Note that we're talking about the "velocity"
+of the expectation value of x, which is not the same thing as the velocity of the particle.
+Nothing we have seen so far would enable us to calculate the velocity of a particle-
+it's not even clear what velocity means in quantum mechanics. If the particle doesn't
+have a determinate position (prior to measurement), neither <loes it have a well-defined
+velocity. All we could reasonably ask for is the probability of getting a particular
+value. We'll see in Chapter 3 how to construct the probability density for velocity,
+
+        9 To keep things from getting too cluttered, I suppress the limits of integration when they are ±oo.
+       10The product rule says that
+
+                                           d       dg   df
+                                          -(Jg) = f - + -g,
+                                          dx       dx   dx
+from which it follows that
+                                     b d             lb df
+                                  l   J-2.dx=-            -gdx+Jglb·
+                                        dx                dx               a
+                                   a                   a
+Under the integral sign, then, you can peel a derivative off one factor in a product and slap it onto the other
+one-it'll cost you a minus sign, and you'll pickup a boundary term.
+16   Chap. 1 The Wave Function
+
+          given \11; for our present purposes it will suffice to postulate that the expectation value
+          of the velocity is equal to the time derivative of the expectation value ofposition:
+                                                               d(x)
+                                                         (v) = - .                                             [1.32]
+                                                                dt
+          Equation 1.31 tells us, then, how to calculate (v) directly from \11.
+                 Actually, it is customary to work with momentum (p = mv), rather than ve-
+          locity:
+
+                                              d(x)
+                                       (p) = mdt = -iñ
+                                                                     j Í\ aw)
+                                                                          ax dx.
+                                                                          \JI*                                 [1.33]
+
+
+          Let me write the expressions for (x) and (p) in a more suggestive way:
+
+                                                  (x) =      f   l[J*(x)l[J dx,                                [1.34]
+
+
+                                                {p)      j
+                                                      = w*(~~
+                                                           l ax
+                                                                )w dx.                                         [1.35]
+
+          We say that the operator 11 x "represents" position, and the operator (ñ/i)(a/ax)
+          "represents" momentum, in quantum mechanics; to calculate expectation values, we
+          "sandwich" the appropriate operator between \11* and \11, and integrate.
+                That's cute, but what about other dynamical variables? Toe fact is, ali such
+          quantities can be written in terms of position and momentum. Kinetic energy, for
+          example, is
+                                                1         p2
+                                           T = -mv = -
+                                                     2
+                                                2        2m'
+          and angular momentum is
+                                          L= r x mv = r x p
+          (the latter, of course, does not occur for motion in one dimension). To calculate the
+          expectation value of such a quantity, we simply replace every p by (ñ/ i)(a/ax),
+          insert the resulting operator between \11* and \11, and integrate:
+
+
+                                        (Q(x, p)} =      f                ñ a
+                                                             \ll*Q(x, -:--)\lldx.
+                                                                          l ax
+                                                                                                               [1.36]
+
+
+
+
+                 11 An operator is an instruction to do something to the function that follows. The position operator
+          tells you to multiply by x; the momentum operator tells you to differentiate with respect to x (and multiply
+          theresultby-iñ). In this bookalloperators will bederivatives (d Jdt, d 2 /dt 2 , a2 ¡axay,etc.) ormultipliers
+          (2, i, x 2 , etc.) or combinations of these.
+                                                  Sec. 1.6: The Uncertainty Principie         17
+
+       For example,
+
+                                      (T) = -
+                                             -ñ2
+                                             2m
+                                                   f      a2w
+                                                       \ll*-dx.
+                                                          ax 2
+                                                                                           l 1.37]
+
+              Equation 1.36 is a recipe for computing the expectation value of any dynamical
+       quantity for a particle in state \V; it subsumes Equations 1.34 and 1.35 as special
+       cases. I have tried in this section to make Equation 1.36 seem plausible, given Bom's
+       statistical interpretation, but the truth is that this equation represents such a radically
+       new way of doing business (as compared with classical mechanics) that it's a good
+       idea to get sorne practice using it before we come back (in Chapter 3) and put it on
+       a firmer theoretical foundation. In the meantime, if you prefer to think of it as an
+       axiom, that's fine with me.
+
+       Problem 1.11 Why can't you do integration by parts directly on the middle ex-
+       pression in Equation l .29~pu11 the time derivative over onto x, note that ax /at = O,
+       and conclude that d(x)/dt = O?
+
+      *Problem 1.12 Calculate d(p)/dt. Answer:
+                                           d(p) = (- av ).                                 [ 1.38]
+                                            dt          ax
+       (This is known as Ehrenfest's theorem; it tells us that expectation values obey
+       Newton's second law.)
+
+       Problem 1. 13 Suppose yo u add a constant Vo to the potential energy (by "constant"
+       I mean independent of x as well as t). In classical mechanics this doesn't change
+       anything, but what about quantum mechanics? Show that the wave function picks
+       upa time-dependent phase factor: exp(-i Vot /ñ ). What effect <loes this have on the
+       expectation value of a dynamical variable?
+
+
+
+1.6 THE UNCERTAINTY PRINCIPLE
+      Imagine that you're holding one end of a very long rope, and you generate a wave by
+      shaking it up and down rhythmically (Figure 1.6). If someone asked you, "Precisely
+      where is that wave?" you'd probably think he was a little bit nutty: The wave isn't
+      precisely anywhere-it's spread out over 50 feet or so. On the other hand, if he asked
+      you what its wavelength is, you could give him a reasonable answer: It looks like
+      about 6 feet. By contrast, if you gave the rope a suddenjerk (Figure 1.7), you'd get a
+      relatively narrow bump traveling down the line. This time the first question (Where
+      precisely is the wave?) is a sensible one, and the second (What is its wavelength?)
+      seems nutty-it isn't even vaguely periodic, so how can you assign a wavelength to it?
+18   Chap. 1   The Wave Function
+
+
+
+
+          Figure 1.6: A wave with a (fairly) well-defined wavelength but an ill-defined
+          position.
+          Of course, you can draw intermediate cases, in which the wave is fairly well localized
+          and the wavelength is fairly well defined, but there is an inescapable trade-off here:
+          The more precise a wave's position is, the less precise is its wavelength, and vice
+          versa. 12 A theorem in Fourier analysis makes all this rigorous, but for the moment I
+          am only concemed with the qualitative argument.
+                 This applies, of course, to any wave phenomenon, and hence in particular to
+          the quantum mechanical wave function. Now the wavelength of \11 is related to the
+          momentum of the particle by the de Broglie formula 13 :
+
+                                                             h       2nñ
+                                                      p ---~
+                                                       - A - A •                                              [1.39]
+
+          Thus a spread in wavelength corresponds to a spread in momentum, and our general
+          observation now says that the more precisely determined a particle's position is, the
+          less precisely its momentum is determined. Quantitatively,
+
+
+                                                                     1z
+                                                          O'xO'p >
+                                                                 - -2 '                                       [1.40]
+
+
+          where O'x is the standard deviation in x, and O'p is the standard deviation in p. This
+          is Heisenberg's famous uncertainty principie. (We'll prove it in Chapter 3, but I
+          wanted to mention it here so you can test it out on the examples in Chapter 2.)
+
+
+            4 - - -. .1
+                      . - - -..........1--A_----_,._I- - - - 1 - - - - - - - + I......
+          /¡ -                  10                   20                   30                40                  50
+                                                                                                               x(feet)
+
+
+          Figure 1.7: A wave with a (fairly) well-defined position but an ill-defined wave-
+          length.
+                 12 That's why a piccolo player must be right on pitch, whereas a double-bass player can afford to
+          wear garden gloves. For the piccolo, a sixty-fourth note contains many ful! cycles, and the frequency (we're
+          working in the time domain now, instead of space) is well defined, whereas for the bass, at a much lower
+          register, the sixty-fourth note contains only a few cycles, and all you hear ís a general sort of "oomph,"
+          with no very clear pitch.
+                 13 I'll prove this in due course. Many authors take the de Broglie formula as an (rdom, frorn
+          which they then deduce the association of momentum with the operator (ñ/ i)(a/ax). Although this is a
+          conceptually cleaner approach, it involves diverting mathematical complications that I would rather save
+          for later.
+                                           Sec. 1.6: The Uncertainty Principie        19
+
+        Please understand what the uncertainty principle means: Like position mea-
+ surements, momentum measurements yield precise answers-the "spread" here refers
+ to the fact that measurements on identical systems do not yield consistent results. You
+ can, if you want, prepare a system such that repeated position measurements will be
+ very clase together (by making 'V a localized "spike"), but you will pay a price: Mo-
+ mentum measurements on this state will be widely scattered. Or you can prepare a
+ system with a reproducible momentum (by making· 'V a long sinusoidal wave ), but in
+ that case position measurements will be widely scattered. And, of course, if you're in
+ a really bad mood you can prepare a system in which neither position nor momentum
+ is well defined: Equation 1.40 is an inequality, and there's no limit on how big <Tx and
+ <Tp can be-just make 'V sorne long wiggly line with lots of bumps and potholes and
+ no periodic structure.
+
+*Problem 1.14 A particle of mass m is in the state
+
+
+ where A and a are positive real constants.
+
+  (a) Find A.
+ (b) Por what potential energy function V (x) does 'V satisfy the Schrodinger equa-
+      tion?
+  (e) Calculate the expectation values of x, x 2 , p, and p 2 .
+ (d) Find <Tx and <Tp. Is their product consistent with the uncertainty principle?
+CHAPTER2
+
+
+THE TIME-INDEPENDENT
+     ••
+SCHRODINGER EQUATION
+
+
+
+
+ 2.1 STATIONARY STATES
+       In Chapter 1 we talked a lot about the wave function and how you use it to calculate
+       various quantities of interest. The time has come to stop procrastinating and confront
+       what is, logically, the prior question: How do you get \JI (x, t) in the first place-how
+       do you go about solving the Schrodinger equation? I shall assume for ali of this
+       chapter (and most of this book) that the potential, 1 V, is independent of t. In that case
+       the Schrodinger equation can be solved by the method of separation of variables
+       (the physicist's first line of attack on any partial differential equation): We look for
+       solutions that are simple products,
+
+                                                \JJ(x, t) = lfr(x) J(t),                                         [2.1]
+
+       where lfr (lowercase) is a function of x alone, and f is a function of t alone. On its
+       face, this is an absurd restriction, and we cannot hope to get more than a tiny subset
+       of all solutions in this way. But hang on, because the solutions we do obtain tum out
+       to be of great interest. Moreover, as is typically the case with separation of variables,
+       we will be able at the end to patch together the separable solutions in such a way as
+       to construct the most general solution.
+
+              1 It is tire sorne to keep saying "potential energy function," so most people just call V the "potentíal",
+       even though this invites occasional confusion with electric potential, which is actually potential energy
+       per unit charge.
+

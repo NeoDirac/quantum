@@ -1,0 +1,2897 @@
+CHAPTER2
+
+
+THE TIME-INDEPENDENT
+     ••
+SCHRODINGER EQUATION
+
+
+
+
+ 2.1 STATIONARY STATES
+       In Chapter 1 we talked a lot about the wave function and how you use it to calculate
+       various quantities of interest. The time has come to stop procrastinating and confront
+       what is, logically, the prior question: How do you get \JI (x, t) in the first place-how
+       do you go about solving the Schrodinger equation? I shall assume for ali of this
+       chapter (and most of this book) that the potential, 1 V, is independent of t. In that case
+       the Schrodinger equation can be solved by the method of separation of variables
+       (the physicist's first line of attack on any partial differential equation): We look for
+       solutions that are simple products,
+
+                                                \JJ(x, t) = lfr(x) J(t),                                         [2.1]
+
+       where lfr (lowercase) is a function of x alone, and f is a function of t alone. On its
+       face, this is an absurd restriction, and we cannot hope to get more than a tiny subset
+       of all solutions in this way. But hang on, because the solutions we do obtain tum out
+       to be of great interest. Moreover, as is typically the case with separation of variables,
+       we will be able at the end to patch together the separable solutions in such a way as
+       to construct the most general solution.
+
+              1 It is tire sorne to keep saying "potential energy function," so most people just call V the "potentíal",
+       even though this invites occasional confusion with electric potential, which is actually potential energy
+       per unit charge.
+                                                             Sec. 2.1: Stationary States     21
+
+      For separable solutions we have
+
+                                aw   df
+                                --1f¡-
+                                at - dt'
+(ordinary derivatives, now), and the Schrodinger equation (Equation 1.1) reads
+                                    df      ñ2 d21f¡
+                                iñV1-¡¡ = - 2m dx2 f + V1/lf
+
+Or, dividing through by 1/1f:
+
+                                 . 1 df ñ2 1 d 21f¡
+                                 iñ--=----+v.                                              [2.2]
+                                   f dt 2m 1/1 dx 2
+Now the left side is a function of t alone, and the right side is a function of x alone. 2
+The only way this can possibly be true is if both sides are in fact constant-otherwise,
+by varying t, I could change the left side without touching the right side, and the two
+would no longer be equal. (That's a subtle but crucial argument, so if it's new to you,
+be sure to pause and think it through.) For reasons that will appear in a moment, we
+shall call the separation constant E. Toen
+
+                                           iñ!._df =E
+                                             f dt     '
+or
+                                           df    iE
+                                           dt =--:¡;f.                                     [2.3]
+
+and
+                                      ñ2 1 d 21f¡
+                                     ----+V=E,
+                                      2m VI dx 2
+or
+
+                                                                                           [2.4]
+
+
+      Separation of variables has tumed a partial differential equation into two ordi-
+nary differential equations (Equations 2.3 and 2.4). The first of these is easy to solve
+Gust multiply through by dt and integrate); the general solution is C exp(-i Et /ñ),
+but _we might as well absorb the constant C into VI (since the quantity of interest is
+the product 1/Jf). Toen
+                                   f(t) = e-iEt/h.                                 [2.5]
+The second (Equation 2.4) is called the time-independent Schrodinger equation;
+we can go no further with it until the potential V (x) is specified.
+
+      2 Note that this would not be true if V were a function of t as well as x.
+22   Chap. 2   The Time-Independent Schrodinger Equation
+
+                   The rest of this chapter will be devoted to sol ving the time-independent Schro-
+          dinger equation, for a variety of simple potentials. But befare we get to that I would
+          like to consider further the question: What 's so great about separable solutions? After
+          all, most solutions to the (time-dependent) Schrodinger equation do not tak.e the form
+          1/J (x) / (t). I offer three answers-two of them physical and one mathematical:
+                   l. They are stationary states. Although the wave function itself,
+
+
+                                                                                                              [2.6]
+
+
+          does (obviousl y) depend on t, the probability density
+
+                               IW(x, t)l2 = w*w = V1*e+iEt/hVle-iEt/h = IV1(x)l2                              [2.7]
+
+          does not-the time dependen ce cancels out. 3 The same thing happens in calculating
+          the expectation value of any dynamical variable; Equation 1.36 reduces to
+
+                                        (Q(x, p)) =     f               ñ d
+                                                               1/J*Q(x, -:--)1/1 dx.
+                                                                        1 dx
+                                                                                                              [2.8]
+
+          Every expectation value is constant in time; we might as well drop the factor f (t)
+          altogether, and simply use VI in place of \11. (Indeed, it is common to refer to VI
+          as "the wave function", but this is sloppy language that can be dangerous, and it is
+          important to remember that the true wave function always carries that exponential
+          time-dependent factor.) In particular, (x) is constant, and hence (Equation 1.33)
+          (p) = O. Nothing ever happens in a stationary state.
+                2. They are states of definite total energy. In classical mechanics, the total
+          energy (kinetic plus potential) is called the Hamiltonian:
+                                                                 p2
+                                               H(x, p) = -            + V(x).                                 [2.9]
+                                                                 2m
+          The corresponding Hamiltonian operator, obtained by the canonical substitution p ➔
+          (ñ/ i)(a/ax), is therefore 4
+
+                                                "             ñ2 a2
+                                               H = - 2m ax2 + V (x).                                        [2.10]
+
+          Thus the time-independent Schrodinger equation (Equation 2.4) can be written
+                                                        ,..
+                                                       H1/J = E1/I,                                         [2.11]
+
+                  3 For normalizable solutions, E must be real (see Problem 2.Ia).
+                  4 Whenever confusion might arise, 1'11 put a "hat" ( ~) on the operator to distínguísh it from the
+          dynamical variable it represents.
+                                                                  Sec. 2.1: Stationary States      23
+
+and the expectation value of the total energy is
+
+                              (H) =   f       l/1* Íhfr dx = E   f ll/11   2 dx   = E.          [2.12]
+
+(Note that the normalization of W entails the normalization of lfr .) Moreover,
+                       _. . . 2                                                      2
+                      H l/1 = H(Hl/1) = H(El/1) = E(Hl/1) = E l/1,
+                                  A       A           A                    A
+
+
+
+
+and hence
+                       (H2 ) =     f   lfr*H2lfrdx = E 2          f   llfrl 2 dx = E 2.
+
+So the standard deviation in H is given by
+
+                                                                                                [2.13]
+
+But remember, if a = O, then every member of the sample must share the same value
+(the distribution has zero spread). Conclusion: A separable solution has the property
+that every measurement of the total energy is certain to return the value E. (That's
+why I chose that letter for the separation constant.)
+      3. The general solution is a linear combination of separable solutions. As
+we're about to discover, the time-independent Schrodinger equation (Equation 2.4)
+yields an infinite collection of solutions ( lfr1 (x), l/12 (x), V,3 (x), ... ), each with its
+associated value of the separation constant (E 1 , E 2 , E 3 , ... ); thus there is a di:fferent
+wave function for each allowed energy:
+
+               W¡(x, t) = l/11(x)e-iE1t/ñ,                W2(x, t) = l/12(x)e-iE2t/ñ, ....
+
+Now (as yo u can easily check for yourself) the (time-dependent) Schrodinger equation
+(Equation 1.1) has the property that any linear combination5 of solutions is itself a
+solution. Once we have found the separable solutions, then, we can immediately
+construct a much more general solution, of the form
+                                                     00
+
+                                  W(x' t) =         '¿ Cn V'n (x)e-iEnt/ñ.                      [2.14]
+                                                    n=l
+
+It so happens that every solution to the (time-dependent) Schrodinger equation can be
+written in this form-it is simply a matter of finding the right constants (c 1 , c2, ... )
+so as to fit the initial conditions for the problem at hand. You'll see in the following
+sections how all this works out in practice, and in Chapter 3 we'll put it into more
+elegant language, but the main point is this: Once you 've sol ved the time-independent
+
+       5A linear combination of the functions / 1(z), /2(z), ... is an expression of the form
+
+                                      /(z) = c1 Ji (z) + c2/2 (z) + · · · ,
+where ct, c2, ... are any (complex) constants.
+24   Chap. 2   The Time-Independent Schrodinger Equation
+
+          Schrodinger equation, you're essentially done; getting from there to the general so-
+          lution of the time-dependent Schrodinger equation is simple and straightforward.
+
+         *Problem 2.1 Prove the following theorems:
+
+           (a) For normalizable solutions, the separation constant E must be real. Hint: Write
+               E (in Equation 2.6) as E 0 + ir (with Eo and r real), and show that if Equation
+               1.20 is to hold for all t, r must be zero.
+           (b) 1/f can always be taken to be real (unlike 'V, which is necessarily complex).
+               Note: This doesn't mean that every solution to the time-independent Schrodinger
+               equation is real; what it says is that if you've got one that is not, it can always be
+               expressed as a linear combination of solutions (with the same energy) that are.
+               So in Equation 2.14 you might as well stick to 1/f 's that are real. Hint: If 1/1 (x)
+               satisfies the time-independent Schrodinger equation for a given E, so too <loes
+               its complex conjugate, and hence also the real linear combinations (1/1 + VI*)
+               and i ( VI - V1*).
+           (e) If V (x) is an even function [i.e., V (-x) = V (x)], then t(x) can always be
+               taken to be either even or odd. Hint: If t(x) satisfies the time-independent
+                Schrodinger equation for a given E, so too <loes 1/1(-x), and hence also the
+                even and odd linear combinations VI (x) ± VI (- x).
+
+         *Problem 2.2 Show that E must exceed the minimum value of V (x) for every
+          normalizable solution to the time-independent Schrodinger equation. What is the
+          classical analog to this statement? Hint: Rewrite Equation 2.4 in the form
+
+                                         d 2 V1   2m
+                                         -d 2 = -,, [V(x) - E]t;
+                                          X     ñ~
+
+          if E < Vmin, then 1/f and its second derivative always have the same sign-argue that
+          such a function cannot be normalized.
+
+
+
+
+ 2.2 THE INFINITE SQUARE WEll
+          Suppose
+                                                        if Ü <X< a,
+                                       V(x) = { O,                                            [2.15]
+                                                  00,   otherwise
+          (Figure 2.1 ). A particle in this potential is completely free, except at the two ends
+          (x = O and x = a), where an infinite force prevents it from escaping. A classical
+          model would be a cart on a frictionless horizontal air track, with perfectly elastic
+          bumpers-it just keeps bouncing back and forth forever. (This potential is awfully
+          artificial, but I urge you to treat it with respect. Despite its simplicity-or rather,
+                                             Sec. 2.2: The lnfinite Square Well          25
+V(x)
+
+
+
+   Íli
+
+
+
+
+                                           Figure 2.1: The infinite square well
+                          a          x     potential (Equation 2.15).
+
+precisely because of its simplicity-it serves as a wonderfully accessible test case for
+all the fancy stuff that comes later. We'll refer back to it frequently.)
+       Outside the well, l/1 (x) = O(the probability of finding the particle there is zero ).
+Inside the well, where V = O, the time-independent Schrodinger equation (Equation
+2.4) reads
+                                       h2 d2l/J
+                                    - - - - = El/J,                                   [2.16]
+                                      2m dx 2
+or
+                                             where k =
+                                                          J2mE
+                                                            h .                       [2.17]
+
+(By writing it in this way, I have tacitly assumed that E > O; we know from Problem
+2.2 that E < O doesn't work.) Equation 2.17 is the (classical) simple harmonic
+oscillator equation; the general solution is
+                              l/1 (x) = A sin kx + B cos kx,                          [2.18]
+where A and B are arbitrary constants. Typically, these constants are fixed by the
+boundary conditions of the problem. What are the appropriate boundary conditions
+for l/J(x)? Ordinarily, both l/1 and dl/1/dx are continuous, but where the potential
+goes to infinity only the first of these applies. (l'11 prove these boundary conditions,
+and account for the exception when V = oo, later on; for now I hope you will trust
+me.)
+       Continuity of l/1 (x) requires that
+
+                                   l/J(0) = l/J(a) = O,                               [2.19]
+so as to join onto the solution outside the well. What does this tell us about A and
+B? Well,
+                           l/J(0) = A sin O+ BcosO = B,
+so B = O, and hence
+                                    l/J(x) = A sinkx.                                 [2.20]
+Toen l/J(a) = A sin ka, so either A = O [in which case we're left with the trivial-
+nonnormalizable-solution l/1 (x) = O], or else sin ka = O, which means that
+                              ka= O, ±n, ±2n, ±3n, ....                               [2.21]
+26   Chap. 2   The Time-Independent Schrodinger Equation
+
+          But k = O is no good [again, that would imply 1/f (x) = O], and the negative solutions
+          give nothing new, since sin( -0) = - sin(0) and we can absorb the minus sign into
+          A. So the distinct solutions are
+
+                                        kn -- nn ,       • n = 1, 2, 3 , ....
+                                                        w1th                                                [2.22]
+                                               a
+
+                Curiously, the boundary condition at x = a <loes not determine the constant A,
+          but rather the constant k, and hence the possible values of E:
+
+
+                                                        ñ2k2         n2n2ñ2
+                                                En = 2mn = 2ma 2 •                                          [2.23]
+
+
+          In sharp contrast to the classical case, a quantum particle in the infinite square well
+          cannot have just any old energy-only these special allowed values. WelL how do
+          we fix the constant A? Answer: We normalize 1/1:
+
+                            1 o
+                                ª                               a
+                                    IAl 2 sin\kx) dx = IAl 2 - = 1,
+                                                                 2
+                                                                              so   IAl 2 = -.
+                                                                                             2
+                                                                                             a
+          This only determines the magnitude of A, but it is simplest to pick the positive real
+          root: A = .j2fa, (the phase of A carries no physical significance anyway). Inside the
+          well, then, the solutions are
+
+
+
+                                                        {2 sin (nn
+                                              1/ln(x) =V;       ~x ) .                                      [2.24]
+
+
+                  As promised, the time-independent Schrodinger equation has delivered an infi-
+          nite set of solutions, one for each integer n. The first few of these are plotted in Fig-
+          ure 2.2; they look just like the standing waves on a string of length a. 1/1 1 , which car-
+          ríes the lowest energy, is called the ground state; the others, whose energies increase
+          in proportion to n 2 , are called excited states. As a group, the functions 1/1n (x) have
+          sorne interesting and important properties:
+                  l. They are altemately even and odd, with respect to the center of the well.
+          (1/f1 is even, 1/12 is odd, 1/f3 is even, and so on. 6 )
+                  2. As you go up in energy, each successive state has one more node (zero
+          crossing). 1/1 1 has none (the end points don't count), 1/12 has one, 1/13 has two, and so
+          on.
+
+                 6 To make this symmetry more apparent, sorne authors center the well at the origin (so that it runs
+
+          from -a /2 to +a /2. The even functions are then cosines, and the odd ones are sínes. See Problem 2.4.
+                                                                            Sec. 2.2: The Infi_nite Square Well           27
+                                                                                                                            /
+
+
+'111 (x)
+
+
+
+
+                    a           X                                                  X                                        X
+
+
+Figure 2.2: The first three stationary states of the infinite square well (Equation
+2.24).
+
+
+                        3. They are mutually orthogonal, in the sense that
+
+                                                       f     Vlm(x)*l/¡n(x)dx          = O,                           [2.25]
+
+                whenever m # n. Proof
+
+                                     f       ,{r.,(x)*,{r.(x)dx =      ~    f C:" e:
+                                                                                sin           x) sin     x) dx
+
+                                             = ~ { [cos ( m : n ,rx) - cos ( m : n                     ,rx)]   dx
+
+                        = {(m - 1 n )1r sin (m a- n 1rx) - (m +1 n )1r sin (m a+ n 1rx)} 1ªo
+                                             = 2_ { sin[(m - n)rr] _ sin[(m + n)rr} = O.
+                                                       1r          (m -n)                     (m +n)
+                Note that this argument does not work if m = n (can you spot the point at which
+                it fails ?); in that case normalization tells us that the integral is 1. In fact, we can
+                combine orthogonality and normalization into a single statement7:
+
+                                                      f     Vlm(x)*l/ln(x)dx = Bmn,                                   [2.26]
+
+                where Bmn (the so-called Kronecker delta) is defined in the usual way,
+
+                                                                       O      if m -::J= n;
+                                                                   {                                                  [2.27]
+                                                        ~mn    =       1:     if m = n.
+                We say that the v,'s are orthonormal.
+                      4. They are complete, in the sense that any other function, f(x), can be ex-
+                pressed as a linear combination of them:
+
+                                                                                                                      [2.28]
+
+
+                        7 In this case the1/J's are real, so tbe * on 1/Jm is unnecessary, but for future purposes it's a good
+               idea to get in the habit of putting it there.
+28   Chap. 2 The Time-Independent Schrodinger Equation
+
+          I'm not about to prove the completeness of the functions ,./2la. sin(nnx/a), but if
+          you've studied advanced calculus you will recognize that Equation 2.28 is nothing
+          but the Fourier series for f(x), and the fact that "any" function can be expanded
+          in this way is sometimes called Dirichlet's theorem. 8 The expansion coefficients
+          (en) can be evaluated-for a given f(x)-by a method I call Fourier's trick, which
+          beautifully exploits the orthonormality of {1/ln}: Multiply both sides ofEquation 2.28
+          by Vlm (x)*, and integrate.
+
+                    f ,¡,,.   (x) • f (x) dx =    f>• / ,¡,,.
+                                                  n=l
+                                                                    (x )* ,¡,• (x) dx =   f:_c.s,.. = e,.. [2.29]
+                                                                                          n=l
+
+          (Notice how the Kronecker delta kills every term in the sum except the one for which
+          n = m.) Thus the mth coefficient in the expansion of f(x) is given by
+
+                                                 e,. =   f ,¡,.,   (x)* J(x) dx.                           [2.30]
+
+                 These four properties are extremely powerful, and they are not peculiar to the
+          infinite square well. The first is true whenever the potential itself is an even function;
+          the second is universal, regardless of the shape of the potential. 9 Orthogonality is also
+          quite general-I'll show you the proof in Chapter 3. Completeness holds for all the
+          potentials you are likely to encounter, but the proofs tend to be nasty and laborious;
+          I' m afraid most physicists simply assume completeness and hope for the best.
+                 Toe stationary states (Equation 2.6) for the infinite square well are evidently
+
+
+                                                                                                           [2.31]
+
+          I claimed (Equation 2.14) that the most general solution to the (time-dependent)
+          Schrodinger equation is a linear combination of stationary states:
+
+                                                                                                           [2.32]
+
+
+          If you doubt that this is a solution, by all means check it! It remains only for me to
+          demonstrate that I can fit any prescribed initial wave function, 'V (x, O), by appropriate
+          choice of the coefficients Cn. According to Equation 2.32,
+                                                                   00
+
+                                                 'V(x, O)=     Í: CnV'n(x).
+                                                                   n=l
+
+                 8 See, for example, Mary Boas, Mathematical Methods in the Physical Sciences, 2nd ed. (New
+          York: John Wiley & Sons, 1983), p. 313; f(x) can even have a finite number of finite discontinuities.
+                 9 See, for example, John L. Powell and Bernd Crasemann, Quantum Mechanics (Reading, MA:
+          Addison-Wesley, 1961), p. 126.
+                                                 Sec. 2.2: The Infi.nite Square Well        29
+
+  The completeness of the V' 's (confirmed in this case by Dirichlet's theorem) guarantees
+  that T can always express \V (x, 0) in this way, and their orthonormality licenses the
+  use of Fourier's trick to determine the actual coefficients:
+
+                            Cn = /!;    f   sin e : x) \ji (x, 0) dx                     [2.33]
+
+         That <loes it: Given the initial wave function, \V(x, O), we first compute the
+  expansion coefficients Cn, using Equation 2.33, and then plug these into Equation 2.32
+  to obtain \V (x, t). Armed with the wave function, we are in a position to compute any
+  dynamical quantities of interest, using the procedures in Chapter 1. And this same
+  ritual applies to any potential-the only things that change are the functional form of
+  the V' 's and the equation for the allowed energies.
+
+  Problem 2.3 Show that there is no acceptable solution to the (time-independent)
+  Schródinger equation (for the infinite square well) with E = O or E < O. (This is a
+  special case of the general theorem in Problem 2.2, but this time do it by explicitly
+  solving the Schródinger equation and showing that you cannot meet the boundary
+  conditions.)
+
+  Problem 2.4 Solve the time-independent Schródinger equation with appropriate
+  boundary conditions for an infinite square weU centered at the origin [V (x) = O, for
+  -a/2 < x < +a/2; V(x) = oo otherwise]. Check that your allowed energies are
+  consistent with mine (Equation 2.23), and confirm that your 1/t 's can be obtained from
+  mine (Equation 2.24) by the substitution x ➔ x - a /2.
+
+ *Problem 2.5 Calculate (x), (x 2 ), (p), (p 2 ), ax, and ap, for the nth stationary state
+  of the infinite square well. Check that the uncertainty principle is satisfied. Which
+  state comes closest to the uncertainty limit?
+
+**Problem 2.6 A particle in the infinite square well has as its initial wave function
+  an even mixture of the first two stationary states:
+
+                                \V (x, O) = A [1/t1 (x) + 1/t2 (x)].
+
+   (a) Normalize \JI (x, 0). (That is, find A. This is very easy if you exploit the
+       orthonormality of 1/t1 and o/2. Recall that, having normalized \JI at t = O, yo u
+       can rest assured that it stays normalized-if you doubt this, check it explicitly
+       after doing part b.)
+   (b) Find \JI (x, t) and 1\JI (x, t) 12 . (Express the latter in terms of sinusoidal functions
+       of time, eliminating the exponentials with the help of Euler's formula: e¡e =
+       cos 0 + i sin 0 .) Let w = n 2ñ /2ma 2 .
+   (e) Compute (x). Notice that it oscillates in time. What is the frequency of the
+       oscillation? What is the amplitude of the oscillation? (If your amplitude is
+       greater than a/2, go directly to jail.)
+30   Chap. 2   The Time-Independent Schrddinger Equation
+
+           (d) Compute (p). (As Peter Lorre would say, "Do it ze kveek vay, Johnny!")
+           (e) Find the expectation value of H. How does it compare with E 1 and E 2 ?
+           (f) A classical particle in this well would bounce back and f orth between the walls.
+               If its energy is equal to the expectation value yo u found in (e), what is the
+               frequency of the classical motion? How does it compare with the quantum
+               frequency you found in (c)?
+
+          Problem 2. 7 Although the overall phase constant of the wave function is of no
+          physical significance (it cancels out whenever you calculate a measureable quantity),
+          the relative phase of the expansion coefficients in Equation 2.14 does matter. Por
+          example, suppose we change the relative phase of 1/¡ 1 and 1/¡2 in Problem 2.6:
+                                      \ll(x, O)= A[lj,r 1 (x) + ei1>1/12(x)],
+
+          where 4> is sorne constant. Find \V (x, t), l \ll (x, t) 12 , and (x), and compare your results
+          with what you got before. Study the special cases </> = n /2 and </> = n.
+
+         *Problem 2.8 A particle in the infinite square well has the initial wave function
+                                            \ll(x, O)= Ax(a - x).
+
+           (a) Normalize \ll (x, 0). Graph it. Which stationary state does it most closely
+               resemble? On that basis, estimate the expectation value of the energy.
+           (b) Compute (x), (p), and (H), at t = O. (Note: This time you cannot get (p) by
+               differentiating (x), because yo u only know (x) at one instant of time.) How
+               does (H) compare with your estimate in (a)?
+
+         *Problem 2.9 Find \ll(x, t) for the initial wave function in Problem 2.8. Evaluate
+          c 1, c2, and c 3 numerically, to five decimal places, and comment on these numbers.
+          (en tells you, roughly speaking, how much 1/ln is "contained in" \V.) Suppose you
+          measured the energy at time to > O, and got the value E 3 . Knowing that immediate
+          repetition of the measurement must return the same value, what can you say about
+          the coefficients en after the measurement? (This is an example of the "collapse of the
+          wave function", which we discussed briefly in Chapter 1.)
+
+         *Problem 2.10 Toe wave function (Equation 2.14) has got to be normalized; given
+          that the 1/ln 's are orthonormal, what does this tell you about the coefficients Cn?
+          Answer:
+                                                                                                  [2.34]
+                                                 n=l
+
+          (In particular, lcnl 2 is always < l.) Show that
+                                                       00
+
+                                              (H) =    L Enlcni2-
+                                                       n=l
+                                                                                                  [2.35]
+                                                        Sec. 2.3: The Harmonic Oscillator                  31
+
+      Incidentally, it follows that (H) is constant in time, which is one manifestation of
+      consenation of energy in quantum mechanics.
+
+
+
+
+2.3 THE HARMONIC OSCILLATOR
+      Toe paradigm for a classical harmonic oscillator is a mass m attached to a spring of
+      force constant k. The motion is governed by Hooke's law,
+                                                    d 2x
+                                              F=-kx=m-
+                                                       dt 2
+      (as always, we ignore friction), and the solution is
+                                       x(t)   = A sin(wt) + B cos(wt),
+      where
+                                                                                                       [2.36]
+
+      is the (angular) frequency of oscillation. The potential energy is
+                                                            1
+                                                 V(x)   = 2kx 2 ;                                      [2.37]
+
+      its graph is a parabola.
+             Of course, there's no such thing as a peifect simple harmonic oscillator-if you
+      stretch it too far the spring is going to break, and typically Hooke's law fails long
+      before that point is reached. But practically any potential is approximately parabolic,
+      in the neighborhood of a local mínimum (Figure 2.3). Formally, if we expand V (x)
+      in a Taylor series about the minimum:
+
+                    V(x)   = V(xo) + V'(xo)(x - xo) + ~V"(xo)(x - xo) 2 + ·· ·,
+      subtract V (xo) [you can add a constant to V (x) with impunity, since that doesn't
+      change the force], recognize that V' (xo) = O (since x 0 is a minimum), and drop the
+      higher-order terms [which are negligible as long as (x - x 0 ) stays small], the potential
+      becomes
+                                         V(x),...., ~V"(xo)(x - xo) 2 ,
+
+      which describes simple harmonic oscillation (about the point xo), with an effective
+      spring constant k = V" (x0 ). 10 That's why the simple harmonic oscillator is so
+      important: Virtually any oscillatory motion is approximately simple harmonic, as
+      long as the amplitude is small.
+
+            10 Note that V" (xo) 2'.: O, since by assumption xo is a minimum. Only in the rare case V" (xo) = O
+      is the oscillation not even approximately simple harmonic.
+32   Chap. 2   The Time·Independent Schrodinger Equation
+
+                         V(x)
+                                                                      1
+                                                                      I
+                                                                     1
+                                                                    1
+                                                                    1
+                                                                   1
+                                                               /
+                                                           /
+                                                       /
+
+
+
+
+                                                                             X
+
+
+
+
+          Figure 2.3: Parabolic approximation (dashed curve) toan arbitrary potential, in
+          the neighborhood of a local mínimum.
+
+                The quantum problem is to solve the Schrodinger equation for the potential
+                                                     1
+                                            V (x) = -müix 2                               [2.38]
+                                                     2
+          (it is customary to eliminate the spring constant in favor of the classical frequency,
+          using Equation 2.36). As we have seen, it suffices to solve the time-independent
+          Schrodinger equation:
+
+                                                                                            [2.39]
+
+          In the literature you will find two entirely different approaches to this problem. The
+          first is a straighforward "brute force" solution to the differential equation, using the
+          method of power series expansion; it has the virtue that the same strategy can be
+          applied to many other potentials (in fact, we'll use it in Chapter 4 to treat the Coulomb
+          potential). The second is a diabolically clever algebraic technique, using so-called
+          ladder operators. 1'11 show you the algebraic method first, because it is quicker and
+          simpler (and more fun); if you want to skip the analytic method for now, that's fine,
+          but you should certainly plan to study it at sorne stage.
+
+          2.3.1 Algebraic Method
+
+          To begin with, let's rewrite Equation 2.39 in a more suggestive form:
+
+                                                 2
+                                  - 1 [(~ !!_)       + (mwx)2] 1/1 = El/1.                  [2.40]
+                                  2m    1 dx
+
+
+          The idea is to factor the term in square brackets. If these were numbers, it would be
+          easy:
+                                       u 2 + v2 = (u - iv)(u + iv).
+                                                   Sec. 2.3: The Harmonic Oscillator                  33
+
+Here, however, it's not quite so simple, because u and vare operators, and operators
+do not, in general, commute (uv is not the same as vu). Sti.11, this does invite us to
+take a look at the expressions
+
+                                 ª±
+                                         1
+                                      = -~   -(~.!!...
+                                                     zdx
+                                                           ±imwx).                                [2.41)
+
+      What is their product, ª-ª+? Warning: Operators can be slippery to work with
+in the abstract, and you are bound to make mistakes unless you give them a "test
+function", /(x), to act on. At the end you can throw away the test function, and
+you'll be left with an equation involving the operators alone. In the present case, we
+have
+
+           (a_a+Jf(x) =        ~      G! - G!     imwx)              + imwx) /(x)
+                                = _l (~ .!!._ - imwx) (~ df + imwxf)
+                                    2m     z dx                   z dx
+                         2
+           = - 1 [ -ñ 2-d / +ñmw-(xf)-ñmwx-
+                               d         df + (mwx) 2f ]
+               2m           dx 2            dx                    dx
+
+                                = 2~ [     G!)       2
+                                                         + (mwx) 2 +hmw] /(x).
+
+[I usedd(x/)/dx = x(df/dx) +fin the last step.] Discarding the test function, we
+conclude that
+
+                        a_a+ = 2~ [        G!Y+            (mwx) 2]     +  ~hw.                   [2.42]
+
+Evidently Equation 2.40 does not factor perfectly-there's an extra term (l/2)ñw.
+However, if we pull this over to the other side, the Schrodinger equation 11 beco mes
+
+                                                                                                  [2.43]
+
+     Notice that the ordering of the factors ª+ anda_ is important here; the same
+argument, with ª+ on the left, yields
+
+
+                        ª+ª- = - 1
+                               2m
+                                         [(ñ dxd ) + (mwx) - -ñw.
+                                             --:--
+                                             z
+                                                     2
+                                                             1     2]
+                                                                           2
+                                                                                                  [2.44]
+
+
+Thus
+                                                                                                  [2.45]
+
+      11 I'm getting tired of writing "time-independent Schrodinger equation," so when it's clear from the
+context which one I mean, l'11 just call it the Schrodinger equation.
+34   Chap. 2   The Time-Independent Schrodinger Equation
+
+          and the Schrodinger equation can also be written
+
+                                                                                          [2.46]
+
+                Now, here comes the crucial step: I claim that if ,j, satis.fies the Schrodinger
+          equation, with energy E, then ª+ ,j, satis.fies the Schrodinger equation with energy
+          (E+ ñw). Proof:
+
+                                      1                       1
+                              (a+ª- + -ñw)(a+ ,j,) = Ca+ª-ª++ -ñwa+)V,
+                                      2                       2
+                                     l                              l
+                       = a+Cª-ª+ + -ñw),j, = a+[(a_a+ - -ñw),j, + ñw,j,]
+                                   2                    2
+                                = a+(E'lj, +ñwv,) = (E +ñw)(a+v,). QED
+
+          [Notice that whereas the ordering of ª+ and a_ does matter, the ordering of ª± and
+          any constants (such as ñ, w, and E) does not.] By the same token, a_ v, is a solution
+          with energy (E - ñw):
+
+                                          1
+                               (a_a+ -    2   ñw)(a_ ,j,)   = a_(a+ª- - 21ñw),jf
+                                          1
+                        = a_[(a+ª- + 2ñw)v, - ñw,jf] = a_(E'lj, - ñwl/r)
+                                                               = (E -ñw)(a_,jf).
+          Here, then, is a wonderful machine for grinding out new solutions, with higher and
+          lower energies-if we can just find one solution, to get started! We call ª± Iadder
+          operators, because they allow us to climb up and down in energy~ ª+ is called the
+          raising operator, anda_ the lowering operator. The "ladder" of states is illustrated
+          in Figure 2.4.
+                But wait! What if I apply the lowering operator repeatedly? Eventually I'm
+          going to reach a state with energy less than zero, which (according to the general
+          theorem in Problem 2.2) does not exist! At sorne point the machine must fail. How
+          can that happen? We know that a_,¡, is a new solution to the Schrodinger equation,
+          but there is no guarantee that it will be normalizable-it might be zero, or its square
+          integral might be infinite. Problem 2.11 rules out the latter possibility. Conclusion:
+          There must occur a "lowest rung" (let's call it 1/ro) such that
+
+                                                     ª- 1/ro = O.                        [2.47]
+
+          That is to say,
+
+                                      1
+                                    ,J2m,
+                                              (ñi   dv,o  .
+                                                     dx - zmwxv,o
+                                                                  )
+                                                                        = O,
+                                                                  Sec. 2.3: The Harmonic Oscillator       35
+
+
+                          ,,
+                   .t:;        t ª+
+                     ' '
+E+3Aro 1 - - - - - ' - '.....___--1 a!v
+                     1         '
+
+
+
+
+E+2Aro                                      a.;v
+  E+hro                                     B+'lf
+       E t - - - - - - - - - l '11
+  E-Aro                                     a_'lf
+
+
+
+
+                                                    Figure 2.4: The ladder of stationary states
+                                                    for the simple harmonic oscillator.
+
+or
+
+                                                         dv,o         mw
+                                                          dx    = ---¡;-x1/lo.
+This differential equation for v,0 is easy to solve:
+
+              f    d¡o = - ~w                       f   x dx    ==>   In v,0 = - ;   x 2 + constant,
+
+so
+                                                                                                       [2.48]
+To determine the energy of this state, we plug it into the Schrodinger equation (in
+the form of Equation 2.46), Ca+ª-+ (1/2)ñw)1/lo = Eov,0 , and exploit the fact that
+a_ 1/lo = O. Evidently
+                                           1
+                                     Eo = -ñw.                                 [2.49]
+                                           2
+        With our foot now securely planted on the bottom rung 12 (the ground state of
+the quantum oscillator), we simply apply the raising operator to generate the excited
+states 13 :
+
+
+                                   'Yn x) = AnCa+) n e- 2ii"
+                                   .J,. (               mw x2
+                                                              ,        with En= (n + 21)ñw.            [2.50]
+
+
+
+       12Note that there can only be one ladder, because tbe lowest state is uniquely determined by Equation
+2.47. Thus we have in fact obtained ali the (normalizable) solutions.
+        13 In the case of the harmonic oscillator, it is convenient to depart from our usual custom and number
+the states starting with n = O instead of n = 1. Obviously, the lower limit on the sum in equations such
+as Equation 2.14 should be altered accordingly.
+36   Chap. 2   The Ttme-Jndependent Schrodinger Equation
+
+          (This method <loes not immediately determine the normalization factor An; I'll let
+          yo u work that out for yourself in Problem 2.12.) For example,
+
+
+
+
+          which simplifies to
+                                                                                              [2.51]
+          I wouldn't want to calculate 1/Jso in this way, but never mind: We have found all the
+          allowed energies, and in principle we have determined the stationary states-the rest
+          is just computation.
+
+          Problem 2.11 Show that the lowering operator cannot generate a state of infinite
+          norm (i.e., f ¡a_ ljJ 12dx < oo, if 1/J itself is a normalized solution to the Schrodinger
+          equation). What does this tell you in the case 1/J = 1/Jo? Hint: Use integration by
+          parts to show that
+
+
+
+
+          Then invoke the Schródinger equation (Equation 2.46) to obtain
+
+
+
+
+          where E is the energy of the state 1/J.
+
+        **Problem 2.12
+
+           (a) The raising and lowering operators generate new solutions to the Schrodinger
+               equation, but these new solutions are not correctly normalized. Thus ª+ 1/fn
+               is proportional to 1/fn+l, anda_ l/Jn is proportional to 1/fn-I, but we'd like to
+               know the precise proportionality constants. Use integration by parts and the
+               Schródinger equation (Equations 2.43 and 2.46) to show that
+
+                           L:    la+ ifrn 12 dx = (n + 1)/iw,   L:   la- ifrn 12 dx = n/iw,
+
+                and hence (with i 's to keep the wavefunctions real)
+
+                                          ª+ 1/fn = i   J(n + I )ñw 1/ln+I,                   [2.52]
+
+                                            a_ 1/ln = - i ~ 1/ln-1 ·                          [2.53]
+                                           Sec. 2.3: The Harmonic Oscillator         37
+
+  (b) Use Equation 2.52 to determine the normalization constant An in Equation 2.50.
+      (You'll have to normalize 1/fo "by hand".) Answer:
+
+
+                                                                                  [2.54]
+
+
+*Problem 2.13 Using the methods and results of this section,
+
+  (a) Normalize 1/f1 (Equation 2.51) by direct integration. Check your answer against
+      the general formula (Equation 2.54).
+  (b) Find 1/f2, but don't bother to normalize it.
+  (e) Sketch 1/fo, 1/f1, and 1/f2.
+  (d) Check the orthogonality of 1/fo, 1/f1, and 1/f2. Note: If you exploit the evenness
+      and oddness of the functions, there is really only one integral left to evaluate
+      explicitly.
+
+*Problem 2.14 Using the results of Problems 2.12 and 2.13,
+
+  (a) Compute (x), (p), (x 2), and (p 2), for the states 1/fo and 1/f1. Note: In this and
+      most problems involving the harmonic oscillator, it simplifies the notation if
+      you introduce the variable~= ✓mw/ñ x and the constant a= (mw/rrñ) 114 .
+ (b) Check the uncertainty principle for these states.
+  (e) Compute (T) and (V) for these states (no new integration allowed!). Is their
+       sum what you would expect?
+
+
+ 2.3.2 Analytic Method
+
+ We return now to the Schrodinger equation for the harmonic oscillator (Equa-
+ tion 2.39):
+                               ñ2 d 2 1/f  1
+                            - - - + -mw2x 21/f = E1/f.
+                               2m dx 2     2
+ Things look a little cleaner if we introduce the dimensionless variable
+
+                                                                                  [2.55]
+
+ in terms of ~, the Schrodinger equation reads
+
+
+                                                                                  [2.56]
+38   Chap. 2 The Time-Independent Schrodinger Equation
+
+          where K is the energy, in units of (l/2)ñw:
+                                                     2E
+                                                K=-                                                             [2.57]
+                                                   - ñw·
+          Our problem is to solve Equation 2.56, and in the process obtain the "allowed" values
+          of K (and hence of E).
+                To begin with, note that at very large g (which is to say, at very large x), g2
+          completely dominates over the constant K, so in this regime
+                                                        d21/f
+                                                        dg2 ~ g21/f,                                            [2.58]
+
+          which has the approximate solution (check it!)
+                                              1/f(g) ~ Ae-~212 + Be+t 212 .                                     [2.59]
+          The B term is clearly not nonnalizable (it blows up as lxl --+ oo); the physically
+          acceptable solutions, then, have·the asymptotic form
+                                            1/f (g) --+ ( )e-t 212 ,     at large g.                            [2.60]
+          This suggests that we "peel off' the exponential part,
+                                                    1/f (g) = h(~)e-t 212,                                      [2.61]
+          in hopes that what remains [h(g)] has a simpler functional form than 1/f(~) itself. 14
+          Differentiating Equation 2.61, we have
+
+                                                dl/f = (dh - ~h) e-t212
+                                                dg      dg
+          and
+                             d21/f = (d2h - 2g dh + (~2 - l)h) e-t2;2
+                             dg 2      dg 2     dg                    '
+          so the Schrodinger equation (Equation 2.56) becomes
+                                            d 2h      dh
+                                            dg 2 - 2~ d~ + (K - l)h = O.                                        [2.62]
+
+                 I propose to look for a solution to Equation 2.62 in the form of a power series
+          in ~15 :
+                                                                                                                [2.63]
+
+
+                 14 Note that although we invoked sorne approx.imations to motivate Equation 2.61, what follows is
+          exa.ct. The device of stripping off the asymptotic behavior is the standard first step in the power series
+          method for solving differential equations-see, for example, Boas (cited in footnote 8), Chapter 12.
+                 15 According to Taylor's theorem, any reasonably well-behaved function can be expressed as a power
+          series, so Equation 2.63 involves no real loss of generality. For conditions on the applicability ofthe series
+          method, see Boas (cited in footnote 8) or George Arfken, Mathematical Methods for Physicists, 3rd ed.
+          (Orlando, FL: Academic Press, 1985), Section 8.5.
+                                                   Sec. 2.3: The Harmonic Osdllator        39
+
+Differentiating the series term by term,
+
+
+
+
+and
+
+
+
+
+Putting these into Equation 2.62, we find
+                   00
+
+                  L [U+ l)(j + 2)aj+2 - 2}aj + (K - I)aj]
+                  j=O
+                                                                      gÍ   = O.         [2.64]
+
+
+It follows (from the uniqueness of power series expansions 16 ) that the coefficient of
+each power of g must vanish,
+
+
+
+and hence that
+                                            (2} + 1 - K)
+                                                                                        [2.65]
+                                   ªj+ 2 = (j + l)(j + 2) ªj·
+
+       This recursion formula is entirely equivalent to the Schrodinger equation itself.
+Given a0 it enables us (in principle) to generate a2, a4 , a6, ... , and given a I it generates
+a3, as, a1, ... . Let us write
+
+                                                                                        [2.66]
+
+where
+                              heven(g) - ao + a2~ 2 + a4~ 4 + · · ·
+is an even function of g (since it involves only even powers), built on a0 , and
+
+
+
+is an odd function, built on a 1. Thus Equation 2.65 determines h(~) in terms of two
+arbitrary constants (a0 and a 1)-which is just what we would expect, for a second-
+order differential equation.
+       However, not all the solutions so obtained are normalizable. For at very large
+j, the recursion formula becomes (approximately)
+                                                       2
+                                            a·+2
+                                             J   :=::::: -a·
+                                                          • J'
+                                                       J
+
+      16 See, for example, Arfken (footnote 15), Section 5.7.
+40   Chap. 2 The Time•Independent Schrodinger Equation
+
+          with the (approximate) solution
+
+                                                        a-~--
+                                                                   e
+                                                          1     (j/2)!.
+
+          for sorne constant C, and this yields (at large ~, where the higher powers dominate)
+
+                                 h(g) ~ e¿             1 gí ~ e¿ _!_g2k ~ cé2.
+                                                     (J/2)!      k!
+          Now, if h goes like exp(g 2), then v, (remember v,?-that's what we're trying to calcu-
+          late) goes like exp(g 2 /2) (Equation 2.61), which is precisely the asymptotic behavior
+          we don 't want. 17 There is only one way to wiggle out of this: For normalizable solu-
+          tions the power series must terminate. There rnust occur sorne "highest'' j (call it n)
+          such that the recursion formula spits out an+2 = O (this will truncate either the series
+          heven or the series hodd; the other one must be zero from the start). For physically
+          acceptable solutions, then, we must have
+
+                                                         K=2n+ 1,
+          for sorne positive integer n, which is to say (referring to Equation 2.57) that the ene rgy
+          must be of the form
+                                                1
+                                      En = (n + 2)ñw,             for n = O, 1, 2, ....                         [2.67]
+
+          Thus we recover, by a completely different rnethod, the fundamental quantization
+          condition we found algebraically in Equation 2.50.
+                For the allowed values of K, the recursion formula reads
+                                                         -2(n - j)
+                                                                                                                [2.68]
+                                                ª1+2 = (j + l)(j + 2) ªJ·
+          If n = O, there is only one term in the series (we must pick a1 =Oto kill h 00d, and
+          j = O in Equation 2.68 yields a2 = 0):
+
+                                                         ho(~)    = ao,
+          and hence
+                                                     V'o(g) = aoe-t2¡2
+          (which reproduces Equation 2.48). For n = 1 we pick a0 = O, 18 and Equation 2.68
+          with j = 1 yields a3 = O, so
+
+
+                 17 lt's no surprise that the ill•behaved solutions are still contained in Equation 2.65; this recursion
+          relation is equivalent to the Schrodinger equation, so it's got to include both the asymptotic forms we found
+          in Equation 2.59.
+                 18 Note that there is a completely different set of coefficients aj for each value of n.
+                                                   Sec. 2.3: The Harmonic Oscillator                  41
+
+and hence
+                                         1/11 (g) = a I ge-~ 212
+(confirming Equation 2.51). Por n = 2, j = O yields a2 = -2a0 , and j = 2 gives
+a4 = O, so
+
+
+
+and
+
+and so on. (Compare Problem 2.13, where the same result was obtained by algebraic
+means.)
+       In general, hn(g) will be a polynomial of degree nin~, involving even powers
+only, if n is an even integer, and odd powers only, if n is an odd integer. Apart from
+the overall factor (a 0 or a 1 ) they are the so-called Hermite polynomials, Hn (~). 19
+The first few of them are listed in Table 2.1. By tradition, the arbitrary multiplicative
+factor is chosen so that the coefticient of the highest power of g is 2n. With this
+convention, the normalized2º stationary states for the harmonic oscillator are
+
+
+                                                                                                  [2.69]
+
+They are identical (of course) to the ones we obtained algebraically in Equation 2.50.
+In Figure 2.5a I have plotted 1/Jn(x) for the first few n's.
+      The quantum oscillator is strikingly different from its classical counterpart-
+not only are the energies quantized, but the position distributions have sorne bizarre
+features. Por instance, the probability of finding the particle outside the classically
+allowed range (that is, with x greater than the classical amplitude for the energy
+in question) is not zero (see Problem 2.15), and in all odd states the probability of
+
+Table 2.1: Toe first few Hermite polynomials, Hn (x).
+
+ Ho = 1,
+ H1   = 2x,
+ H2 =4x 2 -2,
+
+ H3 = 8x 3 - 12x,
+ H4 = 16x 4 - 48x 2 + 12,
+ Hs = 32x 5 - 160x 3 + l20x.
+
+
+
+
+       19 The Hermite polynomials have been studied extensively in the mathematical literature, and there
+are many tools and triclcs for working with them. A few of these are explored in Problem 2.18.
+       20 1 shall not work out the normalization constant here; if you are interested in knowing how it is
+done, see, for example, Leonard Schiff, Quantum Mechanics, 3rd ed. (New York: McGraw-Hill, 1968),
+Section 13.
+42   Chap. 2   The Time-Independent Schrodinger Equation
+
+
+                                'tlo(X)
+
+
+
+
+                                                   X                              X
+
+
+
+
+                                                   X                              X
+
+
+
+
+                                                       (a)
+
+
+
+
+                    0.20
+
+
+
+                    0.16
+
+
+
+                    0.12
+
+
+
+                    0.06
+
+
+
+
+                                                                                       X
+                                                       (b)
+
+          Figure 2.5: (a) The first four stationary states of the harmonic oscillator.
+          (b) Graph of lt/lrno1 2 , with the classical distribution (dashed curve) superimposed.
+                                                     Sec. 2.3: The Harmonic Oscillator                  43
+
+  finding the particle at the center of the potential well is zero. Only at relatively large
+  n do we begin to see sorne resemblance to the classical case. In Figure 2.5b I have
+  superimposed the classical position distribution on the quantum one (for n = 100); if
+  you smoothed out the bumps in the latter, the two would fit pretty well (however, in
+  the classical case we are talking about the distribution of positions over time for one
+  oscillator, whereas in the quantum case we are talking about the distribution over an
+  ensemble of identically-prepared systems). 21
+
+  Problem 2.15 In the ground state of the harmonic oscillator, what is the probability
+  (correct to three significant digits) of finding the particle outside the classically allowed
+  region? Hint: Look in a math table under "Normal Distribution" or "Error Function".
+
+  Problem 2.16 Use the recursion formula (Equation 2.68) to work out H5(g) and
+  H6(g).
+
+ *Problem 2.17 A particle in the harmonic oscillator potential has the initial wave
+  function
+                                    W(x, O)= A[1/Jo(x) + 1/li(x)]
+  for sorne constant A.
+
+   (a) Normalize W(x, O).
+   (b) Find W(x, t) and IW(x, t)l 2 .
+   (e) Find the expectation value of x as a function of time. Notice that it oscillates
+       sinusoidally. What is the amplitude of the oscillation? What is its (angular)
+       frequency?
+   (d) Use your result in (c) to determine {p). Check that Ehrenfest's theorem holds
+       for this wave function.
+   (e) Referring to Figure 2.5, sketch the graph of 1'111 at t = O, rr /w, 2rr /w, 3rr /w,
+       and 4rr / w. (Your graphs don't have to be fancy-just a rough picture to show
+       the oscillation.)
+
+**Problem 2.18 In this problem we explore sorne of the more useful theorems (stated
+  without proof) involving Hermite polynomials.
+
+   (a) The Rodrigues formula states that
+                                                             1,2   d      1,2
+                                        Hn(g) = (-ltec; (dgte-c;.                                   [2.70]
+
+         Use it to derive H3 and H4.
+
+         21 The analogy is perhaps more telling if you interpret the classical distribution asan ensemble of
+  oscillators all with the same energy, but with random starting times.
+44      Chap. 2   The Time-Independent Schrodinger Equation
+
+              (b) The following recursion relation gives you Hn+l in terms of the two preceding
+                  Hermite polynomials:
+
+                                                                                                   [2.71]
+
+                   Use it, together with your answer to (a), to obtain Hs and H6.
+              (e) If you differentiate an nth-order polynomial, you get a polynomial of order
+                  (n - 1). For the Hermite polynomials, in fact,
+
+                                                   dHn
+                                                   -    = 2nHn~l(~).                               [2.72]
+                                                     d~
+                   Check this, by differentiating Hs and H6.
+              (d) Hn (~) is the nth z-derivative, at z = O, o[ the generating function exp(-z 2 +
+                  2z~); or, to put it another way, it is the coefficient of zn / n ! in the Tay lor series
+                  expansion for this function:
+
+                                                                                                   [2.73]
+
+                   Use this to rederive H0 , H1, and H2.
+
+
+
+     2.4 THE FREE PARTICLE
+             We tum next to what should have been the simplest case of all: the free particle
+             [V (x) = O everywhere]. As you'll see in a moment, the free particle is in fact a
+             surprisingly subtle and tricky example. The time-independent Schrodinger equation
+             reads
+                                                                                                   [2.74]
+             or
+                                                                       ~
+                                                          where k _    ñ .                         [2.75]
+
+             So far, it's the same as inside the infinite square well (Equation 2.17), where the
+             potential is also zero; this time, however, I prefer to write the general solution in
+             exponential form (instead of sines and cosines) far reasons that will appear in due
+             course:
+                                                                                            [2.76]
+             Unlike the infinite square well, there are no boundary conditions to restrict the possible
+             values of k ( and hence of E); the free particle can carry any (positive) energy. Tacking
+             on the standard time dependence, exp(-i Et /ñ ),
+
+                                                                                                   [2.77]
+                                                       Sec. 2.4: The Free Particle      45
+
+      Now, any function of x and t that depends on these variables in the special
+combination (x ± vt) (for sorne constant v) represents a wave of fixed pro file, traveling
+in the =r=x-direction, at speed v. A fixed point on the waveform (for example, a
+maximum ora minimum) corresponds to a fixed value of the argument, and hence to
+x and t such that
+
+                    x ± vt = constant,        or   x = =r=vt + constant,
+
+which is the formula for motion in the =i=x-direction with constant speed v. Since
+every point on the waveform is moving along with the same velocity, its shape doesn't
+change as it propagates. Thus the first term in Equation 2. 77 represents a wave
+traveling to the right, and the second term represents a wave (of the same energy)
+going to the left. By the way, since they only differ by the sign in front of k, we might
+as well write
+                                               .    ñkl
+                                Wk(x, t) = Ae1(kx-2mt)'                             [2.78]
+and let k run negative to cover the case of waves traveling to the left:
+
+                                   'h {k>O=}            travelíng to the right,
+                                  w1t  k < 0⇒                                        [2. 79]
+                                                        traveling to the left.
+
+      The speed of these waves (the coefficient of t over the coefficient of x) is
+
+                                Vquanturn   = ñ JkJ = {E_                            [2.80]
+                                              2m      y;¡;;
+On the other hand, the classical speed of a free particle with energy E is given by
+E = (1/2)m v 2 (pure kinetic, since V = 0), so
+
+
+                                                                                     [2.81]
+
+Evidently the quantum mechanical wave function travels at half the speed of the
+particle it is supposed to represent! We '11 retum to this paradox in a moment-there
+is an even more serious problem we need to confront first: This wave fanction is not
+normalizable! For
+
+                                                                                     [2.82]
+
+In the case of the free particle, then, the separable solutions do not represent physically
+realizable states. A free particle cannot exist in a stationary state; or, to put it another
+way, there is no such thing as a free particle with a definite energy.
+       But that doesn't mean the separable solutions are of no use to us. For they
+play a mathematical role that is entirely independent of their physical interpretation:
+The general solution to the time-dependent Schrodinger equation is still a linear
+46   Chap. 2 The Time-Independent Schrodinger Equation
+
+          combination of separable solutions (only this time it's an integral over the continuous
+          variable k, instead of a sum over the discrete index n):
+
+
+                                                     1 l+oo              . kx u2
+                                      \JJ(x, t) = - -            </>(k)e1< - im t) dk.                     [2.83]
+                                                  ,./2i -oo
+
+          [The quantity 1/ ~ is factored out for convenience; what plays the role of the
+          coefficient en in Equation 2.14 is the combination (1/~)</>(k) dk.] Now this wave
+          function can be normalized [for appropriate </> (k)]. But it necessarily carries a range
+          of k's, and hence a range of energies and speeds. We call ita wave packet.
+                  In the generic quantum problem, we are given \JJ(x, O), and we are to find
+          \JJ(x, t). For a free particle the solution has the form of Equation 2.83; the only
+          remaining question is how to determine </>(k) so as to fit the initial wave function:
+
+                                        \JJ(x, O)=        1
+                                                       ¡;;e
+                                                              l+oo
+                                                                      </>(k)eikx dk.                       [2.84]
+                                                      V 27T     -oo
+
+          This is a classic problem in Fourier analysis; the answer is provided by Plancherel's
+          theorem (see Problem 2.20):
+
+
+             f(x) =      1 l+ooF(k)eikx dk {=:} F(k)= ~
+                         r,c                          1 l+oof(x)e-ikx dx.                                  [2.85]
+                       v 2n     -oo                                   v 2rr     -oo
+
+
+
+          F (k) is called the Fourier transform off(x); f (x) is the inverse Fourier transform
+          of F(k) (the only differen~e is in the sign of the exponent). There is, of course, sorne
+          restriction on the allowable functions: The integrals have to exist. 22 For our purposes
+          this is guaranteed by the physical requirement that \11 (x, O) itself be normalized. So
+          the solution to the generic quantum problem, for the free particle, is Equation 2.83,
+          with
+
+                                                   1 l+oo
+                                       </>(k) =    ~      \JJ(x, O)e-ikx dx.                               [2.86]
+                                                  V 2rr   -oo
+
+
+          I' d love to work out an example for you-starting with a specific function \11 (x, 0)
+          for which we could actually calculate </>(k), and then doing the integral in Equation
+          2.83 to obtain \JJ (x, t) in closed form. Unfortunately, manageable cases are hard to
+
+                 22 The necessary and sufficient condition on /(x) is that   J~ lf(x)l dx be finite. (In that case
+                                                                               00
+                                                                                        2
+
+          J::: IF(k)!2dk is also finite, and in fact the two integrals are equal.) See Arfken (footnote 15), Sec-
+          tion 15.5.
+                                                     Sec. 2.4: The Free Particle          47
+
+come by, and J want to save the best examp]e for you to work out yourself. Be sure,
+therefore, to study Problem 2.22 with particular care.
+        I retum now to the paradox noted earlier-the fact that the separable solution
+\Jlk (x, t) travels at the "wrong" speed for the particle it ostensibly represents. Strictly
+speaking, the problem evaporated when we discovered that \Jlk is not a physically
+achievable state. Nevertheless, it is of interest to discover how information about
+the particle velocity is carried by the wave functíon (Equation 2.83). The essentíal
+idea is this: A wave packet is a sinusoidal function whose amplitude is modulated
+by <jJ (Figure 2.6); it consists of "ripples" contained within an ''envelope." What
+corresponds to the particle velocity is not the speed of the individual ripples (the so-
+called phase velocity), but rather the speed of the envelope (the group velocity)-
+which, depending on the nature of the waves, can be greater than, less than, or equal
+to the velocity of the ripples that go to make it up. For waves on a string, the group
+velocíty is the same as the phase velocity. For water waves it is one half the phase
+velocity, as you may have noticed when you toss a rock into a pond: If you concentrate
+on a particular ripple, you will see it build up from the rear, move forward through
+the group, and fade away at the front, while the group as a whole propagates out at
+half the speed. What I need to show is that for the wave function of a free particle
+in quantum mechanics the group velocity is twice the phase velocity-just right to
+represent the classical particle speed.
+        The problem, then, is to determine the group vc]ocity of a wave packet with the
+general form
+
+                        \Jl(x, t) = -1- f_+oo <jJ(k)e1(kx-c1Jt)
+                                                      .
+                                                                dk.
+                                    J2ir    -CXJ
+
+
+
+[In our case w = (nk 2 /2m ), but what I have to say now applies to any kind of wave
+packet, regardless of its dispersion relation-the formula for w as a function of k.]
+Let us assume that <jJ (k) is narrowly peaked about sorne particular value k0 . [There
+is nothing illegal about a broad spread in k, but such wave packets change shape
+rapidly (since different components travel at different speeds), so the whole notion
+of a "group," with a well-detined velocity, loses its meaning.] Since the integrand
+
+
+
+
+                                      X
+
+
+
+                                            Figure 2.6:   A wave packet. The
+                                            "envelope" travels at the group velocity;
+                                            the "ripples" travel at the phase velocity.
+48   Chap. 2   The Time-lndependent Schrodinger Equation
+
+          is negligible except in the vicinity of ko, we mayas well Taylor-expand the function
+          w(k) about that point and keep only the leading terms:
+
+                                         w(k) rv Wo + w~(k - ko),
+
+          where wb is the derivative of w with respect to k, at the point k0 .
+               Changing variables from k to s = k - k;, to center the integral at k;, we have
+
+                                                     <f.,(ko + s)ei[(ko+s)x-(Wo+w~s)t] ds.
+                                                00
+                         \Jl(x, t) ~    I ¡+
+                                        FL
+                                       v2rr -oo
+          At t = O,
+                               \Jl(x, O)= -1- j+oo <f.,(ko + s)ei(ko+s)x ds,
+                                           v12rr     -00
+
+          and at later times
+
+
+
+
+          Except forthe shift from x to (x -wbt), the integral is the same as the one in \Jl(x, O).
+          Thus
+                                 \Jl(x, t) rv e-i(Wo-kow~)t\Jl(x - wbt, 0).                 [2.87]
+          Apart from the phase factor in front (which won't affect I\Jll 2 in any event), the wave
+          packet evidently moves along at a speed
+
+                                                              dw
+                                                 Vgroup     = dk                             [2.88]
+
+          (evaluated at k = k0 ), which is to be contrasted with the ordinary phase velocity
+                                                              w
+                                                   Vphase   = k•                             [2.89]
+
+          In our case, w = (ñk 2 /2m), so w/ k = (nk/2m), whereas dw/dk = (ñk/m), which
+          is twice as great. This confirms that it is the group velocity of the wave packet, not
+          the phase velocity of the stationary states, that matches the classical particle velocity:
+
+                                         Vctassical = Vgroup = 2Vphase •                     [2.90]
+
+          Problem 2.19 Show that the expressions [Aetkx + Be-ikx], [C cos kx + D sin kx ],
+          [F cos(kx+a)], and [G sin(kx+ /J)] are equivalent ways ofwriting the same function
+          of x, and determine the constants C, D, F, G, a, and fJ in terms of A and B. (In
+          quantum mechanics, with V = O, the exponentials give rise to traveling waves,
+          and are most convenient in discussing the free particle, whereas sines and cosines
+                                                         Sec. 2.4: The Free Particle      49
+
+  correspond to standing waves, which arise naturally in the case of the infinite square
+  well.) Assurne the function is real.
+
+**Problem 2.20 This problern is designed to guide you through a "proof" of Plan-
+  cherel's theorern, by starting with the theory of ordinary Fourier series on a finite
+  interval, and allowing that interval to expand to infinity.
+
+   (a) Dirichlet's theorern says that "any" function f(x) on the interval [-a, +a] can
+       be expanded as a Fourier series:
+                                   00
+
+                          f(x)   = ¿)an sin(nnx/a) + bn cos(mrx/a)].
+                                   n=O
+
+       Show that this can be written equivalently as
+                                                 00
+
+                                        f(x) = L        Cneimrx/a.
+                                                n=-oo
+
+       What is Cn, in terms of an and bn?
+   (b) Show (by appropriate rnodification of Fourier's trick) that
+
+                                  Cn = -1 1+ª f (x)e-inrrx/a
+                                                       •     dx.
+                                       2a -a
+
+   (e) Eliminate n and Cn in favor of the new variables k               (nn/a) and F(k)
+       J2[ii acn, Show that (a) and (b) now becorne
+                      1      00
+                                                                1 ¡_+a        .
+            f(x) = r,:c L    F(k)eikx ók;             F(k)   = r,c     f(x)e-,kx dx,
+                  v2Jr n=-oo                                   ,v2Jr   -a
+
+
+       where ók is the increment in k from one n to the next.
+  (d) Take the lirnit a ➔ oo to obtain Plancherel's theorern. Note: In view of their
+      quite different origins, it is surprising (and delightful) that the two formulas
+      [one for F(k) in terms of f(x), the other for f(x) in terms of F(k)] have such
+      a similar structure in the lirnit a ➔ oo.
+
+  Problem 2.21 Suppose a free particle, which is initially localized in the range
+  -a < x < a, is released at time t = O:
+
+                            "1(x, O)= {    t:    if -a< x < a,
+                                                 otherwise,
+
+  where A anda are positive real constants.
+50   Chap. 2   The Time-lndependent Schrodinger Equation
+
+           (a) Determine A, by normalizing \JI.
+           (b) Determine </J(k) (Equation 2.86).
+           (e) Comment on the behavior of </>(k) for very small and very large values of a.
+               How does this relate to the uncertainty principie?
+
+         *Problem 2.22 A free particle has the initial wave function
+                                               'Y(X, O)=
+                                              111          Ae-ax 2 ,
+
+          where A anda are constants (a is real and positive).
+
+           (a) Normalize \Jl(x, O).
+           (b) Find \Jl(x, t). Hint: Integrals of the form
+
+
+
+
+                can be handled by "completing the square." Let y= Ja[x + (b/2a)], and note
+                that (ax 2 + bx) = / - (b 2 /4a). Answer:
+                                                _(2a)
+                                      \Jl(x, t) -   -
+                                                        1/4 e-ax 2 /f1+(2iñat/m)]
+
+                                                    n        ✓ 1 + (2ihat/m)
+
+           (e) Find I\JI (x, t) 12 . Express your answer in terms of the quantity w =
+                Ja/[1 + (21iat /m ) 2 ]. Sketch I\JI 12 (as a function of x) at t = O, and again
+               for sorne very large t. Qualitatively, what happens to 1\JI 12 as time goes on?
+           (d) Find (x), (p), (x 2 ), (p2 ), ax, and ªP· Partial answer: (p2 ) = añ 2 , but it may
+               take sorne algebra to reduce it to this simple form.
+           (e) Does the uncertainty principie hold? At what time t does the system come
+               closest to the uncertainty limit?
+
+
+
+
+ 2.5 THE DELTA-FUNCTION POTENTIAL
+
+          We have encountered two very different kinds of solutions to the time-independent
+          Schrodinger equation: For the infinite square well and the harmonic oscillator they
+          are normalizable, and labeled by a discrete index n; for the free paticle they are
+          non-normalizable, and labeled by a continuous variable k. The former represent
+          physically realizable states in their own right, the latter do not; but in both cases
+          the general solution to the time-dependent Schrodinger equation is a linear combina-
+          tion of stationary states-for the first type this combination takes the form of a sum
+                                                          Sec. 2.5: The Delta-Function Potential        51
+
+                (over n), whereas for the second it is an integral (over k). What is the physical
+                significance of this distinction?
+                       In classical mechanics a one-dimensional time-independent potential can give
+                rise to two rather different kinds of motion. If V (x) rises higher than the particle 's to-
+                tal energy (E) on either side (Figure 2.7a), then the particle is "stuck" in the potential
+                well-it rocks back and f orth between the tuming points, but it cannot escape (unless,
+
+
+
+
+                                                                              X
+                                          Classical tuming points
+                                                    (a)
+
+
+            V(x)                                                V(x)
+
+
+
+              E------------                                            E
+
+
+
+
+                                                     X                                                   X
+                Classical turning point
+                                                    (b)
+
+                                          V(x)
+
+
+
+
+                                                    Classical tuming points
+
+
+                                                                                  X
+
+                                                    (e)
+
+
+Figure 2.7: (a) A bound state. (b) Scattering states. (e) A dassical bound state,
+but a quantum scattering state.
+52   Chap. 2   The Time-Independent Schrddinger Equation
+
+
+          of course, you provide it with a source of extra energy, such as a motor, but we're
+          not talking about that). We call this a bound state. If, on the other hand, E exceeds
+          V (x) on one side (or both ), then the particle comes in from "infinity", slows down or
+          speeds up under the influence of the potencial, and retums to infinity (Figure 2. 7b ).
+          (lt can't get trapped in the potential unless there is sorne mechanism, such as friction,
+          to dissipate energy, but again, we're not talking about that.) We call this a scattering
+          state. Sorne potentials admit only bound states (forinstance, the harmonic oscillator);
+          sorne allow only scattering states (a potential hill with no dips in it, for example);
+          sorne pennit both kinds, depending on the energy of the particle.
+                 As you have probably guessed, the two kinds of solutions to the Schrodinger
+          equation correspond precisely to bound and scattering states. The distinction is even
+          cleaner in the quantum domain, because the phenomenon of tunneling (which we'll
+          come to shortly) allows the particle to "leak" through any finite potential barrier, so
+          the only thing that matters is the potential at infinity (Figure 2. 7e):
+                                    E< V(-oo) and V(+oo) =>                  bound state,
+                                {                                                                             [2.91]
+                                    E> V(-oo) or V(+oo) =>                   scattering state.
+
+          In "real life" most potentials go to zero at infinity, in which case the criterion simplifies
+          even further:
+                                                         bound state,
+                                       { E< O =>                                                [2.92]
+                                          E> O=> scattering state.
+          Because the infinite square well and harmonic oscillator potentials go to infinity as
+          x ➔ ±oo, they admit bound states only; because the free particle potential is zero
+          everywhere, it only allows scattering states. 23 In this section (and the following one)
+          we shall explore potentials that give rise to both kinds of states.
+               The Dirac delta function, 8(x), is defined informally as follows:
+                                      Ü,
+                             8(x) = { oo,
+                                                  if X # Ü }  •
+                                                  if x = 0 , with
+                                                                          1 -oo
+                                                                                +oo
+                                                                                      8(x) dx = l.            [2.93]
+
+          It is an infinitely high, infinitesimally narrow spike at the origin, whose area is 1
+          (Figure 2.8). Technically, it's not a function at all, since it is not finite at x = O
+          (mathematicians call ita generalized function, or distribution). 24 Nevertheless, it is
+          an extremely useful construct in theoretical physics. (For example, in electrodynam-
+          ics the charge density of a pointcharge is adeltafunction.) Notice that 8(x -a) would
+
+
+                 23 If you are very observant, and awfully fastidious, you may have noticed that the general theorem
+          requiring E > Vmin (Problem 2.2) does not really apply to scattering states, since they are not normalizable
+          anyway. If this bothers you, try solving the Schrodinger equation with E < O, for the free particle, and
+          note that even linear combinations of these solutions cannot be normalized. The positive energy solutions
+          by themselves constitute a complete set.
+                 24 The delta function can be thought of as the limit of a sequence of functions, such as rectangles
+          (or triangles) of ever-increasing height and ever-decreasing width.
+                                        Sec. 2.5: The Delta-Function Potential         53
+
+                      .S(x)
+
+
+
+
+                                               Figure 2.8: The Dirac delta function
+                                         X
+                                               (Equation 2.93).
+
+
+be a spike of are a 1 at the point a. If you multiply 8 (x - a) by an ordinary function
+f(x), it's the same as multiplying by f(a):
+
+                              f(x)8(x - a)= f(a)8(x - a),                          f2.941
+
+because the product is zero anyway except at the point a. In particular,
+
+                +oo                      /_+oc
+             /_-oo f(x)8(x - a) dx = f(a) -oo 8(x - a) dx = f(a).                  [2.95]
+
+That's the most important property of the delta function: Under the integral sign it
+serves to "pick out" the value of f(x) at the point a. (Of course, the integral need
+not go from -oo to +oo; all that matters is that the domain of integration include the
+point a, so a - E to a+ E would do, for any E > O.)
+      Let's considera potential of the form
+
+                                    V(x)     = -a8(x),                             [2.96]
+
+where a is sorne constant. This is an artificial potential (so was the infinite square
+well), but it's beautifully simple and in sorne respects closer to reality than any of the
+potentials we have considered so far. The Schrodinger equation reads
+
+                                 1z2 d21/r
+                              - 2m dx2 - a8(x)ljr = Eljr.                          [2.97]
+
+This potential yields both bound states (E < O) and scattering states (E > O); we'll
+look first at the bound states.
+      In the region x < O, V (x) = O, so
+
+                                                                                   [2.98]
+
+where
+                                             J-2mE
+                                     K=                                            [2.99]
+                                                ñ
+54   Chap. 2   The Time·Independent Schrodinger Equation
+
+          (E is negative, by assumption, so K is real and positive.) Toe general solution to
+          Equation 2.98 is
+                                               v,(x) = Ae-Kx + BeKX,                          [2.100]
+          but the first term blows up as x ➔ -oo, so we must choose A = O:
+
+                                           ,tr(x)   = BeKx,   (x < 0).                        [2.101]
+
+          In the region x > O, V (x) is again zero, and the general solution is of the form
+          F exp(-Kx) + G exp(Kx); this time it's the second term that blows up (as x ➔ +oo),
+          so
+                                    v,(x) = Fe-KX, (x > O).                           [2. 102]
+                  It remains only to stitch these two functions together, using the appropriate
+          boundary conditions at x = O. I quoted earlier the standard boundary conditions
+          for ,tr:
+
+                                   1. v, is always continuous, and
+                                 { 2. dv,/dx is continuous except at points                   [2.103]
+                                      where the potential is infinite.
+
+          In this case the first boundary condition tells us that F = B, so
+
+                                                               (x < O),
+                                                                                              [2.104]
+                                                               (x > O).
+
+          [v,(x) is plotted in Figure 2.9.] The second boundary condition tells us nothing; this
+          is (like the infinite square well) the exceptional case where V is infinite at the join, and
+          it's clear from the graph that this function has a kink at x = O. Moreover, up to this
+          point the delta function has not come into the story at ali. Evidently the delta function
+          must determine the discontinuity in the derivative of v,, at x = O. 1'11 show you now
+          how this works, andas a byproduct we'll see why dv, /dx is ordinarily continuous.
+                 The idea is to integrate the Schrodinger equation, from -E to +E, and then take
+          the limitas E ➔ O:
+
+
+                                      \!f(X)
+
+                                      v'ic
+
+
+
+
+                                                              X
+
+          Figure 2.9: Bound state wave function for the delta function potential (Equation
+          2.104).
+                                               Sec. 2.5: The Delta-Function Potential              55
+
+
+                                                                                               [2.105]
+
+
+The first integral is nothing but d VI/ dx, evaluated at the two end points; the last
+integral is zero, in the limit E ----¿- O, since it's the area of a sliver with vanishing width
+and finite height. Thus
+
+                           6 ( -d1j¡) = -2m1 lim ¡_+E V(x)V1(X) dx.                            [2.106]
+                                dx       ñ- c ➔ O -E
+Ordinarily, the limit on the right is again zero, and hence dV1/dx is continuous.
+But when V (x) is infinite at the boundary, that argument fails. In particular, if
+V(x) = -a8(x), Equation 2.95 yields
+
+
+                                   6 ( -d1f¡) = - 2ma ij;(0).                                  [2.107]
+                                          dx                 ñ
+
+      For the case at hand (Equation 2.104),
+
+                 dV1/dx = -BKe-Kx, for(x > O),                       so d VII d x + = - B K,
+                                                                                  1
+
+             {
+                 dV1/dx = +BKe+KX, for (x < 0),                      sodV1/dxl_ = +BK,
+
+and hence 6(d1f¡/dx) = -2BK. And 1f¡(O) = B. So Equation 2.107 says
+                                                    ma
+                                               K=-1'                                           [2.108]
+                                                     1i-
+and the allowed energy (Equation 2.99) is
+
+                                                                                               [2.109]
+
+Finally, we normalize 1f¡:
+
+                  f_ .
+                     +oo
+                           IV1(x)l 2 dx = 21Bl 2
+                                                    1cc          .
+                                                             e- 2KX dx = -
+                                                                             IBl2
+                                                                                      = 1,
+                   -oo                               O                            K
+
+so (choosing, for convenience, the positive real root):
+
+                                              ~
+                                      B =✓K = -ñ-.                                             [2.110]
+
+Evidently the delta-function well, regardless of its "strength" a, has exactly one bound
+state:
+
+                                    r.;;;:;:;            ?
+                                                                           ma 2
+                           V1(X) = _V_
+                                     rriu_e-malxl/h~;                E= - - - 2 .              [2.111]
+                                      ñ                                     2fz
+56   Chap. 2   The Time-Independent Schrodinger Equation
+
+                    What about scattering states, with E > O? For x < Othe Schrodinger equation
+          reads
+
+
+          where
+                                                k=J2mE                                    [2.112]
+                                                  -       ñ
+          is real and positive. The general solution is
+                                          v,(x) = Aikx + Be-ikx'                          [2.113]
+
+          and this time we cannot rule out either term, since neither of them blows up. Similarly,
+          for x > O,
+                                        v,(x) = Feikx + Ge-tkx.                           [2.114]
+          Toe continuity of v, (x) at x = Orequires that
+
+                                                                                          [2.115]
+
+          The derivatives are
+
+                   dl/.r/dx = ik (F<kx - Ge-~kx), for (x > O),   so dl/.r/dxl+ = ik(F - G),
+               {
+                   dv,/dx = ik (Ae 1kx - Be-ikx), for (x < O),   so dv,/dxl_ = ik(A - B),
+
+          and hence !!l.(dv,/dx) = ik(F - G - A+ B). Meanwhile, v,(O) =(A+ B), so the
+          second boundary condition (Equation 2.107) says
+                                                   2ma
+                                  ik(F-G-A +B) = - y ( A +B),                             [2.116]
+
+          or, more compactly,
+                                                                             ma
+                           F - G = A(l + 2i/3) - B(l - 2i{J),     where /3 = - 2-.        [2.117]
+                                                                             ñk
+                 Having imposed the boundary conditions, we are left with two equations (Equa-
+          tions 2.115 and 2.117) in four unknowns (A, B, F, and G)-jive, if you count k. Nor-
+          malization won't help-this isn't a normalizable state. Perhaps we'd better pause,
+          then, and examine the physical significance of these various constants. Recall that
+          exp(i kx) gives rise [when coupled with the time-dependent factor exp( -i Et /ñ)] to
+          a wave function propagating to the right, and exp(-ikx) leads to a wave propagating
+          to the left. It follows that A (in Equation 2.113) is the amplitude of a wave coming in
+          from the left, B is the amplitude of a wave returning to the left, F (in Equation 2.114)
+          is the amplitude of a wave traveling off to the right, and G is the amplitude of a wave
+          coming in from the right (Figure 2.1 O). In a typical scattering experiment particles
+          are fired in from one direction-let's say, from the left. In that case the amplitude of
+          the wave coming in from the right will be zero:
+                                                Sec. 2.5: The Delta-Function Potential                      57
+
+
+
+      -Aeikx
+
+                             -Feikx
+
+
+
+
+                                            X
+
+
+
+
+                                                  Figure 2.10: Scattering from a
+                                                  delta-function well.
+
+
+                               G = O (for scattering from the left).                                  [2.118]
+A is then the amplitude of the incident wave, B is the amplitude of the reflected
+wave, and F is the amplitude ofthe transmitted wave. Solving Equations 2.115 and
+2.117 for B and F, we find
+                                      ifJ                      1
+                                  B=--A,                  F=--A.                                      [2.119]
+                                    1 - ifJ                 1 - ifJ
+(If you want to study scattering from the right, set A                    = O; then G is the incident
+amplitude, F is the reflected amplitude, and Bis the transmitted amplitude.)
+          Now, the probability of finding the particle ata specified location is given by
+l\111 2 , so the relative25 probability that an incident particle will be reflected back is
+                                                 IBl 2         /J 2                                   (2.120]
+                                         R=-=--
+                                          IA12 l+fJ2·
+ R is called the reflection coefficient. (If you have a beam of particles, it tells you the
+fraction of the incoming number that will bounce back.) Meanwhile, the probability
+of transmission is given by the transmission coefficient
+                                                 IFl 2          1
+                                         T=-=--                                                       [2.121]
+                                          IAl 2 l+fJ 2 •
+Of course, the sum of these probabilities should be 1-and it is:
+
+                                                R+T=l.                                                [2.122]
+Notice that R and Tare functions of fJ, and hence (Equations 2.112 and 2.117) of E:
+
+                                1                                 1
+                      R=------,                           T=-----.                                    [2.123]
+                       1 + (2ñ 2 E/ma 2 )                  1 + (ma 2 /2ñ 2 E)
+
+
+       25 This is not a normalizable wave function, so the absolute probability of finding the particle at a
+particular location is not well defined; nevertheless, the ratio of probabilities for two different locations is
+meaningful. More on this in the next paragraph.
+58   Chap. 2   The Time-Independent Schrodinger Equatian
+
+          The higher the energy, the greater the probability of transmission (which seems rea-
+          sonable).
+                  This is all very tidy, but there is a sticky matter of principie that we cannot al-
+          together ignore: These scattering wave functions are not normalizable, so they don't
+          actually represent possible particle states. But we know what the resolution to this
+          problem is: We must form normalizable linear combinations of the stationary states,
+          just as we did f or the free particle-true physical particles are represented by the
+          resulting wave packets. Though straightforward in principle, this is a messy busi-
+          ness in practice, and at this point it is best to tum the problem over to a computer. 26
+          Meanwhile, since it is impossible to create a normalizable free particle wave function
+          without involving a range of energies, R and T should be interpreted as the approxi-
+          mate reflection and transmission probabilities for particles in a narrow energy range
+          about E. Incidentally, it might strike you as peculiar that we were able to analyse a
+          quintessentially time-dependent problem (particle comes in, scatters off a potential,
+          and flies off to infinity) using stationary states. After all, 1{! (in Equations 2.113 and
+          2.114) is simply a complex, time-independent, sinusoidal function, extending (with
+          constant amplitude) to infinity in both directions. And yet, by imposing appropriate
+          boundary conditions on this function, we were able to determine the probability that a
+          particle (represented by a localized wave packet) would bounce off, or pass through,
+          the potential. The mathematical miracle behind this is, I suppose, the fact that by
+          taking linear combinations of states spread over all space, and with essentially triv-
+          ial time dependence, we can construct wave functions that are concentrated about a
+          (moving) point, with quite elaborate behavior in time (see Problem 2.40).
+                  As long as we've got the relevant equations on the table, let's look briefly at
+          the case of a delta-function barrier (Figure 2.11 ). Formally, all we have to do is
+          change the sign of a. This kills the bound state, of course (see Problem 2.2). On
+          the other hand, the reflection and transmission coefficients, which depend only on
+          a 2 , are unchanged. Strange to say, the particle is just as likely to pass through the
+          barrieras to cross over the well! Classically, of course, the particle could not make
+          it over an infinitely high barrier, regardless of its energy. In fact, the classical scattering
+
+                                V(x) = ao(x)
+
+
+
+
+                                                  X
+                                                        Figure 2.11:      The delta-function barrier.
+
+                26 There exist sorne powerful programs for analysing the scattering of a wave pack:et from a one-
+          dimensional potential; see, for instance, A. Goldberg, H. M. Schey, and J. L. Schwartz, Am. J. Phys. 35,
+          177 (1967).
+                                         Sec. 2.5: The Delta-Function Potential        59
+
+ problem is pretty dull: If E > Vmax, then T = I and R = 0-the particle certainly
+ makes it over; conversely, if E < Vmax, then T = O and R = 1-it rides "up the
+ hill" until it runs out of energy, and then returns the same way it carne. The quantum
+ scattering problem is much richer; the particle has sorne nonzero probability of passing
+ through the potential even if E < Vmax• We call this phenomenon tunneling; it is
+ the mechanism that makes possible much of modem electronics-not to mention
+ spectacular recent advances in microscopy. Conversely, even if E > Vmax, there is a
+ possibility that the particle will bounce back-though I wouldn't advise driving off a
+ cliff in the expectation that quantum mechanics will save you (see Problem 2.41).
+ Problem 2.2 3 Evaluate the following integrals:
+
+  (a) J~1(x 3 - 3x 2 + 2x - l)S(x + 2) dx
+  (b)   f0 [cos(3x) + 2]S(x - 7l') dx
+         00
+
+
+  (e)   J~.1 exp(lxl + 3)S(x - 2) dx.
+ Problem 2.24 Two expressions [D 1 (x) and D2(x)] involving delta functions are
+ said to be equal if
+
+                      t::    f(x)D,(x)dx =       ¡:  00
+                                                          f(x)lJi(x)dx,
+
+ for any (ordinary) function f(x).
+
+  (a) Show that
+                                                    1
+                                        S(cx) = -S(x),                            [2.124]
+                                                   lcl
+        where e is a real constant.
+  (b) Let 0(x) be the step function:
+
+                                      0(x)   ={~: ifif > 0.0,
+                                                          X
+                                                          X<
+                                                                                  [2.125]
+
+        [In the rare case where it actually matters, we define 0(0) to be 1/2.] Show that
+        d0/dx = S(x).
+
+*Problem 2.2 5 What is the Fourier transform of tS (x)? U sing Plancherel' s theorem,
+ show that
+                           S(x) = -1 1+00 ikx dk.                              [2.126]
+                                         2rr _00
+ Comment: This formula gives any respectable mathematician apoplexy. Although
+ the integral is clearly infinite when x = O, it doesn't converge (to zero or anything
+ else) when x =fa O, since the integrand oscillates forever. There are ways to patch it up
+60   Chap. 2   The Time-lndependent Schrodinger Equation
+
+          (for instance, you can integrate from - L to +L, and interpret the integral in Equation
+          2.126 to mean the average value of the finite integral, as L ~ oo ). The source of the
+          problem is that the delta function doesn't meet the requirement (square integrability)
+          for Plancherel's theorem (see footnote 22). In spite of this, Equation 2.126 can be
+          extremely useful, if handled with care.
+
+         *Problem 2.26 Consider the double delta-function potential
+
+                                       V(x) = -a[8(x +a)+ 8(x - a)],
+
+          where a anda are positive constants.
+
+           (a) Sketch this potential.
+           (b) How many bound states <loes it possess? Find the allowed energies, for a =
+               ñ 2 /ma and for a = ñ 2 /4ma, and sketch the wave functions.
+
+        **Problem 2.27 Find the transmission coefficient for the potential in Problem 2.26.
+
+
+
+
+ 2.6 THE FINITE SQUARE WELL
+          As a last example, consider the finite square well
+
+                                       V(x) = {-Vo,
+                                                        for -a < x < a,
+                                                                                           [2.127]
+                                               O,       forlxl>a,
+
+          where Vo is a (positive) constant (Figure 2.12). Like the delta-function well, the finite
+          square well admits both bound states (with E < 0) and scattering states (with E > 0).
+          We'll look first at the bound states.
+                In the region x < -a the potential is zero, so the Schrodinger equation reads
+
+
+
+
+                             ,, V(x)
+
+
+
+                 -a                        a
+                                                    X
+
+
+
+
+                                                        Figure 2.12: The finite square well
+                                                        (Equation 2.12 7).
+                                                Sec. 2.6: The Finite Square Well       61
+
+where
+                                              ✓ -2mE
+                                        K=---                                      (2.128]
+                                                 1z
+is real and positive. The general solution is v,(x) = Aexp(-Kx) + Bexp(Kx), but
+the first term blows up (as x ➔ -oo), so the physically admissable solution (as
+before-see Equation 2.101) is
+                           lf,(x) = BeKx,        for (x < -a).                     (2.129]
+
+In the region -a < x < a, V(x) = -V0 , and the Schrodinger equation reads
+                    1z2 d2v,
+                   - - - - - Vol/!= El/!,               or d2v, = -/2•lr
+                    2m dx 2                                dx 2       y,'
+
+where
+                                    l   =✓2m (E+ Vo).                              (2.130]
+                                                ñ
+Although E is negative, for a bound state, it must be greater than -Vo, by the old
+theorem E > Vmin (Problem 2.2); so l is also real and positive. Toe general solution
+IS
+                lf,(x) = C sin(/x) + Dcos(/x),            for (-a< x < a),         (2.131]
+where C and D are arbitrary constants. Finally, in the region x > a the potential is
+again zero; the general solution is v,(x) = F exp(-Kx) + G exp(Kx), but the second
+term blows up (as x ➔ oo ), so we are left with
+
+                            v,(x)   = Fe-Kx,          for (x > a).                 (2.132]
+
+      The next step is to impose boundary conditions: v, and dlf,/dx continuous at
+-a and +a. But we can save a little time by noting that this potential is an even
+function, so we can assume with no loss of generality that the solutions are either
+even or odd (Problem 2.lc). The advantage of this is that we need only impose the
+boundary conditions on one side (say, at +a); the other side is then automatic, since
+v,(-x) = ±lf,(x). 1'11 work out the even solutions; you get to do the odd ones in
+Problem 2.28. The cosine is even (and the sine is odd), so I'm looking for solutions
+ofthe form
+                                             for (x > a),
+                     l/l(x) = { ~ec:sxÚx), for (O < x < a),                  (2.133]
+                                l/1(-x),     for (x < 0).
+The continuity of v,(x), atx = a, says
+
+                                    Fe-Kª   = Dcos(la),                            [2.134]
+
+and the continuity of d v, / dx says
+
+                               -    K Fe-Kª   = -ID sin(la).                       [2.135]
+62   Chap. 2   The Time-lndependent Schrodinger Equation
+
+          Dividing Equation 2.135 by Equation 2.134, we find that
+
+                                                K   = l tan(la).                                         [2.136]
+
+                Equation 2.136 is a formula for the allowed energies, since K and l are both
+          functions of E. To solve for E, it pays to adopt sorne nicer notation. Let
+
+                                      z = la,       and zo = ª J2mVo.                                    [2.137]
+                                                                  ñ
+
+          According to Equations 2.128 and 2.130,    + /2 ) = 2mV /h
+                                                        ( K
+                                                              2
+
+
+                                                                              0
+                                                                                  2
+
+
+                                                                                      ,   so   K a =   Jz5 - z   2
+
+                                                                                                                     ,
+
+
+
+
+          and Equation 2.136 reads
+                                                     J(
+                                       tan z = zo / z) 2 - 1.                                            [2.138]
+          This is a transcendental equation for z (and hence for E) as a function of zo (which is
+          a measure of the "size" of the well). It can be solved numerically, using a calculator
+          ora computer, or graphically, by plotting tan z and J (zo/z) 2 - 1 on the same grid,
+          and looking for points of intersection (see Figure 2.13). Two limiting cases are of
+          special interest:
+                l. Wide, deep well. If zo is very large, the intersections occur just slightly
+          below Zn = nn /2, with n odd; it follows that
+                                                         n2n21z2
+                                           En+ Vo ,. ._, 2m(2a)2.                                        [2.139]
+
+          Here (E + V0 ) is the energy above the bottom of the well, and on the right we have
+          precisely the infinite square well energies, for a well ofwidth 2a (see Equation 2.23)-
+          or rather, half of them, since n is odd. (The other ones, of course, come from the odd
+          wave functions, as you'll find in Problem 2.28.) So the finite square well goes over to
+          the infinite square well, as V0 ---+ oo; however, for any finite V0 there are only finitely
+          many bound states.
+                 2. Shallow, narrow well. As zo decreases, there are fewer and fewer bound
+          states, until finally (for zo < rr /2, where the lowest odd state disappears) only one
+          remains. lt is interesting to note, however, that there is always one bound state, no
+          matter how "weak" the well becomes.
+                 You're welcome to normalize l/1 (Equation 2.133), if you're interested (see
+          Problem 2.29), but I'm going to move on now to the scattering states (E > 0). To the
+          left, where V(x) = O, we have
+                                l/J(x) = Aeikx + Be-ikx,          for (x < -a),                          [2.140]
+
+          where (as usual)
+                                                   J2mE
+                                                k=   h  •                                                [2.141]
+
+          Inside the well, where V (x) = -V0 ,
+
+                          l/J(x) = Csin(/x) + Dcos(lx),               for (-a< x < a),                   [2.142]
+                                                    Sec. 2.6: The Finite Square Well            63
+
+
+
+
+             rt/2           1t          3rt/2            2rt          5rt/2    z
+Figure 2.13:    Graphical solution to Equation 2.138, for zo = 8 (even states).
+
+
+where, as before,
+                                      l = ✓2m(E + Vo)                                      [2.143]
+                                        -           ñ            •
+To the right, assuming there is no incoming wave in this region, we have
+
+                                                                                           [2.144]
+
+A is the incident amplitude, B is the reflected amplitude, and F is the transmitted
+amplitude. 27
+      There are four boundary conditions: Continuity of v, (x) at -a says
+
+                        Ae-ika + Beika       = -C sin(la) + D cos(la),                     (2.145]
+
+continuity of d-¡/,/dx at -a gives
+
+                     ik[Ae-ika - Beika]         = l[C cos(la) + D sin(la)],                [2.146]
+
+continuity of l/,(x) at +a yields
+
+                                 C sin(/a) + D cos(la)         = Feika,                    [2.147]
+
+and continuity of d 1/1 / dx at +a requires
+
+                            l[C cos(la) - D sin(/a)] = ikFeika.                            [2.148]
+
+We can use two of these to eliminate C and D, and solve the remaining two for B
+and F (see Problem 2.31):
+                                            sin(2/a)
+                                   B =i       2kt      (/2 - k2)F,                         [2.149]
+
+
+       27 We could use even and odd functions, as we did for bound states, but these would represent
+standing waves, and the scattering problem is more naturally formulated in terms of traveling waves.
+64   Chap. 2       The Time-Independent Schrodinger Equation
+
+
+               T
+
+               1
+
+
+
+
+                                                              E
+
+          Figure 2.14: Transmission coefficient as a function of energy (Equation 2.1S1).
+
+
+
+                                     F   = cos(2la) - i siniffª) (k2 + !2).             (2. 150]
+
+          The transmission coefficient (T = IF1 2 /IAl 2 ), expressed in terms of the original
+          variables, is given by
+
+
+                                                    sin2 (2ª
+                                                          -¡:-J2m(E + Vo) ) .
+                                              2
+                                           . v0
+                             r- 1 = 1 + 4E(E                                            [2.151]
+                                              + Vo)        n
+
+          Notice that T = I (the well becomes "transparent") whenever the argument of the
+          sine is zero, which is to say, for
+                                          2a - - - - -
+                                          -:¡;J2m(En + Vo)        = nn,                 [2.152]
+
+          where n is any integer. The energies for perfect transmission, then, are given by
+
+                                                                                        [2.153]
+
+          which happen to be precisely the allowed energies for the infinite square well. T is
+          plotted in Figure 2.14 as a function of energy.
+         *Problem 2.28 Analyze the odd bound-state wave functions for the finite square
+          well. Derive the transcendental equation for the allowed energies, and solve it graph-
+          ically. Examine the two limiting cases. Is there always at least one odd bound state?
+
+          Problem 2.29 Normalize v,(x) in Equation 2.133 to determine the constants D
+          and F.
+
+          Problem 2.30 The Dirac delta function can be thought of as the limiting case of
+          a rectangle of area 1, as the height goes to infinity and the width goes to zero. Show
+          that the delta-function well (Equation 2.96) is a "weak" potential (even though it is
+                                                    Sec. 2.6: The Finite Square Well           65
+
+  infinitely deep), in the sense that z0 ---+ O. Determine the bound-state energy for
+  the delta-function potential, by treating itas the limit of a finite square well. Check
+  that your answer is consistent with Equation 2.111. Also show that Equation 2.151
+  reduces to Equation 2.123 in the appropriate limit.
+
+ *Problem 2.31 Derive Equations 2.149 and 2.150. Hint: Use Equations 2.147 and
+  2.148 to solve for C and D in terms of F:
+
+        C   = [sin(la) + i ; cos(la)] i'ª F; D = [cos(la) - i; sin(/a)] e;ka F.
+  Plug these back into Equations 2.145 and 2.146. Obtain the transmission coeffi-
+  cient, and confirm Eqation 2.151. Work out the reflection coefficient, and check that
+  T+R=l.
+**Problem 2.32 Determine the transmission coefficient for a rectangular barrier
+  (same as Equation 2.127, only with +Vo in theregion -a < x < a). Treat separately
+  the three cases E < V0 , E= Vo, and E > Vo (note that the wave function inside the
+  barrier is different in the three cases). Partial answer: For E < Vo, 28
+
+                                  vJ
+                   r- 1 = 1 + ---'---Sinh   - ✓ 2m(Vo - E) ) .
+                                         2 (2ª
+                                 4E(Vo - E)                  ñ
+
+**Problem 2.33 Consider the step function potential:
+
+                                    V (x)   = {0,      ~f x < 0,
+                                                V0 ,   1f x > O.
+
+   (a) Calculate the reflection coefficient, for the case E < V0 , and comment on the
+       answer.
+   (b) Calculate the reffection coefficient for the case E > V0 .
+   (e) For a potential such as this that does not go back to zero to the right of the
+       barrier, the transmission coefficient is not simply IFI 2/ 1A ¡2, with A the incident
+       amplitude and F the transmitted amplitude, because the transmitted wave travels
+       at a different speed. Show that
+
+                                         T = ✓E            Vo IF1 2                        [2.154]
+                                                       E         IAl 2 '
+       for E> V0 . Hint: YoucanfigureitoutusingEquation2.81,or-moreelegantly,
+       but less informatively-from the probability current (Problem 1.9a). What is T
+       for E< Vo?
+
+       28 This is a good example oftunneling-classically the particle would bounce back.
+66     Chap. 2   The Time-Independent Schrodinger Equation
+
+             (d) For E > Vo, calculate the transmission coefficient for the step potential, and
+                 check that T + R = I.
+
+
+
+     2.7 THE SCATTERING MATRIX
+            The theory of scattering generalizes in a pretty obvious way to arbitrary localized
+            potentials (Figure 2.15). To the left (Region 1), V (x) = O, so
+
+                                                                                    ~
+                                                                   where k =        ñ .                  [2.155]
+
+            To the right (Region 111), V (x) is again zero, so
+
+                                                                                                         [2,156]
+
+            In between (Region 11), of course, 1 can't tell you what 1/J is until you specify the
+            potential, but because the Schrodinger equation is a linear, second-order differential
+            equation, the general solution has got to be of the form
+
+                                               1/J(x) = Cf(x) + Dg(x),                                   [2.157]
+
+            where f(x) and g(x) are any two linearly independent particular solutions. 29 There
+            will be four boundary conditions (two joining Regions I and 11, and two joining
+            Regions II and 111). Two of these can be used to eliminate C and D, and the other two
+            can be "solved" for B and F in terms of A and G:
+
+                                     B = S11A + S12G,           F = S21A + S2,2G.                        [2.158]
+
+                  The four coefficients Sij, which depend on k (and hence on E), constitute a
+            2 x 2 matrix
+                       V(x)
+
+
+                                                                           Feikx
+
+                                                                           Ge-ikx
+
+                                                                                         X
+
+
+                    Region I                  Region 11                 Region 111
+
+            Figure 2.15: Scattering from an arbitrary localized potential {V(x) = O except in
+            Region 11].
+
+                  29 See any book on differential equations-for example, J. L. Van Iwaarden, Ordinary Differential
+            Equations with Numerical Techniques (San Diego, CA: Harcourt Brace Jovanovich, 1985). Chapter 3.
+                                                Sec. 2. 7: The Scattering Matrix       67
+
+                                   S = (Sll                                        [2.159]
+                                          S21
+
+called the scattering matrix (or S-matrix, for short). The S-matrix tells you the
+outgoing amplitudes (B and F) in terms of the incoming amplitudes (A and G):
+
+                                                                                   [2.160]
+
+In the typical case of scattering from the left, G = O, so the reflection and transmission
+coefficients are
+
+                                                      IFl 2          2
+                                                                                   [2.161]
+                                                Tz = -    21  = 1S2il .
+                                                      IAI G=O
+Por scattering from the right, A = O, and
+
+                       lp¡2
+                R--1          -¡s¡2
+                r - 1G12 A =0 -  22 '
+                                                                                   [2.162]
+
+      The S-matrix tells you everything there is to know about scattering from a local-
+ized potential. Surprisingly, it also contains (albeit in a concealed form) information
+about the bound states (if there are any). Por if E < O, then 1/f (x) has the form
+                                B eKX                    (Region I),
+                              {
+                      1/f(x) = Cf(x) + Dg(x)             (Region II),              [2.163]
+                                 Fe-Kx                   (Region III),
+
+with
+                                         J-2mE
+                                    K=                                         [2.164]
+                                             ñ
+The boundary conditions are the same as before, so the S-matrix has the same
+structure-only now E is negative, so k ➔ iK. But this time A and G are nec-
+essarily zero, whereas B and F are not, and hence (Equation 2.158) at least two
+elements in the S-matrix must be infinite. To put it the other way around, if you've
+got the S-matrix (for E > O), and you want to locate the bound states, put in k ➔ iK,
+and look for energies at which the S-matrix blows up.
+      Por example, in the case of the finite square well,
+
+
+
+
+(Equation 2.150). Substituting k ➔ iK, we see that S2 1 blows up whenever
+                                                /2 _ K2
+                                 cot(2/a) =             .
+                                                  2K 1
+68   Chap. 2   The Time-Independent Schrodinger Equation
+
+          Using the trigonometric identity
+
+                                   tan(~)= ±JI+ cot 0 -cot0,  2
+
+
+          we obtain
+
+                      tan(la) = ~ (plus sign), and cot(la) = - ; (minus sign).
+
+          These are precisely the conditions for bound states of the finite square well (Equation
+          2.136 and Problem 2.28).
+
+
+         *Problem 2.34 Construct the S-matrix for scattering from a delta-function well
+          (Equation 2.96). Use it to obtain the bound state energy, and check your answer
+          against Equation 2.111.
+
+          Problem 2.3 5 Find the S-matrix for the finite square well (Equation 2.127). Hínt:
+          This requires no new work if you carefully exploit the symmetry of the problem.
+
+
+
+ FURTHER PROBLEMS FOR CHAPTER 2
+          Problem 2.36 A particle in the infinite square well (Equation 2.15) has the initial
+          wave function
+                                        'll(x, O)   = A sin\nx/a).
+          Find (x} as a function of time.
+
+         *Problem 2.37 Find (x), (p), (x 2 ), (p2 ), (T), and (V(x)) for the nth stationary
+          state of the harmonic oscillator. Check that the uncertainty principie is satisfied.
+          Hínt: Express x and (ñ/i)(d/dx) in terms of (a+ ±a_), and use Equations 2.52 and
+          2.53; you may assume that the states are orthogonal.
+
+          Problem 2.38 Find the allowed energies of the half-harmonic oscillator
+                                 V(x)   = { (l/2)mll>2x 2 ,   for(x > O),
+                                             oo,              for (x < O).
+          (This represents, for example, a spring that can be stretched, but not compressed.)
+          Hint: This requires sorne careful thought, but very little actual computation.
+
+        **Problem 2.39 Solve the time-independent Schrodinger equation for an infinite
+          square well with a delta-function barrier at the center:
+
+                                V(x)   = {a8(x),      for(-a < x < +a),
+                                            oo,       for (lx 1 > a).
+                                                         Further Problems far Chapter 2                    69
+
+  Treat the even and odd wave functions separately. Don't bother to normalize them.
+  Find the allowed energies (graphically, if necessary). How do they compare with the
+  corresponding energies in the absence of the delta function? Comment on the limiting
+  cases a ➔ O and a ➔ oo.
+
+**Problem 2.40 In Problem 2.22 you analyzed the stationary Gaussian free particle
+  wave packet. Now solve the same problem for the traveling Gaussian wave packet,
+  starting with the initial wave function
+
+                                          \JI (x, O) = Ae-ax2 eilx,
+
+  where l is a real constant.
+
+  Problem 2.41 A particle of mass m and kinetic energy E > O approaches an
+  abrupt potential drop Vo (Figure 2.16).
+
+   (a) What is the probability that it will "reflect" back, if E = Vo/3'?
+   (b) I drew the figure so as to make you think of a car approaching a clíff, but
+       obviously the probability of "bouncing back" from the edge of a cliff is far
+       smaller than what you got in (a)-unless you're Bugs Bunny. Explain why this
+       potential does not correctly represent a cliff.
+
+  Problem 2.42 If two (or more) distinct30 solutions to the (time-independent) Schro-
+  dinger equation have the same energy E, these states are said to be degenerate. For
+  example, the free particle states are doubly degenerate-one solution representing
+  motion to the right, and the other motion to the left. But we have encountered no
+
+
+                               V(x)
+
+
+
+
+                                                                                   X
+
+
+
+
+                        -~,__   _____________
+  Figure 2.16: Scattering from a "cliff" (Problem 2.41).
+
+
+         3ºIf the two solutions differ only by a multiplicative constant (so that, once normalized, they differ
+  only by a phase factor eief>), they represent the same physical state. and in this case they are not distinct
+  solutions. Technically, by ''distinct" I mean "linearly independent."
+70   Chap. 2 The Time-Independent Schródinger Equation
+
+          normalizable degenerate solutions, and this is not an accident. Prove the following
+          theorem: In one dimension31 there are no degenerate bound states. Hint: Suppose
+          there are two solutions, 1/f1 and 1/f2, with the same energy E. Multiply the Schrodinger
+          equation for 1/f1 by ,ff2 , and the Schrodinger equation for 1/12 by 1/f1, and subtract, to
+          show that (1/f2d 1/f 1/ dx - 1/f1 d 1/12/dx) is a constant. Use the fact that for normalizable
+          solutions ,ff ~ O at ±oo to demonstrate that this constant is in fact zero. Conclude
+          that ,ff2 is a multiple of 1/f1, and hence that the two solutions are not distinct.
+
+          Problem 2.43 Imagine a bead of mass m that slides frictionlessly around a circular
+          wire ring of circumference a. [This is just like a free particle, except that ,ff (x) =
+          ,ff (x + a).] Find the stationary states (with appropriate normalization) and the cor-
+          responding allowed energies. Note that there are two independent solutions for each
+          energy En-corresponding to clockwise and counterclockwise circulation; call them
+          ,ff;¡(x) and ,ff;;(x). How do you account for this degeneracy, in view of the theorem
+          in Problem 2.42-that is, why does the theorem fail in this case?
+
+        **Problem 2.44 (Attention: This is a strictly qualitative problem-no calculations
+          allowed!) Consider the "double square well" potential (Figure 2.17). Suppose the
+          depth V0 and the width a are fixed, and great enough so that several bound states
+          occur.
+
+           (a) Sketch the ground-state wave function 1/f1 and the first excited state 1/f2, (i) for
+               the case b = O, (ii) for b ~ a, and (iii) for b >> a.
+           (b) Qualitatively, how do the corresponding energies (E 1 and E 2 ) vary, as b goes
+               from O to oo? Sketch E 1(b) and E2(b) on the same graph.
+           (e) The double well is a very primitive one-dimensional model for the potential
+                 experienced by an electron in a diatomic molecule (the two wells represent the
+                 attractive force of the nuclei). If the nuclei are free to move, they will adopt the
+                 configuration of minimum energy. In view of your conclusions in (b ), does the
+                 electron tend to draw the nuclei together, or push them apart? (Of course, there
+                 is also the intemuclear repulsion to consider, but that's a separate problem.)
+
+
+       ***Problem 2.45
+
+           (a) Show that
+
+
+
+
+                 31 In higher dimensions such degeneracy is very common, as we shall see in Chapter 4. Assume that
+          the potential does not consist of isolated pieces separated by regions where V = oo-two isolated infinite
+          square wells, for instance, would give rise to degenerate bound states, for which the particle is either in the
+          one or in the other.
+                                                    Further Problems for Chapter 2                 71
+
+                              ,~ V(x)
+
+
+
+
+                a                   b           a
+                                           ,,
+
+                                                              -
+                                                              ~
+
+
+
+
+                                                              X
+
+
+
+
+                               >-   -V.o
+
+
+Figure 2.17: The double square well (Problem 2.44).
+
+      satisfies the time-dependent Schrodinger equation for the harmonic oscillator
+      potential (Equation 2.38). Here a is any real constant (with the dimensions of
+      length). 32
+ (b) Find l '11 (x, t) 12, and describe the motion of the wave packet.
+ (e) Compute {x) and (p), and check that Ehrenfest's theorem (Equation 1.38) is
+     satisfied.
+
+Problem 2.46 Consider the potential
+                                                            if X < 0,
+                               V(x) = {:;•(x - a),          if X> O,
+where a anda are positive real constants with the appropriate units (see Figure 2.18).
+A particle starts out in the "well" (O < x < a), but because of tunneling its wave
+function gradually "leaks" out through the delta-function barrier.
+
+ (a) Solve the (time-independent) Schrodinger equation for this potential; impose
+     appropriate boundary conditions, and determine the "energy", E. (An implicit
+     equation will do.)
+ (b) I put the word "energy'' in quotes because you'll notice that it is a complex
+     number! How do you account for this, in view of the theorem you proved in
+     Problem 2.la?
+ (e) Writing E       = Eo + tr (with Eo and r real), calculate (in terms of r) the
+      characteristic time it takes the particle to leak out of the well (that is, the time it
+      takes before the probability is 1/e that it's still in the region O< x < a).
+
+
+       32 This rare example of an exact closed-form solution to the time-dependent Schrodinger equation
+was discovered by Schrodinger himself, in 1926.
+72   Chap. 2 The Tíme-Independent Schrodinger Equation
+
+              V(x)
+
+
+
+
+                                            a                          X
+
+          Figure 2.18: The potential for Problem 2.46.
+
+
+        **Problem 2.47 Consider the moving delta-function well:
+                                            V (x, t)   = -a8(x - vt),
+          where vis the (constant) velocity of the well.
+
+           (a) Show that the time-dependent Schrodinger equation admits the exact solution
+
+                            'V (x, t) = ...fina e-malx-vtl/ñ 2 e-i[(E+(l/2)mv 2 )t-mvx]/n,
+                                           ñ
+               where E  =  -ma 2 /Ví 2 is the bound-stateenergy of thestationarydeltafunction.
+               Hint: Plug it in and check it! Use Problem 2.24b.
+           (b) Find the expectation value of the Hamiltonian in this state, and comment on the
+               result.
+
+       ***Problem 2.48 Consider the potential
+                                                        ñ2a2
+                                            V(x)   = --sech2 (ax),
+                                                          m
+          where a is a positive constant and "sech" stands for the hyperbolic secant.
+
+           (a) Show that this potential has the bound state
+
+                                                   '1/fo(x) = A sech(ax),
+
+               and find its energy. Normalize 1/lo, and sketch its graph.
+           (b) Show that the function
+
+                                      ,Ir
+                                      1rdx)     = A (ik- l'ka tanh(ax))
+                                                              +a        e
+                                                                          ikx
+                                                     Further Problems for Chapter 2       73
+
+        (where k = ,./2inE/ñ, as usual) solves the Schrodinger equation for any (posi-
+        tive) energy E. Since tanhz ➔ -1 as z ➔ -oo,
+
+                             '1/fk ( x) ~ Aei kx ,    for large negative x .
+
+        This represents, then, a wave coming in from the left with no accompanying
+        reflected wave [i.e., no term exp(-ikx)]. What is the asymptotic form of Vfk(x)
+        at large positive x? What are R and T for this potential? Note: sech2 is a famous
+        example of a "reflectionless'' potential--every incident particle, regardless of
+        its energy, passes right through. See R. E. Crandall and B. R. Litt, Annals of
+        Physics 146,458 (1983).
+    (e) Construct the S-matrix for this potential, and use it to locate the bound states.
+        How many of them are there? What are their energies? Check that your answer
+        is consistent with part (a).
+
+***Problem 2.49 The S-matrix tells you the outgoing amplitudes (B and F) in terms
+   of the incoming amplitudes (A and G):
+
+
+
+
+   For sorne purposes it is more convenient to work with the transfer matrix, M, which
+   gives you the amplitudes to the right of the potential (F and G) in terms of those to
+   the left (A and B):
+
+                              (GF) = (M11 M12) (A).
+                                             M21B     M22
+
+
+    (a) Find the four elements of the M-matrix in terms of the elements of the S-matrix,
+        and vice versa. Express R1, T¡, Rr, and Tr (Equations 2.161 and 2.162) in terms
+        of elements of the M-matrix.
+    (b) Suppose you have a potential consisting of two isolated pieces (Figure 2.19).
+        Show that the M-matrix for the combination is the product of the two M-matrices
+        for each section separately:
+                                              M=M2M1.
+        (This obviously generalizes to any number of pieces, and accounts for the use-
+        fulness of the M-matrix.)
+
+
+                A                                                                     .
+                                                                                      X
+
+        V=O                                V=O                                 V=O
+
+   Figure 2.19: A potential consisting of two isolated pieces (Problem 2.49).
+74   Chap. 2   The Time-Independent Schrddinger Equation
+
+           (e) Construct the M-matrix for scattering from a single delta-function potential at
+               point a:
+                                          V(x) = -a8(x - a).
+
+           (d) By the method of part (b), find the M-matrix for scattering from the double delta
+               function
+                                     V(x) = -a[8(x +a)+ 8(x - a)].
+
+                What is the transmission coefficient for this potential?
+CHAPTER3
+
+
+FORMALISM
+
+
+
+
+ 3.1 LINEAR ALGEBRA
+       The purpose of this chapter is to develop the formalism of quantum mechanics-
+       terminology, notation, and mathematical background that illuminate the structure of
+       the theory, facilitate practica! calculations, and motivate a fundamental extension of
+       the statistical interpretation. I begin with a brief survey of linear algebra. 1 Linear
+       algebra abstracts and generalizes the arithmetic of ordinary vectors, as we encounter
+       them in first-year physics. The generalization is in two directions: (1) We allow
+       the scalars to be complex, and (2) we do not restrict ourselves to three dimensions
+       (indeed, in Section 3.2 we shall be working with vectors that live in spaces of in.finite
+       dimension).
+
+       3.1.1 Vectors
+
+       A vector space consists of a set of vectors (la), l,S), IY), ... ), together with a set
+       of scalars (a, b, e, ... ), 2 which are subject to two operations-vector addition and
+       scalar multiplication:
+
+               1lf you have already studied linear algebra, you should be able to skim this section quickly, but
+       I wouldn't skip it altogether, because sorne of the notation may be unfamiliar. If, on the other hand, this
+       material is new to you, be wamed that I am only summarizing (often without proof) those aspects of the
+       theory we will be needing later. For details, you should refer to a text on linear algebra, such as the classic
+       by P. R. Halmos: Finite Dimensional Vector Spaces, 2nd ed. (Princeton, NJ: van Nostrand, 1958).
+               2 For our purposes, the scalars will be ordinary complex numbers.     Mathematicians can tell you
+       about vector spaces over more exotic fields, but such objects play no role in quantum mechanics.
+76   Chap. 3 Formalisrn
+
+                 Vector addition. The "sum" of any two vectors is another vector:
+
+                                                     la)+ l,B) = iy).                                            [3.1)
+          Vector addition is commutative
+
+                                                 la) + 1,8) = 1,8) + la),                                        [3.2]
+
+          and associative
+                                      la)+ (lfi) + ly)) =(la)+ l,B)) + ly).                                      [3.3)
+          There exists a zero (or null) vector, 3 10), with the property that
+
+                                                     la)+ 10) = la),                                             [3.4]
+
+          for every vector la). And for every vector la) there is an associated inverse vector
+          (1 - a)), such that
+                                          la)+ 1 - a) = 10).                              [3.5)
+
+                Scalar multiplication. The "product" of any scalar with any vector is another
+          vector:
+                                            ala) = iy).                                 [3.6]
+          Scalar multiplication is distributive with respect to vector addition
+
+                                             a(la) + l,B)) =ala) + al,B)                                         [3.7)
+
+          and with respect to scalar addition
+
+                                              (a+ b)la) =ala)+ bja).                                             [3.8]
+
+          It is also associative with respect to the ordinary multiplication of scalars:
+
+                                                   a(bla)) = (ab)la).                                            [3.9]
+
+          Multiplication by the scalars O and 1 has the effect you would expect:
+
+                                               Ola)= 10);         lla) = la).                                  [3.10]
+
+          Evidently 1- a) = (-1) la).
+                There's a lot less here than meets the eye-all I have done is to write down
+          in abstract language the familiar rules for manipulating vectors. The virtue of such
+          abstraction is that we will be able to apply our knowledge and intuition about the
+          behavior of ordinary vectors to other systems that happen to share the same formal
+          properties.
+
+                 3It is customary, where no confusion can arise, to write the null vector without the adorning bracket:
+          10) ➔ o.
+                                                                 Sec. 3.1: Linear Algebra                77
+
+       A linear combination of the vectors la), 1,8), ly), ... is an expression of the
+form
+                                     ala)+ bl.B) + cly) + • • •.                                     [3.11]
+A vector 1)...) is said to be linearly independent of the set la), I.B}, 1y), ... if it cannot
+be written as a linear combination of them. (For example, in three dimensions the unit
+vector k is linearly independent of i and J, but any vector in the xy-plane is linearly
+dependent on i and J.) By extension, a set of vectors is linearly independent if each
+one is linearly independent of all the rest. A collection of vectors is said to span the
+space if every vector can be written as a linear combination of the members of this
+set. 4 A set of linear/y independent vectors that spans the space is called a basis. The
+number of vectors in any basis is called the dimension of the space. For the moment
+we shall assume that the dimension (n) isfmite.
+       With respect to a prescribed basis
+                                                                                                     [3.12]
+any given vector
+                              Ja}   = a1 Je¡} + a2le2} + • • • + an len}                             [3.13]
+is uniquely represented by the (ordered) n-tuple of its components:
+
+                                       la} #    (a1, a2, ... , an),                                  [3.14]
+It is often easier to work with the components than with the abstract vectors them-
+selves. To add vectors, you add their corresponding components:
+
+                                                                                                     [3.15]
+
+to multiply by a scalar you multiply each component:
+
+                                    cla) #     (ca1, ca2, ... , can);                                [3.16]
+the null vector is represented by a string of zeroes:
+                                        10) #    (O, O, ... , O);                                    [3.17]
+
+and the components of the inverse vector have their signs reversed:
+
+                                                                                                     [3.18]
+Toe only disadvantage of working with components is that you have to commit your-
+self to a particular basis, and the same manipulations will look very different to
+someone working in a different basis.
+
+Problem 3.1 Consider the ordinary vectors in three dimensions (axi +ay}+ azk)
+with complex components.
+
+       4 A set of vectors that spans the space is also called complete, though I personally reserve that word
+for the infinite-dimensional case, where subtle questions of convergence arise.
+78   Chap. 3 Formalism
+
+           (a) Does the subset of all vectors with az = O constitute a vector space? If so, what
+               is its dimension; if not, why not?
+           (b) What about the subset of all vectors whose z component is 1?
+           (e) How about the subset of vectors whose components are all equal?
+
+         *Problem 3.2 Consider the collection of all polynomials (with complex coefficients)
+          of degree <Nin x.
+
+           (a) Does this set constitute a vector space (with the polynomials as "vectors")? If
+               so, suggest a convenient basis, and give the dimension of the space. lf not,
+               which of the defining properties does it lack?
+           (b) What if we require that the polynomials be even functions?
+           (e) What if we require that the leading coefficient (i.e., the number multiplying
+               xN- 1 ) be 1?
+
+           (d) What if we require that the polynomials have the value O at x = l?
+           (e) What ifwe require that the polynomials have the value 1 at x = O?
+
+          Problem 3.3 Prove that the components of a vector with respect to a given basis
+          are unique.
+
+
+          3.1.2 Inner Products
+
+          In three dimensions we encounter two kinds of vector products: the dot product and
+          the cross product. The latter does not generalize in any natural way ton-dimensional
+          vector spaces, but the former does-in this context it is usually called the inner
+          product. The inner product oftwo vectors (la) and 1,8)) is a complex number (which
+          we write as (a 1,8) ), with the following properties:
+
+                                            (,Bla) = (al,B)*,                            [3.19]
+
+                               (ala) > O,    and {ala} =O<=> la} = 10),                  [3.20]
+
+                                 (al (bl,8) + cly)) = b(al,8) + c(aly).                  [3.21]
+          Apart from the generalization to complex numbers, these axioms simply codify the
+          familiar behavior of dot products. A vector space with an inner product is called an
+          inner product space.
+                Because the inner product of any vector with itself is a nonnegative number
+          (Equation 3.20), its square root is real-we call this the norm of the vector:
+
+                                                                                         [3.22]
+                                                       Sec. 3.1: Linear Algebra       79
+
+ it generalizes the notion of "length". A "unit" vector, whose norm is 1, is said to
+ be normalized (the word should really be "normal", but I guess that sounds too
+ anthropomorphic). Two vectors whose inner product is zero are called orthogonal
+ (generalizing the notion of "perpendicular"). A collection of mutually orthogonal
+ normalized vectors,
+                                                                              [3.23]
+ is called an orthonormal set. It is always possible (see Problem 3.4), and almost
+ always convenient, to choose an orthonormal basis; in that case the inner product of
+ two vectors can be written very neatly in terms of their components:
+
+                                                                                  [3.24]
+
+ the norm (squared) beco mes
+
+                          (ala}= latl 2 + la21 2 + · •· + lanl 2 ,                [3.25]
+
+ and the components themselves are
+
+                                                                                  [3.26]
+
+ (These results generalize the familiar formulas a• b = axbx + ayby + a2 bz, a · a
+ = a;+ a;+ a;, and ax = i · a, ay = j • a, az = k •a, for the three-dimensional
+ orthonormal basis i, j, k.) From now on we shall always work in orthonormal bases
+ unless it is explicitly indicated otherwise.
+       Another geometrical quantity one might wish to generalize is the angle between
+ two vectors. In ordinary vector analysis cos 0 = (a• b)/lal lb!. But because the inner
+ product is in general a complex number, the analogous formula (in an arbitrary inner
+ product space) does not define a (real) angle 0. Nevertheless, it is still true that the
+ absolute value of this quantity is a number no greater than 1,
+
+                                l(al,8)1 2 < (ala)(,81,8}.                        [3.27]
+
+ (This important result is known as the Schwarz inequality; the proof is given in
+ Problem 3.5.) So you can, if you like, define the angle between la) and l,8) by the
+ formula
+                                             (al,8) (,Bla)
+                                 coso=                                            [3.28]
+                                             (ala)(,81,8) •
+
+*Problem 3.4 Suppose you start out with a basis (le1), le2}, ... , len)) that is not
+ orthonormal. The Gram-Schmidt procedure is a systematic ritual for generating
+ from it an orthonormal basis ( 1ei) , 1e;) , ... , 1e~)). 1t goes like this:
+       (i) Normalize the first basis vector (divide by its norm):
+                                        ,     le1)
+                                      le1) = l[ajl·
+80   Chap. 3 Formalism
+
+                  (ii) Find the projection of the second vector along the first, and subtract it off:
+
+                                                        le2) - (e~le2)le;).
+          This vector is orthogonal to le;); normalize it to get le;).
+                (iii) Subtract from le3) its projections along lei) and le;):
+                                             je3) - (e~[e3)[e;) - (e;[e3)[e;).
+          This is orthogonal to [e~) and Je;); normalize it to get [e 3). And so on.
+                Use the Gram-Schmidt procedure to orthonormalize the three-space basis
+          le1) = (l + i)t + (l)j + (i)k, le2) = (i)i + (3)} + (l)k, je3) = (O)t + (28)} + (O)k.
+
+          Problem 3.5 Prove the Schwarz inequality (Equation 3.27). Hint: Let ly) =
+          1,8) - ((al,8)/(ala))la), and use (yly) > O.
+
+          Problem 3.6 Find the angle (in the sense of Equation 3.28) between the vectors
+          la)= (1 + i)x + (l)j + (i)k and 1,8) = (4 - i)x + (O)j + (2 - 2i)k.
+
+          Problem 3.7 Prove the triangle inequality: ll(la) + l,8))11 < llall + 11.Bil-
+
+
+          3.1.3 Llnear Transformations
+
+          Suppose you take every vector (in three-space) and multiply it by 17, or you rotate
+          every vector by 39º about the z-axis, or you reflect every vector in the x y-plane-these
+          are all examples of linear transformations. A linear transformation 5 (T) takes each
+          vector in a vector space and ''transforms" it into sorne other vector (la) ➔ [a') =
+          f Ia)), with the proviso that the operation is linear:
+                                        T(ala) + bl,B)) = a(Tla)) + b(Tl,B)),                                     [3.29]
+          for any vectors la), 1,8) and any scalars a, b.
+                If you know what a particular linear transformation does to a set of basis vectors,
+          you can easily figure out what it does to any vector. For suppose that
+                                  A
+
+
+                                  Tle1)             T11 le1) + T21le2) + · · · + Tnilen),
+                                  ,..
+                                  Tle2)             T12le1) + T22le2) + · '· + Tn2len),
+
+                                  ,..
+                                  Tlen)             T1nle1) + T2nle2) + · · · + Tnnlen),
+          or, more compactly,
+                                                   n
+
+                                        Tle1) =   Í: T¡1 le¡),       (J = 1, 2, ... , n).                         [3.30]
+                                                  i=l
+
+
+                  5 In this chapter I'll use a hat ( A) to denote linear transfonnations; this is not inconsistent with my
+          earlier convention (putting hats on operators), far (as we shall see) our operators are linear transformations.
+

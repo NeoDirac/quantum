@@ -1,0 +1,96 @@
+// Prisma schema — Quantum Mechanics Study Platform
+// Extensible to all chapters of Griffiths. Chapter 2 active.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// A locally-identified student (no auth; single-user study tool).
+// studentId is generated client-side and stored in localStorage.
+model Student {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conceptProgress   ConceptProgress[]
+  exerciseAttempts  ExerciseAttempt[]
+  examResults       ExamResult[]
+  trainingSessions  TrainingSession[]
+}
+
+// Per-concept mastery tracking. conceptId matches the id in /src/data/concepts.ts
+// mastery: 0-100 integer. errorsCount broken down by error type stored in JSON.
+model ConceptProgress {
+  id          String   @id @default(cuid())
+  studentId   String
+  conceptId   String
+  mastery     Int      @default(0)
+  layersRead  String   @default("")   // comma-separated layer ids the student opened
+  whyOpened   Int      @default(0)    // times they opened a "why?" explanation
+  correctCount Int     @default(0)
+  errorsCount Int      @default(0)
+  errorBreakdown String @default("{}") // JSON: { conceptual: n, algebraic: n, ... }
+  lastSeenAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, conceptId])
+}
+
+// One attempt at an exercise. Records hints used, correctness, error type if wrong.
+model ExerciseAttempt {
+  id          String   @id @default(cuid())
+  studentId   String
+  exerciseId  String
+  sectionId   String   // e.g. "2.3"
+  conceptId   String?  // primary concept tested
+  correct     Boolean
+  errorType   String?  // conceptual | physical-interpretation | wrong-equation | boundary | algebraic | calc | quantity-confusion | reasoning-correct-conclusion-wrong
+  hintsUsed   Int      @default(0)
+  solutionRevealed Boolean @default(false)
+  timeSpentMs Int     @default(0)
+  createdAt   DateTime @default(now())
+
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, exerciseId])
+  @@index([studentId, sectionId])
+}
+
+// Result of an exam session. conceptGaps JSON maps conceptId -> error count.
+model ExamResult {
+  id          String   @id @default(cuid())
+  studentId   String
+  title       String
+  totalQuestions Int
+  correctCount Int
+  conceptGaps String  @default("{}") // JSON: { conceptId: errorCount }
+  sectionBreakdown String @default("{}") // JSON: { sectionId: { correct, total } }
+  questionLog String   @default("[]") // JSON array of {exerciseId, correct, errorType}
+  startedAt   DateTime
+  finishedAt  DateTime @default(now())
+
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
+
+// A training session (timed or problem-count based).
+model TrainingSession {
+  id          String   @id @default(cuid())
+  studentId   String
+  mode        String   // "timed-30" | "timed-60" | "count-10" | "review"
+  targetSeconds Int?
+  targetCount   Int?
+  problemsDone  Int     @default(0)
+  correctCount  Int     @default(0)
+  conceptsTouched String @default("[]") // JSON array of conceptIds
+  startedAt   DateTime
+  finishedAt  DateTime?
+
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+}
