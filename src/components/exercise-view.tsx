@@ -229,6 +229,9 @@ export function ExerciseView({ exercise }: { exercise: Exercise }) {
               </div>
             </div>
 
+            {/* SM-2 spaced repetition quality selector */}
+            <SM2QualitySelector exerciseId={exercise.id} />
+
             {/* Common errors */}
             {exercise.commonErrors && exercise.commonErrors.length > 0 && (
               <div className="mt-4 space-y-3">
@@ -418,6 +421,67 @@ function SolutionStepCard({ step, index }: { step: import('@/lib/content-types')
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// SM-2 quality selector: lets the student self-rate recall quality, creating/updating
+// a spaced-repetition card so the exercise reappears on the optimal schedule.
+function SM2QualitySelector({ exerciseId }: { exerciseId: string }) {
+  const { toast } = useToast()
+  const [saved, setSaved] = useState<number | null>(null)
+  const studentId = getOrCreateStudentId()
+
+  const record = async (quality: number) => {
+    try {
+      const r = await apiPost('/api/sm2', { studentId, exerciseId, quality })
+      setSaved(quality)
+      const card = r.card
+      toast({
+        title: 'Programado para repaso',
+        description: `Próxima revisión en ${card.interval} día(s)`,
+      })
+    } catch {
+      toast({ title: 'No se pudo programar', variant: 'destructive' })
+    }
+  }
+
+  const opts = [
+    { q: 0, label: 'Negro', desc: 'No lo sabía', cls: 'border-rose-300 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300' },
+    { q: 3, label: 'Difícil', desc: 'Con esfuerzo', cls: 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300' },
+    { q: 4, label: 'Bien', desc: 'Sin problemas', cls: 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' },
+    { q: 5, label: 'Fácil', desc: 'Inmediato', cls: 'border-sky-300 bg-sky-50 text-sky-700 hover:bg-sky-100 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300' },
+  ]
+
+  return (
+    <div className="mt-4 rounded-lg border border-sky-200/60 bg-sky-50/30 p-4 dark:border-sky-900/50 dark:bg-sky-950/10">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold">
+        <Sparkles className="h-4 w-4 text-sky-600" /> Programa este ejercicio en tu memoria a largo plazo
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Autoevalúa qué tan bien lo recuerdas. El algoritmo SM-2 lo traerá de vuelta en el momento óptimo
+        (mañana si fallaste, cada vez más lejos si aciertas).
+      </p>
+      {saved !== null ? (
+        <div className="flex items-center gap-2 rounded-md border border-emerald-300/60 bg-emerald-50/60 px-3 py-2 text-sm dark:bg-emerald-950/30">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          Registrado como "{opts.find(o => o.q === saved)?.label}". Lo verás en "Memoria a largo plazo".
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {opts.map(opt => (
+            <button
+              key={opt.q}
+              type="button"
+              onClick={() => record(opt.q)}
+              className={cn('rounded-lg border p-2.5 text-center transition-all lift-on-hover', opt.cls)}
+            >
+              <div className="text-sm font-semibold">{opt.label}</div>
+              <div className="text-[10px] opacity-80">{opt.desc}</div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

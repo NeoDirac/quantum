@@ -23,6 +23,7 @@ interface ExamQ {
   errorType?: ErrorType
   conceptIds: string[]
   sectionId: string
+  timeSpentMs?: number   // per-question time tracking
 }
 
 const CONCEPT_ID_TO_TITLE: Record<string, string> = Object.fromEntries(ALL_CONCEPTS.map(c => [c.id, c.title]))
@@ -38,6 +39,7 @@ export function ExamMode() {
   const [adaptiveMode, setAdaptiveMode] = useState(true)
   const [timeLimitMin, setTimeLimitMin] = useState<number | null>(null) // null = no limit
   const [elapsed, setElapsed] = useState(0)
+  const [questionStart, setQuestionStart] = useState<number>(0)
 
   // Fetch the student's weak concepts when entering setup, to weight the exam.
   useEffect(() => {
@@ -108,13 +110,20 @@ export function ExamMode() {
       errorType: undefined,
       conceptIds: e.conceptIds,
       sectionId: e.sectionId,
+      timeSpentMs: 0,
     }))
     setQuestions(qs)
     setCurrent(0)
     setStartTime(Date.now())
     setElapsed(0)
+    setQuestionStart(Date.now())
     setPhase('running')
   }
+
+  // Track per-question time: reset the timer whenever `current` changes during running.
+  useEffect(() => {
+    if (phase === 'running') setQuestionStart(Date.now())
+  }, [current, phase])
 
   // Countdown timer effect: ticks every second while running.
   useEffect(() => {
@@ -132,9 +141,10 @@ export function ExamMode() {
   }, [phase, startTime, timeLimitMin, toast])
 
   const markAnswer = (solved: boolean, errorType?: ErrorType) => {
+    const timeSpent = Date.now() - questionStart
     setQuestions(prev => {
       const n = [...prev]
-      n[current] = { ...n[current], picked: solved ? 'solved' : 'wrong', errorType }
+      n[current] = { ...n[current], picked: solved ? 'solved' : 'wrong', errorType, timeSpentMs: (n[current].timeSpentMs || 0) + timeSpent }
       return n
     })
     if (current < questions.length - 1) {
@@ -267,7 +277,14 @@ export function ExamMode() {
         <header className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold">Examen</h1>
-            <p className="text-xs text-muted-foreground">Pregunta {current + 1} de {questions.length}</p>
+            <p className="text-xs text-muted-foreground">
+              Pregunta {current + 1} de {questions.length}
+              {questionStart > 0 && (
+                <span className="ml-2 rounded bg-muted px-1.5 py-0.5 font-mono tabular-nums">
+                  {Math.floor((Date.now() - questionStart) / 1000)}s
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             {remaining !== null && (
@@ -364,10 +381,17 @@ export function ExamMode() {
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{ex.sectionId}</span>
                         <span className="text-sm font-medium truncate">{ex.title}</span>
                       </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        {answered
-                          ? correct ? '✓ Resuelto' : `✗ ${q.errorType ? ERROR_TYPE_LABELS[q.errorType as ErrorType] : 'Incorrecto'}`
-                          : 'Sin contestar'}
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>
+                          {answered
+                            ? correct ? '✓ Resuelto' : `✗ ${q.errorType ? ERROR_TYPE_LABELS[q.errorType as ErrorType] : 'Incorrecto'}`
+                            : 'Sin contestar'}
+                        </span>
+                        {q.timeSpentMs !== undefined && q.timeSpentMs > 0 && (
+                          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] tabular-nums">
+                            {Math.floor(q.timeSpentMs / 60000)}:{String(Math.floor((q.timeSpentMs % 60000) / 1000)).padStart(2, '0')}
+                          </span>
+                        )}
                       </div>
                       {/* Inline quick change */}
                       <div className="mt-2 flex flex-wrap gap-1">

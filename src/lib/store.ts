@@ -16,6 +16,7 @@ export type View =
   | { name: 'exam' }
   | { name: 'training' }
   | { name: 'review' }
+  | { name: 'spaced-repetition' }
   | { name: 'bookmarks' }
   | { name: 'progress' }
 

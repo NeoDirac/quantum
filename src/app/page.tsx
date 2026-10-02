@@ -13,6 +13,7 @@ import { Visualizations } from '@/components/visualizations'
 import { ExamMode } from '@/components/exam-mode'
 import { TrainingMode } from '@/components/training-mode'
 import { ReviewMode } from '@/components/review-mode'
+import { SpacedRepetitionMode } from '@/components/spaced-repetition-mode'
 import { BookmarksView } from '@/components/bookmarks-view'
 import { ProgressDashboard } from '@/components/progress-dashboard'
 import { getConcept } from '@/data/concepts'
@@ -22,11 +23,13 @@ import { Menu, Atom, Github, BookOpen, Keyboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getActiveChapter } from '@/data/structure'
 import { useKeyboardShortcuts, KeyboardHelpDialog } from '@/components/keyboard-shortcuts'
+import { SearchPalette, useSearchPalette, SearchTrigger } from '@/components/search-palette'
 
 export default function Home() {
   const { view, setView, setSidebarOpen, sidebarOpen } = useUI()
   const chapter = getActiveChapter()
   const shortcuts = useKeyboardShortcuts()
+  const search = useSearchPalette()
 
   const renderView = () => {
     switch (view.name) {
@@ -48,6 +51,7 @@ export default function Home() {
       case 'exam': return <ExamMode />
       case 'training': return <TrainingMode />
       case 'review': return <ReviewMode />
+      case 'spaced-repetition': return <SpacedRepetitionMode />
       case 'bookmarks': return <BookmarksView />
       case 'progress': return <ProgressDashboard />
       default: return <Dashboard />
@@ -71,6 +75,7 @@ export default function Home() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <SearchTrigger onClick={() => search.setOpen(true)} />
           {view.name !== 'dashboard' && (
             <Button variant="ghost" size="sm" onClick={() => setView({ name: 'dashboard' })}>
               <BookOpen className="mr-1 h-3.5 w-3.5" /> Inicio
@@ -110,6 +115,7 @@ export default function Home() {
         </div>
       </footer>
       <KeyboardHelpDialog open={shortcuts.showHelp} onOpenChange={shortcuts.setShowHelp} />
+      <SearchPalette open={search.open} onOpenChange={search.setOpen} />
     </div>
   )
 }

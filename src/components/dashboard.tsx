@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { StudyStreakWidget } from '@/components/study-streak-widget'
-import { Atom, BookOpen, ListChecks, Network, GraduationCap, Waves, Timer, GitBranch, ArrowRight, Sparkles, BrainCircuit, Star } from 'lucide-react'
+import { Atom, BookOpen, ListChecks, Network, GraduationCap, Waves, Timer, GitBranch, ArrowRight, Sparkles, BrainCircuit, Star, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function Dashboard() {
@@ -166,6 +166,20 @@ export function Dashboard() {
           <div className="flex-1">
             <div className="font-semibold">Mis favoritos</div>
             <p className="text-sm text-muted-foreground">Conceptos y ejercicios marcados para revisar más tarde. Pulsa la estrella ⭐ en cualquier página para añadirlo.</p>
+          </div>
+          <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      </Card>
+
+      {/* Spaced repetition shortcut */}
+      <Card className="cursor-pointer border-sky-200/40 bg-gradient-to-r from-sky-50/30 to-transparent dark:from-sky-950/10 lift-on-hover">
+        <button className="flex w-full items-center gap-4 p-5 text-left" onClick={() => setView({ name: 'spaced-repetition' })}>
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-sky-950/40 dark:text-sky-300">
+            <Zap className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold">Memoria a largo plazo (SM-2)</div>
+            <p className="text-sm text-muted-foreground">Repetición espaciada: los ejercicios que fallaste vuelven pronto, los que dominas cada vez más lejos. Optimiza el tiempo de estudio.</p>
           </div>
           <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>

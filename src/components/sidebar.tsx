@@ -8,7 +8,7 @@ import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
-  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X
+  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -143,6 +143,7 @@ export function Sidebar() {
 
           <div className="space-y-1 border-t border-sidebar-border p-3">
             {navItem('Repaso adaptativo', Brain, view.name === 'review', () => setView({ name: 'review' }))}
+            {navItem('Memoria a largo plazo', Zap, view.name === 'spaced-repetition', () => setView({ name: 'spaced-repetition' }))}
             {navItem('Mis favoritos', Star, view.name === 'bookmarks', () => setView({ name: 'bookmarks' }))}
             {navItem('Modo examen', Timer, view.name === 'exam', () => setView({ name: 'exam' }))}
             {navItem('Entrenamiento', GitBranch, view.name === 'training', () => setView({ name: 'training' }))}

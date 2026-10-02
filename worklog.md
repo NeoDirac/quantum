@@ -603,3 +603,92 @@ Stage Summary:
 - Study streak: add weekly summary email/notification (would need a backend scheduler).
 - Exam: add per-question time tracking (not just total).
 - Add a "spaced repetition" mode (SM-2 algorithm) for long-term retention.
+
+---
+Task ID: 11
+Agent: web-dev-reviewer (cron, Phase 6)
+Task: QA + Phase 6 development (spaced repetition SM-2, search palette, more exercises, per-question exam timer)
+
+Work Log:
+- Reviewed worklog: Phase 5 complete with 29 exercises, exam timer+review, keyboard shortcuts, concept graph
+- QA with agent-browser: confirmed all views render, no console errors, lint clean, server stable
+- Identified next-phase items from worklog recommendations
+
+Phase 6 — Spaced repetition mode (SM-2 algorithm, full stack):
+- Prisma: added SM2Card model (studentId, exerciseId, easeFactor, interval, repetitions,
+  dueAt, lastReviewAt, totalReviews) with compound unique [studentId, exerciseId]; ran db:push
+- API: /api/sm2 (GET returns dueCards, totalCards, reviewedToday, 7-day upcoming forecast;
+  POST records review with SM-2 algorithm: quality 0-5 → updates ease/interval/reps/dueAt)
+  * SM-2 logic: q<3 resets reps, due tomorrow; q>=3 increases reps, interval grows by ease factor
+  * Ease updated as ease += (0.1 - (5-q)*(0.08+(5-q)*0.02)), clamped [1.3, ∞)
+- SpacedRepetitionMode component: 3 phases (overview → reviewing → done)
+  * Overview: due/total/reviewed-today stats + 7-day forecast bar chart + start button + how-it-works
+  * Reviewing: serves ExerciseView + 4-level quality selector (Negro/Difícil/Bien/Fácil)
+  * Done: summary with per-card quality + interval + avg quality
+- SM2QualitySelector: embedded in exercise-view after error classification — lets student
+  self-rate recall quality, creates/updates SM-2 card, shows next-review interval in toast
+- Added 'spaced-repetition' to UI store + sidebar ("Memoria a largo plazo", Zap icon) + page router
+- Added dashboard shortcut card for SM-2 mode
+
+Phase 6 — Search palette (command palette, fuzzy search):
+- SearchPalette component using cmdk (CommandDialog): searches across ALL concepts, ALL exercises,
+  MODEL_PROBLEMS, and navigation items
+  * Each item has searchable value (title + subtitle + tags + section + type)
+  * Color-coded by item type (teal concepts, sky exercises, violet model problems)
+  * Section badges + difficulty stars in results
+- useSearchPalette hook: listens for Cmd/Ctrl+K to toggle
+- SearchTrigger button in top bar with ⌘K kbd hint
+- Verified: typing "pozo" filters to 62 results across groups
+
+Phase 6 — More exercises (exercises-phase6.ts, 4 new, total 33):
+- ex-2-2f: Time-dependent expectation values in superposition (⟨p⟩ oscillates by cross-terms)
+- ex-2-3g: Coherent states intro (a|α⟩=α|α⟩, classical trajectory, Heisenberg saturation)
+- ex-2-5d: Two delta wells: interference and resonances (splitting, Fabry-Pérot, band theory)
+- ex-2-7d: Unitarity proof of S-matrix (conservation of probability → S†S=I → R+T=1)
+- Merged via ALL_EXERCISES = Phase1+2+3+4+5+6
+
+Phase 6 — Per-question exam time tracking:
+- Added timeSpentMs to ExamQ interface + questionStart state
+- markAnswer records time spent on current question (Date.now() - questionStart)
+- useEffect resets questionStart when `current` changes during running
+- Running header shows live per-question timer (seconds)
+- Review screen shows per-question time badge (MM:SS format) next to status
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 33 exercises visible (was 29), all 4 new exercises render; SM-2 mode renders
+  with stats + forecast; search palette opens via Cmd+K and trigger button, filters correctly
+  (62 results for "pozo"); SM-2 quality selector appears in exercise solution; per-question
+  timer shows in exam running header
+- VLM assessment of SM-2 mode: "layout clear, stats useful, explanation well-placed"
+- SM-2 API tested end-to-end: POST creates card (interval=1, due tomorrow), GET returns
+  due/total/reviewedToday/upcoming forecast correctly
+- Server stays alive across all tests
+
+Stage Summary:
+- Phase 6 complete. Platform now has: 33 exercises (was 29), spaced repetition mode (SM-2,
+  full stack), search palette (Cmd+K, fuzzy across all content), per-question exam timer,
+  4 more exercises (time-dependent expectations, coherent states, multiple deltas, unitarity).
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. Cumulative enhancements across 6 phases:
+  * Spaced repetition (SM-2): DB + API + mode + quality selector in exercises
+  * Search palette (Cmd+K): fuzzy search across concepts/exercises/model problems/navigation
+  * 4 more exercises: time-dependent ⟨p⟩, coherent states, multiple deltas, unitarity proof
+  * Per-question exam timer (live + recorded in review)
+
+## Current goals / completed modifications / verification results
+- DONE: SM-2 spaced repetition, search palette, more exercises, per-question timer.
+- Content now: 16 concepts, 8 model problems, 33 exercises, graph decision tree,
+  concept relationships graph, SM-2 cards, search palette.
+- All major features from worklog recommendations now implemented across 6 phases.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: ~33/50+ Griffiths Ch.2 problems. Next: add 2.1 Ehrenfest theorem, 2.3 squeezed states,
+  2.4 wave packet spreading derivation, 2.6 graphical transcendental solving exercise.
+- SM-2: add a "cram mode" (override scheduling for pre-exam intensive review).
+- Search: add recent searches + keyboard navigation hints in palette.
+- Concept graph: add pan/zoom + force-directed layout for large graphs.
+- Exam: add question tagging (flag for review during exam, distinct from answered).
+- Add a "study session summary" email/print at end of training/exam sessions.
+- Consider adding collaborative features (shared bookmarks, study groups) — would need auth.
