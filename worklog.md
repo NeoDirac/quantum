@@ -508,3 +508,98 @@ Stage Summary:
 - Exam mode: add a timer + question review screen before finishing.
 - Add a "concept relationships" graph view (prerequisites + related, from concept data).
 - Consider keyboard shortcuts (j/k for next/prev concept, ? for help).
+
+---
+Task ID: 10
+Agent: web-dev-reviewer (cron, Phase 5)
+Task: QA + Phase 5 development (exam timer + review, keyboard shortcuts, more exercises, concept graph, styling polish)
+
+Work Log:
+- Reviewed worklog: Phase 4 complete with 25 exercises, study streak, adaptive exam, print/export
+- QA with agent-browser: confirmed all views render, no console errors, lint clean, server stable
+- Identified next-phase items from worklog recommendations
+
+Phase 5 — Exam timer + question review screen (exam-mode.tsx):
+- Added 'review' phase between 'running' and 'done' (setup → running → review → done)
+- Countdown timer: optional time limits (sin límite / 10 / 15 / 20 / 30 min) selected in setup
+  * Timer effect ticks every second, auto-advances to review when time's up
+  * Low-time warning (<60s) shown in red
+- Review screen: shows all questions with status badges (✓ resuelto / ✗ incorrecto / sin contestar)
+  * Inline quick-change buttons to toggle any answer without leaving review
+  * Jump-to-question (click number badge) returns to running at that question
+  * "Ir a la primera sin contestar" button for efficiency
+  * Finalize button + elapsed time display
+- Running header: timer + "Revisar" button (jump to review anytime) + Abortar
+
+Phase 5 — Keyboard shortcuts (keyboard-shortcuts.tsx, new):
+- useKeyboardShortcuts hook + KeyboardHelpDialog component
+- Shortcuts: J/→ (next concept), K/← (prev concept), G (concept map), H (home/dashboard),
+  B (bookmark current), ? (toggle help dialog)
+- Igores inputs/textareas and modifier keys (Ctrl/Meta/Alt)
+- Help dialog with styled <kbd> key caps, opened via ? or top-bar keyboard icon button
+- Concept view: added prev/next nav buttons at bottom with "Anterior (K)" / "Siguiente (J)"
+  labels and "1/16" position indicator — visual counterpart to keyboard nav
+
+Phase 5 — More exercises (exercises-phase5.ts, 4 new, total 29):
+- ex-2-3f: Hermite recursion formula (construct H_2, H_3 + verify ψ_2 satisfies EDO)
+- ex-2-4c: Group vs phase velocity (v_f=p/2m vs v_g=p/m, superluminal v_f no violation)
+- ex-2-5c: Delta well vs barrier comparison (ligados: 1 vs 0; dispersión: igual T)
+- ex-2-6d: Bound states vs z₀ (N≈⌊z₀/π⌋+1, cases z₀=1/5/10, limit z₀→∞)
+- Merged via ALL_EXERCISES = Phase1+2+3+4+5
+
+Phase 5 — Concept relationships graph (concept-graph-view.tsx, new):
+- New view 'concept-graph' in UI store + sidebar ("Mapa de relaciones") + page router
+- SVG circular layout: 16 concept nodes positioned around a circle
+- Two edge types: prerequisites (solid arrow, from concept→its prereqs) and related
+  (dashed line between related pairs)
+- Color-coded by section (7 distinct oklch colors)
+- Click node to select → highlights connected edges + shows detail card with
+  prerequisite/related chips (clickable to navigate)
+- Legend explaining edge types + section colors
+- VLM-improved: darker edges (oklch 0.45/0.55 alpha), multi-line labels (wrap at 18 chars,
+  2 lines max), better contrast, smaller nodes to reduce overlap
+
+Phase 5 — Styling polish:
+- Study streak widget: enhanced 14-day strip with day-of-month numbers, weekday labels,
+  goal-met ✓ checkmark above each day, emerald gradient for goal-met days, legend
+- Mobile sidebar: backdrop-blur overlay, sidebar bg-sidebar/95 backdrop-blur, slide-in
+  shadow, close (X) button in header for mobile, aria-label
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 29 exercises visible (was 25), all 4 new exercises render; concept graph
+  renders 16 nodes; keyboard help dialog opens with ? key; exam timer option renders;
+  concept prev/next nav shows ("SIGUIENTE (J)", "1/16"); streak calendar with day numbers
+- VLM assessment of concept graph v2: "readability improved significantly, darker edges
+  provide better contrast, multi-line labels prevent overlap" — substantial improvement
+- Server stays alive across all tests (start-dev.sh setsid detachment)
+
+Stage Summary:
+- Phase 5 complete. Platform now has: 29 exercises (was 25), exam timer + review screen,
+  keyboard shortcuts + help dialog, concept relationships graph, concept prev/next nav,
+  enhanced study streak calendar, improved mobile sidebar.
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. Cumulative enhancements across 5 phases:
+  * Exam timer (optional limits) + review screen before finalizing
+  * Keyboard shortcuts (j/k/g/h/b/?) with styled help dialog
+  * Concept relationships graph (SVG, 16 nodes, prereq + related edges, color-coded)
+  * 4 more exercises: Hermite recursion, group vs phase velocity, delta well vs barrier,
+    bound states vs z₀
+  * Concept prev/next nav + enhanced study streak calendar + improved mobile sidebar
+
+## Current goals / completed modifications / verification results
+- DONE: exam timer+review, keyboard shortcuts, more exercises, concept graph, styling polish.
+- Content now: 16 concepts, 8 model problems, 29 exercises, graph decision tree,
+  concept relationships graph.
+- All major features from worklog recommendations now implemented across 5 phases.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: ~29/50+ Griffiths Ch.2 problems. Next: add 2.2 time-dependent expectation values,
+  2.3 coherent states intro, 2.5 multiple deltas, 2.7 unitarity proof.
+- Concept graph could use pan/zoom for large graphs and a force-directed layout.
+- Add a "concept search" feature (fuzzy search across concept/exercise titles + content).
+- Consider adding audio narration for concept layers (accessibility).
+- Study streak: add weekly summary email/notification (would need a backend scheduler).
+- Exam: add per-question time tracking (not just total).
+- Add a "spaced repetition" mode (SM-2 algorithm) for long-term retention.

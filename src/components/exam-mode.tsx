@@ -30,12 +30,14 @@ const CONCEPT_ID_TO_TITLE: Record<string, string> = Object.fromEntries(ALL_CONCE
 export function ExamMode() {
   const { setView } = useUI()
   const { toast } = useToast()
-  const [phase, setPhase] = useState<'setup' | 'running' | 'done'>('setup')
+  const [phase, setPhase] = useState<'setup' | 'running' | 'review' | 'done'>('setup')
   const [questions, setQuestions] = useState<ExamQ[]>([])
   const [current, setCurrent] = useState(0)
   const [startTime, setStartTime] = useState<number>(0)
   const [weakConcepts, setWeakConcepts] = useState<{ conceptId: string; mastery: number }[]>([])
   const [adaptiveMode, setAdaptiveMode] = useState(true)
+  const [timeLimitMin, setTimeLimitMin] = useState<number | null>(null) // null = no limit
+  const [elapsed, setElapsed] = useState(0)
 
   // Fetch the student's weak concepts when entering setup, to weight the exam.
   useEffect(() => {
@@ -110,8 +112,24 @@ export function ExamMode() {
     setQuestions(qs)
     setCurrent(0)
     setStartTime(Date.now())
+    setElapsed(0)
     setPhase('running')
   }
+
+  // Countdown timer effect: ticks every second while running.
+  useEffect(() => {
+    if (phase !== 'running') return
+    const t = setInterval(() => {
+      const e = Math.floor((Date.now() - startTime) / 1000)
+      setElapsed(e)
+      if (timeLimitMin !== null && e >= timeLimitMin * 60) {
+        // time's up — go to review
+        setPhase('review')
+        toast({ title: 'Tiempo agotado', description: `Límite de ${timeLimitMin} min alcanzado.` })
+      }
+    }, 1000)
+    return () => clearInterval(t)
+  }, [phase, startTime, timeLimitMin, toast])
 
   const markAnswer = (solved: boolean, errorType?: ErrorType) => {
     setQuestions(prev => {
@@ -122,8 +140,23 @@ export function ExamMode() {
     if (current < questions.length - 1) {
       setCurrent(c => c + 1)
     } else {
-      finish()
+      // all answered — go to review screen before finalizing
+      setPhase('review')
     }
+  }
+
+  // Jump to a specific question (from the review screen) to change the answer.
+  const jumpTo = (idx: number) => {
+    setCurrent(idx)
+    setPhase('running')
+  }
+  // Change a single answer without leaving the review screen.
+  const setAnswer = (idx: number, solved: boolean, errorType?: ErrorType) => {
+    setQuestions(prev => {
+      const n = [...prev]
+      n[idx] = { ...n[idx], picked: solved ? 'solved' : 'wrong', errorType }
+      return n
+    })
   }
 
   const finish = async () => {
@@ -191,6 +224,30 @@ export function ExamMode() {
                 </div>
               )}
             </div>
+            {/* Time limit option */}
+            <div className="rounded-lg border border-sky-200/60 bg-sky-50/40 p-4 dark:border-sky-900/50 dark:bg-sky-950/20">
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                <Timer className="h-4 w-4 text-sky-600" /> Límite de tiempo (opcional)
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {[null, 10, 15, 20, 30].map(opt => (
+                  <button
+                    key={String(opt)}
+                    type="button"
+                    onClick={() => setTimeLimitMin(opt)}
+                    className={cn('rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      timeLimitMin === opt
+                        ? 'border-sky-400 bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-100'
+                        : 'border-border text-muted-foreground hover:bg-muted')}
+                  >
+                    {opt === null ? 'Sin límite' : `${opt} min`}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Si se agota el tiempo, el examen pasa a la pantalla de revisión con lo que tengas contestado.
+              </p>
+            </div>
             <Button onClick={start} size="lg">
               <Timer className="mr-2 h-4 w-4" /> Comenzar examen
             </Button>
@@ -203,6 +260,8 @@ export function ExamMode() {
   if (phase === 'running') {
     const q = questions[current]
     const ex = EXERCISES.find(e => e.id === q.exerciseId)!
+    const remaining = timeLimitMin !== null ? Math.max(0, timeLimitMin * 60 - elapsed) : null
+    const lowTime = remaining !== null && remaining < 60
     return (
       <div className="space-y-5">
         <header className="flex items-center justify-between">
@@ -210,9 +269,20 @@ export function ExamMode() {
             <h1 className="text-xl font-bold">Examen</h1>
             <p className="text-xs text-muted-foreground">Pregunta {current + 1} de {questions.length}</p>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => setPhase('setup')}>
-            <RotateCcw className="mr-1 h-3.5 w-3.5" /> Abortar
-          </Button>
+          <div className="flex items-center gap-3">
+            {remaining !== null && (
+              <span className={cn('rounded-md px-2.5 py-1 font-mono text-sm tabular-nums',
+                lowTime ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' : 'bg-muted text-muted-foreground')}>
+                {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
+              </span>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => setPhase('review')}>
+              <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Revisar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setPhase('setup')}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Abortar
+            </Button>
+          </div>
         </header>
         <Progress value={(current / questions.length) * 100} className="h-1.5" />
         <Card>
@@ -250,6 +320,87 @@ export function ExamMode() {
             </div>
           </CardContent>
         </Card>
+      </div>
+    )
+  }
+
+  if (phase === 'review') {
+    const answered = questions.filter(q => q.picked !== null).length
+    const elapsedMin = Math.floor(elapsed / 60)
+    const elapsedSec = elapsed % 60
+    return (
+      <div className="space-y-5">
+        <header className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <CheckCircle2 className="h-6 w-6 text-sky-600" /> Revisa tus respuestas
+          </h1>
+          <p className="text-muted-foreground">
+            {answered} de {questions.length} respondidas · tiempo: {elapsedMin}m {elapsedSec}s.
+            Puedes cambiar cualquier respuesta antes de finalizar, o saltar a una pregunta sin contestar.
+          </p>
+        </header>
+        <div className="grid gap-2">
+          {questions.map((q, i) => {
+            const ex = EXERCISES.find(e => e.id === q.exerciseId)!
+            const answered = q.picked !== null
+            const correct = q.picked === 'solved'
+            const isCurrent = i === current
+            return (
+              <Card key={i} className={cn('overflow-hidden', isCurrent && 'border-sky-400')}>
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <button
+                      type="button"
+                      onClick={() => jumpTo(i)}
+                      className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold transition-colors',
+                        answered ? (correct ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300')
+                        : 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300')}
+                      title="Ir a esta pregunta"
+                    >
+                      {i + 1}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{ex.sectionId}</span>
+                        <span className="text-sm font-medium truncate">{ex.title}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {answered
+                          ? correct ? '✓ Resuelto' : `✗ ${q.errorType ? ERROR_TYPE_LABELS[q.errorType as ErrorType] : 'Incorrecto'}`
+                          : 'Sin contestar'}
+                      </div>
+                      {/* Inline quick change */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <button onClick={() => setAnswer(i, true)} className={cn('rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+                          correct ? 'bg-emerald-500 text-white' : 'bg-muted text-muted-foreground hover:bg-emerald-50 dark:hover:bg-emerald-950/30')}>
+                          ✓ Resuelto
+                        </button>
+                        <button onClick={() => setAnswer(i, false)} className={cn('rounded px-2 py-0.5 text-[10px] font-medium transition-colors',
+                          !answered && !correct ? 'bg-rose-500 text-white' : 'bg-muted text-muted-foreground hover:bg-rose-50 dark:hover:bg-rose-950/30')}>
+                          ✗ Incorrecto
+                        </button>
+                      </div>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => jumpTo(i)}>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+        <div className="flex flex-wrap gap-2 rounded-lg border border-border bg-muted/30 p-4">
+          <Button onClick={() => finish()} size="lg">
+            <Trophy className="mr-2 h-4 w-4" /> Finalizar examen
+          </Button>
+          <Button variant="outline" onClick={() => { setCurrent(questions.findIndex(q => q.picked === null)); setPhase('running') }} disabled={!questions.some(q => q.picked === null)}>
+            <ArrowRight className="mr-1.5 h-4 w-4" /> Ir a la primera sin contestar
+          </Button>
+          <Button variant="ghost" onClick={() => setPhase('running')}>
+            <RotateCcw className="mr-1.5 h-4 w-4" /> Seguir respondiendo
+          </Button>
+        </div>
       </div>
     )
   }

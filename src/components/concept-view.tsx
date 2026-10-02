@@ -7,6 +7,8 @@ import { RenderBlocks, RenderBlock } from '@/components/render-blocks'
 import { WhyBox } from '@/components/why-box'
 import { BookmarkButton } from '@/components/bookmark-button'
 import { apiPost, getOrCreateStudentId } from '@/lib/student'
+import { useUI } from '@/lib/store'
+import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { cn } from '@/lib/utils'
 import { Lightbulb, Sigma, Atom, BookOpen, ClipboardCheck, ChevronRight } from 'lucide-react'
 
@@ -126,7 +128,49 @@ export function ConceptView({ concept }: { concept: Concept }) {
           )
         })}
       </div>
+
+      {/* Prev/next concept navigation */}
+      <ConceptNav currentId={concept.id} />
     </article>
+  )
+}
+
+function ConceptNav({ currentId }: { currentId: string }) {
+  const { setView } = useUI()
+  const idx = ALL_CONCEPTS.findIndex(c => c.id === currentId)
+  const prev = idx > 0 ? ALL_CONCEPTS[idx - 1] : null
+  const next = idx >= 0 && idx < ALL_CONCEPTS.length - 1 ? ALL_CONCEPTS[idx + 1] : null
+  if (!prev && !next) return null
+  return (
+    <nav className="flex items-center justify-between gap-3 border-t border-border pt-4">
+      {prev ? (
+        <button
+          type="button"
+          onClick={() => setView({ name: 'concept', conceptId: prev.id })}
+          className="group flex flex-1 items-center gap-2 rounded-lg border border-border bg-card/60 p-3 text-left transition-all hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-teal-950/20"
+        >
+          <ChevronRight className="h-4 w-4 rotate-180 text-muted-foreground transition-transform group-hover:-translate-x-0.5" />
+          <span className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">Anterior (K)</span>
+            <span className="block truncate text-sm font-medium">{prev.title}</span>
+          </span>
+        </button>
+      ) : <span className="flex-1" />}
+      <span className="text-[10px] tabular-nums text-muted-foreground">{idx + 1}/{ALL_CONCEPTS.length}</span>
+      {next ? (
+        <button
+          type="button"
+          onClick={() => setView({ name: 'concept', conceptId: next.id })}
+          className="group flex flex-1 items-center justify-end gap-2 rounded-lg border border-border bg-card/60 p-3 text-right transition-all hover:border-teal-400 hover:bg-teal-50/30 dark:hover:bg-teal-950/20"
+        >
+          <span className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">Siguiente (J)</span>
+            <span className="block truncate text-sm font-medium">{next.title}</span>
+          </span>
+          <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+        </button>
+      ) : <span className="flex-1" />}
+    </nav>
   )
 }
 

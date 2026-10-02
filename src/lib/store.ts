@@ -9,6 +9,7 @@ export type View =
   | { name: 'concept'; conceptId: string }
   | { name: 'exercise'; exerciseId: string }
   | { name: 'exercises-list'; sectionId?: string }
+  | { name: 'concept-graph' }
   | { name: 'decision-tree'; nodeId?: string }
   | { name: 'model-problem'; problemId: string }
   | { name: 'visualizations'; preset?: string }

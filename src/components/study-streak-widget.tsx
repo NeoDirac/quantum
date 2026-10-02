@@ -105,31 +105,43 @@ export function StudyStreakWidget() {
           </div>
         </div>
 
-        {/* 14-day activity strip */}
+        {/* 14-day activity strip with day-of-month + goal indicator */}
         <div className="mt-4">
           <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             <CalendarDays className="h-3 w-3" /> Últimos 14 días
+            <span className="ml-auto inline-flex items-center gap-1 text-[10px] normal-case">
+              <span className="inline-block h-2 w-2 rounded-sm bg-emerald-500" /> meta
+              <span className="inline-block h-2 w-2 rounded-sm bg-teal-400 ml-1" /> actividad
+            </span>
           </div>
           <div className="flex items-end gap-1">
             {data.series.map((d, i) => {
               const activity = d.exercisesDone + d.conceptsRead
-              const h = Math.min(36, 4 + activity * 5)
+              const h = Math.min(32, 3 + activity * 4)
               const isToday = d.isToday
               const hasActivity = activity > 0
+              const dayGoalMet = d.exercisesDone >= DAILY_EXERCISE_GOAL
+              const dayNum = new Date(d.date + 'T00:00:00').getDate()
               return (
                 <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${d.date}: ${d.exercisesDone} ej, ${d.conceptsRead} conc.`}>
-                  <div className="flex h-9 w-full items-end justify-center">
+                  <span className={cn('h-3 w-3 text-[8px] leading-3',
+                    dayGoalMet ? 'text-emerald-600' : 'text-transparent')}>
+                    {dayGoalMet ? '✓' : '·'}
+                  </span>
+                  <div className="flex h-8 w-full items-end justify-center">
                     <div
-                      className={cn('w-full max-w-[14px] rounded-t transition-all',
+                      className={cn('w-full max-w-[12px] rounded-t transition-all',
                         isToday ? 'bg-gradient-to-t from-orange-500 to-amber-400'
-                        : hasActivity ? 'bg-gradient-to-t from-teal-500 to-emerald-400'
+                        : dayGoalMet ? 'bg-gradient-to-t from-emerald-500 to-teal-400'
+                        : hasActivity ? 'bg-gradient-to-t from-teal-500 to-emerald-300'
                         : 'bg-muted')}
                       style={{ height: `${h}px` }}
                     />
                   </div>
-                  <span className={cn('text-[9px] tabular-nums', isToday ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}>
-                    {weekdayShort(d.date)}
+                  <span className={cn('text-[8px] tabular-nums', isToday ? 'font-bold text-amber-600 dark:text-amber-400' : 'text-muted-foreground')}>
+                    {dayNum}
                   </span>
+                  <span className="text-[7px] uppercase text-muted-foreground/70">{weekdayShort(d.date)}</span>
                 </div>
               )
             })}

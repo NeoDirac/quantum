@@ -4,6 +4,7 @@ import { useUI } from '@/lib/store'
 import { Sidebar } from '@/components/sidebar'
 import { Dashboard } from '@/components/dashboard'
 import { ChapterMap, ExercisesList } from '@/components/chapter-map'
+import { ConceptGraphView } from '@/components/concept-graph-view'
 import { ConceptView } from '@/components/concept-view'
 import { ExerciseView } from '@/components/exercise-view'
 import { DecisionTreeView } from '@/components/decision-tree-view'
@@ -17,18 +18,21 @@ import { ProgressDashboard } from '@/components/progress-dashboard'
 import { getConcept } from '@/data/concepts'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { getExercise } from '@/data/exercises'
-import { Menu, Atom, Github, BookOpen } from 'lucide-react'
+import { Menu, Atom, Github, BookOpen, Keyboard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getActiveChapter } from '@/data/structure'
+import { useKeyboardShortcuts, KeyboardHelpDialog } from '@/components/keyboard-shortcuts'
 
 export default function Home() {
   const { view, setView, setSidebarOpen, sidebarOpen } = useUI()
   const chapter = getActiveChapter()
+  const shortcuts = useKeyboardShortcuts()
 
   const renderView = () => {
     switch (view.name) {
       case 'dashboard': return <Dashboard />
       case 'chapter-map': return <ChapterMap />
+      case 'concept-graph': return <ConceptGraphView />
       case 'concept': {
         const c = ALL_CONCEPTS.find(x => x.id === view.conceptId) ?? getConcept(view.conceptId)
         return c ? <ConceptView concept={c} /> : <NotFound />
@@ -72,6 +76,9 @@ export default function Home() {
               <BookOpen className="mr-1 h-3.5 w-3.5" /> Inicio
             </Button>
           )}
+          <Button variant="ghost" size="icon" onClick={() => shortcuts.setShowHelp(true)} title="Atajos de teclado (?)">
+            <Keyboard className="h-4 w-4" />
+          </Button>
         </div>
       </header>
 
@@ -102,6 +109,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      <KeyboardHelpDialog open={shortcuts.showHelp} onOpenChange={shortcuts.setShowHelp} />
     </div>
   )
 }

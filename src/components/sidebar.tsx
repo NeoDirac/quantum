@@ -8,7 +8,7 @@ import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
-  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star
+  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -51,28 +51,43 @@ export function Sidebar() {
 
   return (
     <>
-      {/* mobile overlay */}
+      {/* mobile overlay with blur */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-30 bg-black/40 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
       )}
       <aside className={cn(
-        'fixed inset-y-0 left-0 z-40 w-72 shrink-0 border-r border-border bg-sidebar transition-transform lg:static lg:translate-x-0',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:hidden'
+        'fixed inset-y-0 left-0 z-40 w-72 shrink-0 border-r border-border bg-sidebar/95 backdrop-blur transition-transform duration-300 ease-out lg:static lg:translate-x-0 lg:bg-sidebar',
+        sidebarOpen ? 'translate-x-0 shadow-xl lg:shadow-none' : '-translate-x-full lg:hidden'
       )}>
         <div className="flex h-full flex-col">
-          <div className="flex items-center gap-2.5 border-b border-sidebar-border px-4 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm">
-              <Atom className="h-5 w-5" />
+          <div className="flex items-center justify-between gap-2.5 border-b border-sidebar-border px-4 py-4">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm">
+                <Atom className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-sm font-bold leading-tight">Mecánica Cuántica</div>
+                <div className="text-[11px] text-muted-foreground">Griffiths · Cap. {chapter.number}</div>
+              </div>
             </div>
-            <div>
-              <div className="text-sm font-bold leading-tight">Mecánica Cuántica</div>
-              <div className="text-[11px] text-muted-foreground">Griffiths · Cap. {chapter.number}</div>
-            </div>
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted lg:hidden"
+              aria-label="Cerrar menú"
+            >
+              <X className="h-4 w-4" />
+            </button>
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto p-3">
             {navItem('Panel', LayoutDashboard, view.name === 'dashboard', () => setView({ name: 'dashboard' }))}
             {navItem('Conceptos', BookOpen, view.name === 'concept' || view.name === 'chapter-map', () => setView({ name: 'chapter-map' }))}
+            {navItem('Mapa de relaciones', Share2, view.name === 'concept-graph', () => setView({ name: 'concept-graph' }))}
             {navItem('Ejercicios', ListChecks, view.name === 'exercises-list' || view.name === 'exercise', () => setView({ name: 'exercises-list' }), EXERCISES.length)}
             {navItem('Árbol de decisión', Network, view.name === 'decision-tree', () => setView({ name: 'decision-tree' }))}
             {navItem('¿Qué hace Griffiths?', GraduationCap, view.name === 'model-problem', () => setView({ name: 'model-problem', problemId: MODEL_PROBLEMS[0].id }), MODEL_PROBLEMS.length)}
