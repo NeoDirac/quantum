@@ -49,6 +49,7 @@ export function SpacedRepetitionMode() {
   const [phase, setPhase] = useState<'overview' | 'reviewing' | 'done'>('overview')
   const [idx, setIdx] = useState(0)
   const [results, setResults] = useState<{ exerciseId: string; quality: number; interval: number; dueAt: string }[]>([])
+  const [cramMode, setCramMode] = useState(false)
   const studentId = getOrCreateStudentId()
 
   const load = async () => {
@@ -74,21 +75,49 @@ export function SpacedRepetitionMode() {
       .filter(x => x.exercise) as { card: DueCard; exercise: typeof ALL_EXERCISES[number] }[]
   }, [data])
 
+  // Cram mode: review ALL exercises (shuffled), regardless of due status.
+  // Quality ratings are recorded for self-assessment but don't update the SM-2 schedule.
+  const cramExercises = useMemo(() => {
+    const all = ALL_EXERCISES.map(e => ({
+      card: { exerciseId: e.id, easeFactor: 2.5, interval: 0, repetitions: 0, dueAt: '', totalReviews: 0, id: '' },
+      exercise: e,
+    }))
+    // shuffle
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[all[i], all[j]] = [all[j], all[i]]
+    }
+    return all.slice(0, 10) // cap at 10 for a cram session
+  }, [cramMode])
+
+  const activeExercises = cramMode ? cramExercises : dueExercises
+
   const startReview = () => {
-    if (dueExercises.length === 0) return
+    if (activeExercises.length === 0) return
     setIdx(0)
     setResults([])
     setPhase('reviewing')
   }
 
   const recordQuality = async (quality: number) => {
-    const cur = dueExercises[idx]
+    const cur = activeExercises[idx]
     if (!cur) return
+    if (cramMode) {
+      // Cram mode: don't update SM-2 schedule, just record self-assessment
+      setResults(prev => [...prev, { exerciseId: cur.exercise.id, quality, interval: 0, dueAt: '' }])
+      if (idx < activeExercises.length - 1) {
+        setIdx(i => i + 1)
+      } else {
+        setPhase('done')
+        toast({ title: 'Cram completado', description: `${activeExercises.length} ejercicios revisados` })
+      }
+      return
+    }
     try {
       const r = await apiPost('/api/sm2', { studentId, exerciseId: cur.exercise.id, quality })
       const card = r.card
       setResults(prev => [...prev, { exerciseId: cur.exercise.id, quality, interval: card.interval, dueAt: card.dueAt }])
-      if (idx < dueExercises.length - 1) {
+      if (idx < activeExercises.length - 1) {
         setIdx(i => i + 1)
       } else {
         setPhase('done')
@@ -234,6 +263,23 @@ export function SpacedRepetitionMode() {
                 </p>
               </CardContent>
             </Card>
+
+            {/* Cram mode */}
+            <Card className="border-rose-200/50 bg-rose-50/30 dark:bg-rose-950/10">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Zap className="h-4 w-4 text-rose-600" /> Modo cram (pre-examen)
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  ¿Examen mañana? El modo cram te da 10 ejercicios aleatorios de todo el capítulo,
+                  sin respetar el calendario SM-2. La autoevaluación es solo para ti: no reprograma las tarjetas.
+                  Úsalo para un repaso intensivo de último momento.
+                </p>
+                <Button variant="outline" onClick={() => { setCramMode(true); startReview() }}>
+                  <Zap className="mr-2 h-4 w-4" /> Empezar cram (10 aleatorios)
+                </Button>
+              </CardContent>
+            </Card>
           </>
         )}
       </div>
@@ -271,7 +317,7 @@ export function SpacedRepetitionMode() {
               ))}
             </div>
             <div className="flex justify-center gap-2 pt-3">
-              <Button variant="outline" onClick={() => setPhase('overview')}><RotateCcw className="mr-1.5 h-4 w-4" /> Volver</Button>
+              <Button variant="outline" onClick={() => { setCramMode(false); setPhase('overview') }}><RotateCcw className="mr-1.5 h-4 w-4" /> Volver</Button>
               <Button onClick={() => setView({ name: 'progress' })}>Ver progreso <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </div>
           </CardContent>
@@ -281,23 +327,23 @@ export function SpacedRepetitionMode() {
   }
 
   // ---- Reviewing phase ----
-  const cur = dueExercises[idx]
+  const cur = activeExercises[idx]
   if (!cur) return <div className="p-6">No hay ejercicios.</div>
   return (
     <div className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-200/60 bg-sky-50/40 p-3 dark:bg-sky-950/20">
         <div className="flex items-center gap-2 text-sm">
           <Brain className="h-4 w-4 text-sky-600" />
-          <span className="font-semibold">Repaso espaciado</span>
+          <span className="font-semibold">{cramMode ? 'Cram (pre-examen)' : 'Repaso espaciado'}</span>
           <span className="text-muted-foreground">· {cur.exercise.sectionId}</span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span>Tarjeta {idx + 1} / {dueExercises.length}</span>
-          <span className="text-muted-foreground">intervalo previo: {cur.card.interval}d</span>
-          <Button size="sm" variant="ghost" onClick={() => setPhase('overview')}>Salir</Button>
+          <span>Tarjeta {idx + 1} / {activeExercises.length}</span>
+          {!cramMode && <span className="text-muted-foreground">intervalo previo: {cur.card.interval}d</span>}
+          <Button size="sm" variant="ghost" onClick={() => { setCramMode(false); setPhase('overview') }}>Salir</Button>
         </div>
       </header>
-      <Progress value={(idx / dueExercises.length) * 100} className="h-1" />
+      <Progress value={(idx / activeExercises.length) * 100} className="h-1" />
       <ExerciseView key={cur.exercise.id + '-sm2-' + idx} exercise={cur.exercise} />
       <Card className="border-sky-200/50">
         <CardContent className="p-5 space-y-3">

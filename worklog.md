@@ -692,3 +692,79 @@ Stage Summary:
 - Exam: add question tagging (flag for review during exam, distinct from answered).
 - Add a "study session summary" email/print at end of training/exam sessions.
 - Consider adding collaborative features (shared bookmarks, study groups) — would need auth.
+
+---
+Task ID: 12
+Agent: web-dev-reviewer (cron, Phase 7)
+Task: QA + Phase 7 development (SM-2 cram mode, exam flagging, more exercises, concept graph pan/zoom)
+
+Work Log:
+- Reviewed worklog: Phase 6 complete with 33 exercises, SM-2 spaced repetition, search palette
+- QA with agent-browser: confirmed all views render, no console errors, lint clean, server stable
+- Identified next-phase items from worklog recommendations
+
+Phase 7 — SM-2 cram mode (spaced-repetition-mode.tsx):
+- Added cramMode state: when on, reviews ALL exercises (shuffled, capped at 10) instead of just due cards
+- Quality ratings in cram mode are recorded for self-assessment but do NOT update SM-2 schedule
+  (override scheduling for pre-exam intensive review)
+- Cram mode card in overview with "Empezar cram (10 aleatorios)" button (rose theme)
+- Reviewing phase header shows "Cram (pre-examen)" label, hides interval info in cram
+- Done phase and Salir button reset cramMode to false
+
+Phase 7 — Exam question flagging (exam-mode.tsx):
+- Added `flagged` field to ExamQ interface + toggleFlag() function (works by index or current)
+- Running view: flag button (Flag icon) in header, toggles "Marcar" ↔ "Marcada" with amber fill
+- Review screen: flag icon next to question title, flag toggle button per card, flagged count
+  badge in header ("N marcada(s)"), "Ir a la primera marcada" button
+- Flagged state persists across navigation between running and review phases
+
+Phase 7 — More exercises (exercises-phase7.ts, 4 new, total 37):
+- ex-2-1d: Ehrenfest theorem (d⟨x⟩/dt = ⟨p⟩/m from commutator, classical limit)
+- ex-2-3h: Squeezed states (S(ζ) operator, Δx=e^{-r}Δx₀, LIGO application)
+- ex-2-4d: Wave packet spreading derivation (σ(t)=σ₀√(1+(ℏt/2mσ₀²)²), limits t→0/∞)
+- ex-2-6e: Graphical transcendental solving (tan(z) vs √(z₀²/z²−1), state appearance thresholds)
+- Merged via ALL_EXERCISES = Phase1+2+3+4+5+6+7
+
+Phase 7 — Concept graph pan/zoom (concept-graph-view.tsx):
+- Added zoom state (0.4× to 2.5×) + pan state (x,y) + drag tracking
+- Mouse wheel: zoom in/out (delta 0.001 per tick, clamped)
+- Mouse drag: pan the graph (grab/grabbing cursor)
+- Control buttons overlay (top-right): + (zoom in), − (zoom out), ⟲ (reset view)
+- Zoom indicator overlay (top-left): "zoom: 1.0× · arrastra para mover · rueda para zoom"
+- SVG content wrapped in <g transform="translate(pan) scale(zoom)">
+
+Verification:
+- Lint: 0 errors, 0 warnings
+- agent-browser: 37 exercises visible (was 33), all 4 new exercises render; SM-2 cram mode
+  card visible; exam flag button toggles "Marcar"→"Marcada" and shows in review screen;
+  concept graph zoom buttons (+/−/⟲) work (1.0→1.2 on click), zoom indicator shows, drag works
+- Server stays alive across all tests
+
+Stage Summary:
+- Phase 7 complete. Platform now has: 37 exercises (was 33), SM-2 cram mode, exam question
+  flagging, concept graph pan/zoom, 4 more exercises (Ehrenfest, squeezed states, wave packet
+  spreading, graphical transcendental).
+
+## Current project status (assessment)
+- Stable, feature-rich, polished. Cumulative enhancements across 7 phases:
+  * SM-2 cram mode (override scheduling, 10 random exercises, pre-exam intensive)
+  * Exam question flagging (mark for review, jump to flagged, review screen display)
+  * 4 more exercises: Ehrenfest theorem, squeezed states, wave packet spreading, graphical
+    transcendental solving
+  * Concept graph pan/zoom (wheel + drag + control buttons + reset)
+
+## Current goals / completed modifications / verification results
+- DONE: SM-2 cram mode, exam flagging, more exercises, concept graph pan/zoom.
+- Content now: 16 concepts, 8 model problems, 37 exercises, graph decision tree,
+  concept relationships graph (with pan/zoom), SM-2 cards (with cram), search palette.
+- All major features from worklog recommendations now implemented across 7 phases.
+
+## Unresolved issues or risks, and priority recommendations for next phase
+- Content: ~37/50+ Griffiths Ch.2 problems. Next: add 2.2 parity theorem, 2.3 number operator
+  derivation, 2.5 delta well bound state wavefunction, 2.7 transmission resonance conditions.
+- Add a "study session summary" print/export at end of exam/training/SM-2 sessions.
+- SM-2: add a "suspend card" option (temporarily remove from rotation).
+- Exam: add a "review flagged only" filter in the review screen.
+- Concept graph: add a force-directed layout option (currently circular).
+- Consider adding a "concept difficulty" rating (student-rated) for personalized ordering.
+- Add a "recently viewed" section on the dashboard for quick return.

@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
-import { Timer, CheckCircle2, XCircle, RotateCcw, AlertTriangle, Trophy, ArrowRight, Target } from 'lucide-react'
+import { Timer, CheckCircle2, XCircle, RotateCcw, AlertTriangle, Trophy, ArrowRight, Target, Flag } from 'lucide-react'
 import { apiPost, apiGet, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
 import { ERROR_TYPE_LABELS, type ErrorType } from '@/lib/content-types'
@@ -24,6 +24,7 @@ interface ExamQ {
   conceptIds: string[]
   sectionId: string
   timeSpentMs?: number   // per-question time tracking
+  flagged?: boolean      // student flagged for review
 }
 
 const CONCEPT_ID_TO_TITLE: Record<string, string> = Object.fromEntries(ALL_CONCEPTS.map(c => [c.id, c.title]))
@@ -160,6 +161,15 @@ export function ExamMode() {
     setCurrent(idx)
     setPhase('running')
   }
+  // Toggle the flag on the current question (during running) or by index (review).
+  const toggleFlag = (idx?: number) => {
+    const i = idx ?? current
+    setQuestions(prev => {
+      const n = [...prev]
+      n[i] = { ...n[i], flagged: !n[i].flagged }
+      return n
+    })
+  }
   // Change a single answer without leaving the review screen.
   const setAnswer = (idx: number, solved: boolean, errorType?: ErrorType) => {
     setQuestions(prev => {
@@ -293,6 +303,10 @@ export function ExamMode() {
                 {String(Math.floor(remaining / 60)).padStart(2, '0')}:{String(remaining % 60).padStart(2, '0')}
               </span>
             )}
+            <Button variant="ghost" size="sm" onClick={() => toggleFlag()} title="Marcar para revisar después">
+              <Flag className={cn('mr-1 h-3.5 w-3.5', questions[current]?.flagged && 'fill-amber-400 text-amber-500')} />
+              {questions[current]?.flagged ? 'Marcada' : 'Marcar'}
+            </Button>
             <Button variant="ghost" size="sm" onClick={() => setPhase('review')}>
               <CheckCircle2 className="mr-1 h-3.5 w-3.5" /> Revisar
             </Button>
@@ -352,7 +366,12 @@ export function ExamMode() {
             <CheckCircle2 className="h-6 w-6 text-sky-600" /> Revisa tus respuestas
           </h1>
           <p className="text-muted-foreground">
-            {answered} de {questions.length} respondidas · tiempo: {elapsedMin}m {elapsedSec}s.
+            {answered} de {questions.length} respondidas · tiempo: {elapsedMin}m {elapsedSec}s
+            {questions.some(q => q.flagged) && (
+              <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
+                <Flag className="h-3 w-3 fill-amber-400" /> {questions.filter(q => q.flagged).length} marcada(s)
+              </span>
+            )}.
             Puedes cambiar cualquier respuesta antes de finalizar, o saltar a una pregunta sin contestar.
           </p>
         </header>
@@ -380,6 +399,7 @@ export function ExamMode() {
                       <div className="flex items-center gap-2">
                         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">{ex.sectionId}</span>
                         <span className="text-sm font-medium truncate">{ex.title}</span>
+                        {q.flagged && <Flag className="h-3.5 w-3.5 shrink-0 fill-amber-400 text-amber-500" />}
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <span>
@@ -392,6 +412,11 @@ export function ExamMode() {
                             {Math.floor(q.timeSpentMs / 60000)}:{String(Math.floor((q.timeSpentMs % 60000) / 1000)).padStart(2, '0')}
                           </span>
                         )}
+                        <button onClick={() => toggleFlag(i)} className={cn('ml-auto rounded px-1.5 py-0.5 text-[10px] transition-colors',
+                          q.flagged ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'text-muted-foreground hover:bg-muted')}
+                          title="Marcar/desmarcar para revisar">
+                          <Flag className={cn('h-3 w-3', q.flagged && 'fill-amber-400 text-amber-500')} />
+                        </button>
                       </div>
                       {/* Inline quick change */}
                       <div className="mt-2 flex flex-wrap gap-1">
@@ -420,6 +445,9 @@ export function ExamMode() {
           </Button>
           <Button variant="outline" onClick={() => { setCurrent(questions.findIndex(q => q.picked === null)); setPhase('running') }} disabled={!questions.some(q => q.picked === null)}>
             <ArrowRight className="mr-1.5 h-4 w-4" /> Ir a la primera sin contestar
+          </Button>
+          <Button variant="outline" onClick={() => { setCurrent(questions.findIndex(q => q.flagged)); setPhase('running') }} disabled={!questions.some(q => q.flagged)}>
+            <Flag className="mr-1.5 h-4 w-4" /> Ir a la primera marcada
           </Button>
           <Button variant="ghost" onClick={() => setPhase('running')}>
             <RotateCcw className="mr-1.5 h-4 w-4" /> Seguir respondiendo

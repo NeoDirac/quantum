@@ -22,6 +22,24 @@ const SECTION_COLOR: Record<string, string> = {
 export function ConceptGraphView() {
   const { setView } = useUI()
   const [selected, setSelected] = useState<string | null>(null)
+  // Pan/zoom state
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const [dragging, setDragging] = useState<{ x: number; y: number } | null>(null)
+
+  const onWheel = (e: React.WheelEvent) => {
+    const delta = -e.deltaY * 0.001
+    setZoom(z => Math.max(0.4, Math.min(2.5, z + delta)))
+  }
+  const onMouseDown = (e: React.MouseEvent) => {
+    setDragging({ x: e.clientX - pan.x, y: e.clientY - pan.y })
+  }
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging) return
+    setPan({ x: e.clientX - dragging.x, y: e.clientY - dragging.y })
+  }
+  const onMouseUp = () => setDragging(null)
+  const resetView = () => { setZoom(1); setPan({ x: 0, y: 0 }) }
 
   // Build a circular layout grouped by section, so concepts in the same section cluster.
   const layout = useMemo(() => {
@@ -88,8 +106,26 @@ export function ConceptGraphView() {
 
       <Card className="overflow-hidden">
         <CardContent className="p-0">
-          <div className="overflow-x-auto bg-gradient-to-br from-teal-50/20 via-transparent to-violet-50/10 dark:from-teal-950/10 dark:to-violet-950/10">
-            <svg viewBox="0 0 760 560" style={{ minWidth: '640px', width: '100%' }} className="block">
+          <div
+            className="relative overflow-hidden bg-gradient-to-br from-teal-50/20 via-transparent to-violet-50/10 dark:from-teal-950/10 dark:to-violet-950/10"
+            onWheel={onWheel}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            style={{ cursor: dragging ? 'grabbing' : 'grab' }}
+          >
+            {/* Pan/zoom controls */}
+            <div className="absolute right-3 top-3 z-10 flex flex-col gap-1 rounded-lg border border-border bg-background/80 p-1 backdrop-blur">
+              <button onClick={() => setZoom(z => Math.min(2.5, z + 0.2))} className="rounded p-1 text-sm hover:bg-muted" title="Acercar">+</button>
+              <button onClick={() => setZoom(z => Math.max(0.4, z - 0.2))} className="rounded p-1 text-sm hover:bg-muted" title="Alejar">−</button>
+              <button onClick={resetView} className="rounded p-1 text-xs hover:bg-muted" title="Restablecer">⟲</button>
+            </div>
+            <div className="absolute left-3 top-3 z-10 rounded-md bg-background/70 px-2 py-1 text-[10px] text-muted-foreground backdrop-blur">
+              zoom: {zoom.toFixed(1)}× · arrastra para mover · rueda para zoom
+            </div>
+            <svg viewBox="0 0 760 560" style={{ width: '100%', height: '480px' }} className="block">
+              <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
               {/* Edges */}
               {edges.map((e, i) => {
                 const from = layout.positions.get(e.from)
@@ -150,6 +186,7 @@ export function ConceptGraphView() {
                   </g>
                 )
               })}
+              </g>
             </svg>
           </div>
         </CardContent>
