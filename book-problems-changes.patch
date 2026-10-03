@@ -1,0 +1,1193 @@
+diff -ruN /tmp/quantum-repo/src/app/page.tsx /home/z/my-project/src/app/page.tsx
+--- /tmp/quantum-repo/src/app/page.tsx	2026-10-03 21:41:24.943587402 +0000
++++ /home/z/my-project/src/app/page.tsx	2026-10-03 22:11:30.439090807 +0000
+@@ -7,6 +7,7 @@
+ import { ConceptGraphView } from '@/components/concept-graph-view'
+ import { ConceptView } from '@/components/concept-view'
+ import { ExerciseView } from '@/components/exercise-view'
++import { BookProblemsList, BookProblemDetail } from '@/components/book-problems-view'
+ import { DecisionTreeView } from '@/components/decision-tree-view'
+ import { ModelProblemView } from '@/components/model-problem-view'
+ import { Visualizations } from '@/components/visualizations'
+@@ -47,6 +48,8 @@
+         return e ? <ExerciseView exercise={e} /> : <NotFound />
+       }
+       case 'exercises-list': return <ExercisesList />
++      case 'book-problems': return <BookProblemsList />
++      case 'book-problem': return <BookProblemDetail problemId={view.problemId} />
+       case 'decision-tree': return <DecisionTreeView />
+       case 'model-problem': return <ModelProblemView />
+       case 'visualizations': return <Visualizations />
+diff -ruN /tmp/quantum-repo/src/components/book-problems-view.tsx /home/z/my-project/src/components/book-problems-view.tsx
+--- /tmp/quantum-repo/src/components/book-problems-view.tsx	1970-01-01 00:00:00.000000000 +0000
++++ /home/z/my-project/src/components/book-problems-view.tsx	2026-10-03 22:11:19.709092257 +0000
+@@ -0,0 +1,421 @@
++'use client'
++
++import { useMemo, useState } from 'react'
++import { useUI } from '@/lib/store'
++import { BOOK_PROBLEMS, getBookProblem, type BookProblem } from '@/data/book-problems'
++import { SECTIONS } from '@/data/structure'
++import { EXERCISES } from '@/data/exercises'
++import { Card, CardContent } from '@/components/ui/card'
++import { Badge } from '@/components/ui/badge'
++import { Input } from '@/components/ui/input'
++import { InlineMath, BlockMath } from 'react-katex'
++import 'katex/dist/katex.min.css'
++import { cn } from '@/lib/utils'
++import { motion, AnimatePresence } from 'framer-motion'
++import {
++  BookMarked, ChevronRight, ChevronLeft, Star, Search, Languages,
++  BookOpen, Info, ArrowLeft, FileText, Quote, ListFilter,
++} from 'lucide-react'
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Renderer: markdown ligero + LaTeX ($...$ inline, $$...$$ display)
++// ─────────────────────────────────────────────────────────────────────────────
++
++function renderInline(text: string, keyPrefix: string) {
++  // Split by inline math $...$ while respecting **bold** and *italic*
++  const parts: React.ReactNode[] = []
++  const regex = /\$([^$]+)\$/g
++  let last = 0
++  let m: RegExpExecArray | null
++  let idx = 0
++  while ((m = regex.exec(text)) !== null) {
++    if (m.index > last) parts.push(...renderEmphasis(text.slice(last, m.index), `${keyPrefix}-t${idx}`))
++    parts.push(<InlineMath key={`${keyPrefix}-m${idx}`} math={m[1]} />)
++    last = m.index + m[0].length
++    idx++
++  }
++  if (last < text.length) parts.push(...renderEmphasis(text.slice(last), `${keyPrefix}-t${idx}`))
++  return parts
++}
++
++function renderEmphasis(text: string, keyPrefix: string): React.ReactNode[] {
++  const parts: React.ReactNode[] = []
++  const regex = /(\*\*[^*]+\*\*|\*[^*]+\*)/g
++  let last = 0
++  let m: RegExpExecArray | null
++  let idx = 0
++  while ((m = regex.exec(text)) !== null) {
++    if (m.index > last) parts.push(text.slice(last, m.index))
++    const token = m[0]
++    if (token.startsWith('**')) parts.push(<strong key={`${keyPrefix}-b${idx}`}>{token.slice(2, -2)}</strong>)
++    else parts.push(<em key={`${keyPrefix}-i${idx}`}>{token.slice(1, -1)}</em>)
++    last = m.index + m[0].length
++    idx++
++  }
++  if (last < text.length) parts.push(text.slice(last))
++  return parts
++}
++
++const PART_RE = /^\(([a-z])\)\s*/
++
++export function BookMarkdown({ text, className }: { text: string; className?: string }) {
++  const lines = text.split('\n')
++  return (
++    <div className={cn('space-y-2.5 text-[15px] leading-7', className)}>
++      {lines.map((ln, i) => {
++        const s = ln.trim()
++        if (s === '') return null
++        if (s.startsWith('$$') && s.endsWith('$$') && s.length > 4) {
++          return (
++            <div key={i} className="my-2 overflow-x-auto py-1 text-center">
++              <BlockMath math={s.slice(2, -2)} />
++            </div>
++          )
++        }
++        const partMatch = s.match(PART_RE)
++        if (partMatch) {
++          return (
++            <p key={i} className="flex gap-2 pl-1 sm:pl-2">
++              <span className="mt-[2px] shrink-0 rounded bg-violet-100 px-1.5 font-mono text-[13px] font-bold text-violet-700 dark:bg-violet-950 dark:text-violet-300">
++                ({partMatch[1]})
++              </span>
++              <span className="min-w-0 flex-1">{renderInline(s.slice(partMatch[0].length), `l${i}`)}</span>
++            </p>
++          )
++        }
++        return <p key={i}>{renderInline(s, `l${i}`)}</p>
++      })}
++    </div>
++  )
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Estrellas de dificultad (convención de Griffiths)
++// ─────────────────────────────────────────────────────────────────────────────
++
++function Stars({ n, label }: { n: number; label?: boolean }) {
++  return (
++    <span className="inline-flex items-center gap-0.5 text-amber-600 dark:text-amber-400" title={`Dificultad de Griffiths: ${n} de 3`}>
++      {Array.from({ length: n }).map((_, i) => <Star key={i} className="h-3 w-3 fill-current" />)}
++      {n === 0 && <span className="text-[11px] text-muted-foreground">{label ? 'básico' : '·'}</span>}
++    </span>
++  )
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Lista de problemas del libro
++// ─────────────────────────────────────────────────────────────────────────────
++
++export function BookProblemsList() {
++  const { setView } = useUI()
++  const [filter, setFilter] = useState<string>('all')
++  const [query, setQuery] = useState('')
++
++  const sections = SECTIONS.filter(s => s.chapterId === 'ch2')
++
++  const filtered = useMemo(() => {
++    let list = BOOK_PROBLEMS
++    if (filter === 'further') list = list.filter(p => p.placement === 'further')
++    else if (filter !== 'all') {
++      list = list.filter(p => p.sectionId === filter && p.placement === 'in-section')
++    }
++    if (query.trim()) {
++      const q = query.toLowerCase()
++      list = list.filter(p =>
++        p.number.includes(q) ||
++        p.title.toLowerCase().includes(q) ||
++        p.statementEn.toLowerCase().includes(q) ||
++        p.statementEs.toLowerCase().includes(q)
++      )
++    }
++    return list
++  }, [filter, query])
++
++  const countFor = (id: string) =>
++    id === 'all' ? BOOK_PROBLEMS.length
++    : id === 'further' ? BOOK_PROBLEMS.filter(p => p.placement === 'further').length
++    : BOOK_PROBLEMS.filter(p => p.sectionId === id && p.placement === 'in-section').length
++
++  const chip = (id: string, label: React.ReactNode) => (
++    <button
++      type="button"
++      onClick={() => setFilter(id)}
++      className={cn('rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
++        filter === id ? 'border-violet-400 bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100' : 'border-border text-muted-foreground hover:bg-muted')}
++    >
++      {label}
++    </button>
++  )
++
++  return (
++    <div className="space-y-5">
++      <header className="space-y-2">
++        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
++          <BookMarked className="h-6 w-6 text-violet-600" /> Problemas del libro · Capítulo 2
++        </h1>
++        <p className="text-muted-foreground">
++          Los <strong>49 problemas originales</strong> del Capítulo 2 de Griffiths (1.ª ed.): los 35 en las secciones y los 14 de <em>Further Problems</em>.
++          Enunciado transcrito <strong>literalmente</strong> del libro (EN) con traducción al español.
++        </p>
++      </header>
++
++      {/* Source callout */}
++      <div className="rounded-lg border border-violet-300/60 bg-violet-50/60 p-4 text-sm leading-6 dark:border-violet-800 dark:bg-violet-950/30">
++        <div className="mb-1 flex items-center gap-2 font-semibold text-violet-800 dark:text-violet-200">
++          <Quote className="h-4 w-4" /> Fuente primaria
++        </div>
++        <p className="text-[13.5px] text-muted-foreground">
++          David J. Griffiths, <em>Introduction to Quantum Mechanics</em>, 1.ª edición, Prentice Hall (1995), Capítulo 2
++          «The Time-Independent Schrödinger Equation», pp. 24–74. Los asteriscos (0–3) son la dificultad
++          asignada por el propio Griffiths. Reproducido con permiso del usuario.
++        </p>
++      </div>
++
++      {/* Search + filters */}
++      <div className="space-y-3">
++        <div className="relative">
++          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
++          <Input
++            value={query}
++            onChange={e => setQuery(e.target.value)}
++            placeholder="Buscar por número, contenido o traducción… (p. ej. 2.6, tunneling, delta)"
++            className="pl-9"
++          />
++        </div>
++        <div className="flex flex-wrap gap-2">
++          {chip('all', <>Todos ({countFor('all')})</>)}
++          {sections.map(s => chip(s.id, <><span className="font-mono">{s.id}</span> · {s.title} ({countFor(s.id)})</>))}
++          {chip('further', <>Further Problems ({countFor('further')})</>)}
++        </div>
++      </div>
++
++      {/* List */}
++      <div className="grid gap-3">
++        {filtered.length === 0 && (
++          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
++            Ningún problema coincide con la búsqueda.
++          </div>
++        )}
++        {filtered.map(p => (
++          <BookProblemRow key={p.id} p={p} onOpen={() => setView({ name: 'book-problem', problemId: p.id })} />
++        ))}
++      </div>
++    </div>
++  )
++}
++
++function BookProblemRow({ p, onOpen }: { p: BookProblem; onOpen: () => void }) {
++  const firstLine = p.statementEn.split('\n').find(l => l.trim() !== '') ?? ''
++  return (
++    <Card className="cursor-pointer transition-colors hover:border-violet-400">
++      <button type="button" className="w-full text-left" onClick={onOpen}>
++        <CardContent className="flex items-start gap-3 p-4">
++          <div className="flex h-9 w-14 shrink-0 flex-col items-center justify-center rounded-md bg-violet-100 dark:bg-violet-950/60">
++            <span className="font-mono text-[13px] font-bold leading-none text-violet-700 dark:text-violet-300">{p.number}</span>
++            <span className="mt-0.5 text-[9px] uppercase tracking-wide text-violet-500 dark:text-violet-400">p. {p.bookPage}</span>
++          </div>
++          <div className="min-w-0 flex-1 space-y-1.5">
++            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
++              {p.placement === 'further' && (
++                <Badge variant="outline" className="border-violet-300 text-[10px] text-violet-700 dark:text-violet-300">Further Problem</Badge>
++              )}
++              <span>Sección <span className="font-mono">{p.sectionId}</span></span>
++              <span>·</span>
++              <Stars n={p.stars} />
++            </div>
++            <div className="font-semibold leading-snug">{p.title}</div>
++            <div className="line-clamp-2 text-xs leading-5 text-muted-foreground">
++              {firstLine.replace(/\$[^$]*\$/g, ' […] ')}
++            </div>
++          </div>
++          <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
++        </CardContent>
++      </button>
++    </Card>
++  )
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Detalle de un problema del libro
++// ─────────────────────────────────────────────────────────────────────────────
++
++export function BookProblemDetail({ problemId }: { problemId: string }) {
++  const { setView } = useUI()
++  const p = getBookProblem(problemId)
++  const [lang, setLang] = useState<'en' | 'es'>('en')
++
++  if (!p) {
++    return (
++      <div className="rounded-lg border border-border bg-muted/30 p-8 text-center">
++        <div className="text-lg font-semibold">Problema no encontrado</div>
++      </div>
++    )
++  }
++
++  const idx = BOOK_PROBLEMS.findIndex(x => x.id === p.id)
++  const prev = idx > 0 ? BOOK_PROBLEMS[idx - 1] : null
++  const next = idx < BOOK_PROBLEMS.length - 1 ? BOOK_PROBLEMS[idx + 1] : null
++
++  // ejercicios originales de la plataforma sobre la misma sección
++  const relatedOriginals = EXERCISES.filter(e => e.sectionId === p.sectionId).slice(0, 4)
++
++  const toggleLang = (
++    <div className="inline-flex overflow-hidden rounded-full border border-border text-xs font-medium">
++      <button
++        type="button"
++        onClick={() => setLang('en')}
++        className={cn('flex items-center gap-1.5 px-3 py-1.5 transition-colors', lang === 'en' ? 'bg-violet-600 text-white' : 'text-muted-foreground hover:bg-muted')}
++      >
++        <Languages className="h-3.5 w-3.5" /> EN <span className="hidden sm:inline">· literal</span>
++      </button>
++      <button
++        type="button"
++        onClick={() => setLang('es')}
++        className={cn('flex items-center gap-1.5 px-3 py-1.5 transition-colors', lang === 'es' ? 'bg-violet-600 text-white' : 'text-muted-foreground hover:bg-muted')}
++      >
++        <Languages className="h-3.5 w-3.5" /> ES <span className="hidden sm:inline">· traducción</span>
++      </button>
++    </div>
++  )
++
++  return (
++    <div className="space-y-5">
++      {/* Header */}
++      <div className="flex flex-wrap items-start justify-between gap-3">
++        <div className="flex items-start gap-3">
++          <button
++            type="button"
++            onClick={() => setView({ name: 'book-problems' })}
++            className="mt-1 rounded-md border border-border p-1.5 text-muted-foreground transition-colors hover:bg-muted"
++            title="Volver a la lista"
++          >
++            <ArrowLeft className="h-4 w-4" />
++          </button>
++          <div>
++            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
++              <span className="font-mono text-base font-bold text-violet-700 dark:text-violet-300">Problema {p.number}</span>
++              <span>·</span>
++              <span>Griffiths 1.ª ed., p. {p.bookPage}</span>
++              <span>·</span>
++              <Stars n={p.stars} label />
++            </div>
++            <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">{p.title}</h1>
++            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
++              <Badge variant="secondary" className="text-[10px]">Sección {p.sectionId}</Badge>
++              {p.placement === 'further' && (
++                <Badge variant="outline" className="border-violet-300 text-[10px] text-violet-700 dark:text-violet-300">Further Problem</Badge>
++              )}
++            </div>
++          </div>
++        </div>
++        {toggleLang}
++      </div>
++
++      {/* Statement */}
++      <Card className="border-violet-200/70 dark:border-violet-900">
++        <CardContent className="space-y-4 p-5 sm:p-6">
++          <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-3">
++            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
++              <FileText className="h-4 w-4" />
++              {lang === 'en' ? 'Enunciado (transcripción literal del libro)' : 'Enunciado (traducción al español)'}
++            </div>
++            <span className="text-[10px] text-muted-foreground">
++              {lang === 'en' ? 'verbatim · English' : 'fiel al original · español'}
++            </span>
++          </div>
++          <AnimatePresence mode="wait" initial={false}>
++            <motion.div
++              key={lang}
++              initial={{ opacity: 0, y: 4 }}
++              animate={{ opacity: 1, y: 0 }}
++              exit={{ opacity: 0, y: -4 }}
++              transition={{ duration: 0.15 }}
++            >
++              <BookMarkdown text={lang === 'en' ? p.statementEn : p.statementEs} />
++            </motion.div>
++          </AnimatePresence>
++
++          {p.footnotes.length > 0 && lang === 'en' && (
++            <div className="mt-2 space-y-1.5 border-t border-border/60 pt-3">
++              {p.footnotes.map((fn, i) => (
++                <p key={i} className="text-xs leading-5 text-muted-foreground">
++                  <sup className="mr-1 font-semibold">{i + 1}</sup>{fn}
++                </p>
++              ))}
++            </div>
++          )}
++        </CardContent>
++      </Card>
++
++      {/* Info callout */}
++      <div className="flex items-start gap-2.5 rounded-lg border border-sky-300/60 bg-sky-50/60 p-4 text-[13.5px] leading-6 text-muted-foreground dark:border-sky-800 dark:bg-sky-950/30">
++        <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
++        <div>
++          La versión <strong>EN</strong> es la transcripción literal del texto impreso de Griffiths (incluye
++          pistas, notas y respuestas parciales tal como aparecen en el libro). La versión <strong>ES</strong> es una
++          traducción fiel para estudiar; ante cualquier discrepancia, la referencia es siempre el texto original.
++          El solucionario que subiste (soluciones de terceros) cubre estos problemas; consúltalo después de intentarlo.
++        </div>
++      </div>
++
++      {/* Related original exercises */}
++      {relatedOriginals.length > 0 && (
++        <div className="space-y-2">
++          <div className="flex items-center gap-2 text-sm font-semibold">
++            <BookOpen className="h-4 w-4 text-teal-600" />
++            Entrenamiento guiado relacionado (sección {p.sectionId})
++          </div>
++          <div className="grid gap-2 sm:grid-cols-2">
++            {relatedOriginals.map(e => (
++              <button
++                key={e.id}
++                type="button"
++                onClick={() => setView({ name: 'exercise', exerciseId: e.id })}
++                className="rounded-lg border border-border bg-card p-3 text-left transition-colors hover:border-teal-400"
++              >
++                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
++                  <ListFilter className="h-3 w-3" /> ejercicio guiado de la plataforma
++                </div>
++                <div className="mt-1 text-sm font-medium leading-snug">{e.title}</div>
++              </button>
++            ))}
++          </div>
++          <p className="text-xs text-muted-foreground">
++            Los ejercicios de la plataforma (pistas progresivas, botón «¿Por qué?», análisis de errores) siguen
++            disponibles por sección; los problemas del libro son el banco oficial para el examen.
++          </p>
++        </div>
++      )}
++
++      {/* Prev / next */}
++      <div className="flex items-stretch justify-between gap-3 pt-1">
++        {prev ? (
++          <button
++            type="button"
++            onClick={() => setView({ name: 'book-problem', problemId: prev.id })}
++            className="group flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-border p-3 text-left transition-colors hover:bg-muted"
++          >
++            <ChevronLeft className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
++            <div className="min-w-0">
++              <div className="font-mono text-[11px] text-muted-foreground">Anterior · {prev.number}</div>
++              <div className="truncate text-sm font-medium">{prev.title}</div>
++            </div>
++          </button>
++        ) : <div className="flex-1" />}
++        {next ? (
++          <button
++            type="button"
++            onClick={() => setView({ name: 'book-problem', problemId: next.id })}
++            className="group flex min-w-0 flex-1 items-center justify-end gap-2 rounded-lg border border-border p-3 text-right transition-colors hover:bg-muted"
++          >
++            <div className="min-w-0">
++              <div className="font-mono text-[11px] text-muted-foreground">Siguiente · {next.number}</div>
++              <div className="truncate text-sm font-medium">{next.title}</div>
++            </div>
++            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-foreground" />
++          </button>
++        ) : <div className="flex-1" />}
++      </div>
++    </div>
++  )
++}
+diff -ruN /tmp/quantum-repo/src/components/chapter-map.tsx /home/z/my-project/src/components/chapter-map.tsx
+--- /tmp/quantum-repo/src/components/chapter-map.tsx	2026-10-03 21:41:24.944587402 +0000
++++ /home/z/my-project/src/components/chapter-map.tsx	2026-10-03 22:11:52.653088034 +0000
+@@ -5,10 +5,11 @@
+ import { SECTIONS, getActiveChapter } from '@/data/structure'
+ import { ALL_CONCEPTS } from '@/data/concepts-2'
+ import { EXERCISES } from '@/data/exercises'
++import { BOOK_PROBLEMS } from '@/data/book-problems'
+ import { RenderBlocks } from '@/components/render-blocks'
+ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+ import { Badge } from '@/components/ui/badge'
+-import { BookOpen, ListChecks, ChevronRight, Star } from 'lucide-react'
++import { BookOpen, ListChecks, ChevronRight, Star, BookMarked } from 'lucide-react'
+ import { cn } from '@/lib/utils'
+ import { useState as useRState } from 'react'
+ import type { Exercise } from '@/lib/content-types'
+@@ -89,6 +90,26 @@
+         </p>
+       </header>
+ 
++      {/* Alternar entre banco original y problemas del libro */}
++      <button
++        type="button"
++        onClick={() => setView({ name: 'book-problems' })}
++        className="group flex w-full items-center gap-3 rounded-lg border border-violet-300/70 bg-violet-50/60 p-4 text-left transition-colors hover:border-violet-400 hover:bg-violet-100/60 dark:border-violet-800 dark:bg-violet-950/30 dark:hover:bg-violet-950/50"
++      >
++        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm">
++          <BookMarked className="h-5 w-5" />
++        </div>
++        <div className="min-w-0 flex-1">
++          <div className="text-sm font-semibold text-violet-900 dark:text-violet-100">
++            ¿Buscas los problemas reales de Griffiths? → Problemas del libro
++          </div>
++          <div className="text-xs leading-5 text-muted-foreground">
++            Los {BOOK_PROBLEMS.length} problemas oficiales del Capítulo 2 (1.ª ed.), transcritos literalmente del libro: {BOOK_PROBLEMS.filter(p => p.placement === 'in-section').length} en las secciones + {BOOK_PROBLEMS.filter(p => p.placement === 'further').length} Further Problems, con traducción al español.
++          </div>
++        </div>
++        <ChevronRight className="h-5 w-5 shrink-0 text-violet-500 transition-transform group-hover:translate-x-0.5" />
++      </button>
++
+       <div className="flex flex-wrap gap-2">
+         <button
+           type="button"
+diff -ruN /tmp/quantum-repo/src/components/search-palette.tsx /home/z/my-project/src/components/search-palette.tsx
+--- /tmp/quantum-repo/src/components/search-palette.tsx	2026-10-03 21:41:24.945587402 +0000
++++ /home/z/my-project/src/components/search-palette.tsx	2026-10-03 22:12:07.770086198 +0000
+@@ -6,8 +6,9 @@
+ import { ALL_CONCEPTS } from '@/data/concepts-2'
+ import { ALL_EXERCISES } from '@/data/exercises'
+ import { MODEL_PROBLEMS } from '@/data/model-problems'
++import { BOOK_PROBLEMS } from '@/data/book-problems'
+ import { SECTIONS } from '@/data/structure'
+-import { BookOpen, ListChecks, GraduationCap, Layers, Search } from 'lucide-react'
++import { BookOpen, ListChecks, GraduationCap, Layers, Search, BookMarked } from 'lucide-react'
+ import { Button } from '@/components/ui/button'
+ 
+ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (b: boolean) => void }) {
+@@ -105,6 +106,28 @@
+             </CommandItem>
+           ))}
+         </CommandGroup>
++        <CommandGroup heading={`Problemas del libro · Griffiths (${BOOK_PROBLEMS.length})`}>
++          {BOOK_PROBLEMS.map(p => {
++            const stars = '★'.repeat(p.stars)
++            return (
++              <CommandItem
++                key={p.id}
++                value={`problema libro griffiths ${p.number} ${p.title} ${p.sectionId} ${p.statementEn.slice(0, 120)}`}
++                onSelect={() => go({ name: 'book-problem', problemId: p.id })}
++                className="cursor-pointer"
++              >
++                <BookMarked className="mr-2 h-4 w-4 text-violet-500" />
++                <div className="flex flex-1 items-center gap-2">
++                  <span className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">{p.number}</span>
++                  <span className="font-medium">{p.title}</span>
++                  {p.placement === 'further' && <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">Further</span>}
++                </div>
++                {p.stars > 0 && <span className="text-[10px] text-amber-500">{stars}</span>}
++              </CommandItem>
++            )
++          })}
++        </CommandGroup>
++
+       </CommandList>
+     </CommandDialog>
+   )
+diff -ruN /tmp/quantum-repo/src/components/sidebar.tsx /home/z/my-project/src/components/sidebar.tsx
+--- /tmp/quantum-repo/src/components/sidebar.tsx	2026-10-03 21:41:24.945587402 +0000
++++ /home/z/my-project/src/components/sidebar.tsx	2026-10-03 22:11:37.600089826 +0000
+@@ -4,11 +4,13 @@
+ import { SECTIONS, getActiveChapter, getSectionsForChapter } from '@/data/structure'
+ import { ALL_CONCEPTS } from '@/data/concepts-2'
+ import { EXERCISES } from '@/data/exercises'
++import { BOOK_PROBLEMS } from '@/data/book-problems'
+ import { MODEL_PROBLEMS } from '@/data/model-problems'
+ import { cn } from '@/lib/utils'
+ import {
+   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
+-  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays
++  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays,
++  BookMarked
+ } from 'lucide-react'
+ import { useState } from 'react'
+ 
+@@ -89,6 +91,7 @@
+             {navItem('Conceptos', BookOpen, view.name === 'concept' || view.name === 'chapter-map', () => setView({ name: 'chapter-map' }))}
+             {navItem('Mapa de relaciones', Share2, view.name === 'concept-graph', () => setView({ name: 'concept-graph' }))}
+             {navItem('Ejercicios', ListChecks, view.name === 'exercises-list' || view.name === 'exercise', () => setView({ name: 'exercises-list' }), EXERCISES.length)}
++            {navItem('Problemas del libro', BookMarked, view.name === 'book-problems' || view.name === 'book-problem', () => setView({ name: 'book-problems' }), BOOK_PROBLEMS.length)}
+             {navItem('Árbol de decisión', Network, view.name === 'decision-tree', () => setView({ name: 'decision-tree' }))}
+             {navItem('¿Qué hace Griffiths?', GraduationCap, view.name === 'model-problem', () => setView({ name: 'model-problem', problemId: MODEL_PROBLEMS[0].id }), MODEL_PROBLEMS.length)}
+             {navItem('Visualizaciones', Waves, view.name === 'visualizations', () => setView({ name: 'visualizations' }))}
+diff -ruN /tmp/quantum-repo/src/data/book-problems.ts /home/z/my-project/src/data/book-problems.ts
+--- /tmp/quantum-repo/src/data/book-problems.ts	1970-01-01 00:00:00.000000000 +0000
++++ /home/z/my-project/src/data/book-problems.ts	2026-10-03 22:09:34.873101879 +0000
+@@ -0,0 +1,620 @@
++// ════════════════════════════════════════════════════════════════════════════
++// PROBLEMAS DEL LIBRO — Griffiths, "Introduction to Quantum Mechanics" (1.ª ed.)
++// Capítulo 2: The Time-Independent Schrödinger Equation
++// ════════════════════════════════════════════════════════════════════════════
++// statementEn: transcripción LITERAL (verbatim) del texto impreso del libro,
++//   incluidas pistas, notas y notas al pie. Reproducido con permiso del usuario.
++// statementEs: traducción al español (fiel al original; la matemática no cambia).
++// stars: dificultad según los asteriscos de Griffiths (0-3).
++// page: página impresa del libro (1.ª edición, Prentice Hall, 1995).
++
++export interface BookProblem {
++  id: string                 // 'bp-2-1'
++  number: string             // '2.1'
++  title: string               // descriptor corto en español
++  sectionId: string          // sección temática principal ('2.1'..'2.7')
++  placement: 'in-section' | 'further'
++  bookPage: string           // página del libro
++  stars: 0 | 1 | 2 | 3       // dificultad según Griffiths
++  statementEn: string        // transcripción literal (markdown + LaTeX)
++  statementEs: string        // traducción al español
++  footnotes: string[]        // notas al pie del libro adjuntas al problema
++}
++
++export const BOOK_PROBLEMS: BookProblem[] = [
++  {
++    id: 'bp-2-1',
++    number: '2.1',
++    title: "Teoremas: E real, ψ real, paridad",
++    sectionId: '2.1',
++    placement: 'in-section',
++    bookPage: "24",
++    stars: 1,
++    statementEn: "Prove the following theorems:\n(a) For normalizable solutions, the separation constant $E$ must be *real*. *Hint:* Write $E$ (in Equation 2.6) as $E_0 + i\\Gamma$ (with $E_0$ and $\\Gamma$ real), and show that if Equation 1.20 is to hold for all $t$, $\\Gamma$ must be zero.\n(b) $\\psi$ can always be taken to be *real* (unlike $\\Psi$, which is necessarily complex). *Note:* This doesn't mean that every solution to the time-independent Schrödinger equation *is* real; what it says is that if you've got one that is *not*, it can always be expressed as a linear combination of solutions (with the same energy) that *are*. So in Equation 2.14 you *might as well* stick to $\\psi$'s that are real. *Hint:* If $\\psi(x)$ satisfies the time-independent Schrödinger equation for a given $E$, so too does its complex conjugate, and hence also the real linear combinations ($\\psi + \\psi^*$) and $i(\\psi - \\psi^*)$.\n(c) If $V(x)$ is an *even* function [i.e., $V(-x) = V(x)$], then $\\psi(x)$ can always be taken to be either even or odd. *Hint:* If $\\psi(x)$ satisfies the time-independent Schrödinger equation for a given $E$, so too does $\\psi(-x)$, and hence also the even and odd linear combinations $\\psi(x) \\pm \\psi(-x)$.",
++    statementEs: "Demuestra los siguientes teoremas:\n(a) Para soluciones normalizables, la constante de separación $E$ debe ser real. *Pista:* Escribe $E$ (en la Ecuación 2.6) como $E_0 + i\\Gamma$ (con $E_0$ y $\\Gamma$ reales), y muestra que si la Ecuación 1.20 ha de cumplirse para todo $t$, $\\Gamma$ debe ser cero.\n(b) $\\psi$ puede siempre tomarse real (a diferencia de $\\Psi$, que es necesariamente compleja). *Nota:* Esto no significa que toda solución de la ecuación de Schrödinger independiente del tiempo sea real; lo que dice es que si tienes una que no lo es, siempre puede expresarse como combinación lineal de soluciones (con la misma energía) que sí lo son. Así que en la Ecuación 2.14 bien puedes atenerte a $\\psi$'s reales. *Pista:* Si $\\psi(x)$ satisface la ecuación de Schrödinger independiente del tiempo para un $E$ dado, también la satisface su conjugada compleja, y por tanto también las combinaciones lineales reales ($\\psi + \\psi^*$) y $i(\\psi - \\psi^*)$.\n(c) Si $V(x)$ es una función par [es decir, $V(-x) = V(x)$], entonces $\\psi(x)$ puede siempre tomarse par o impar. *Pista:* Si $\\psi(x)$ satisface la ecuación de Schrödinger independiente del tiempo para un $E$ dado, también la satisface $\\psi(-x)$, y por tanto también las combinaciones lineales par e impar $\\psi(x) \\pm \\psi(-x)$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-2',
++    number: '2.2',
++    title: "E debe superar el mínimo de V(x)",
++    sectionId: '2.1',
++    placement: 'in-section',
++    bookPage: "24",
++    stars: 1,
++    statementEn: "Show that $E$ must exceed the minimum value of $V(x)$ for every normalizable solution to the time-independent Schrödinger equation. What is the classical analog to this statement? *Hint:* Rewrite Equation 2.4 in the form\n$$ \\frac{d^2\\psi}{dx^2} = \\frac{2m}{\\hbar^2} [V(x) - E]\\psi; $$\nif $E < V_{\\min}$, then $\\psi$ and its second derivative always have the *same* sign—argue that such a function cannot be normalized.",
++    statementEs: "Muestra que $E$ debe exceder el valor mínimo de $V(x)$ para toda solución normalizable de la ecuación de Schrödinger independiente del tiempo. ¿Cuál es el análogo clásico de esta afirmación? *Pista:* Reescribe la Ecuación 2.4 en la forma\n$$\\frac{d^2\\psi}{dx^2} = \\frac{2m}{\\hbar^2}[V(x) - E]\\psi;$$\nsi $E < V_{\\min}$, entonces $\\psi$ y su segunda derivada tienen siempre el mismo signo—argumenta que tal función no puede normalizarse.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-3',
++    number: '2.3',
++    title: "No hay solución aceptable con E ≤ 0",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "29",
++    stars: 0,
++    statementEn: "Show that there is no acceptable solution to the (time-independent) Schrödinger equation (for the infinite square well) with $E = 0$ or $E < 0$. (This is a special case of the general theorem in Problem 2.2, but this time do it by explicitly solving the Schrödinger equation and showing that you cannot meet the boundary conditions.)",
++    statementEs: "Muestra que no hay solución aceptable de la ecuación de Schrödinger (independiente del tiempo) para el pozo infinito con $E = 0$ o $E < 0$. (Este es un caso particular del teorema general del Problema 2.2, pero esta vez hazlo resolviendo explícitamente la ecuación de Schrödinger y mostrando que no puedes cumplir las condiciones de frontera.)",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-4',
++    number: '2.4',
++    title: "Pozo infinito centrado en el origen",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "29",
++    stars: 0,
++    statementEn: "Solve the time-independent Schrödinger equation with appropriate boundary conditions for an infinite square well centered at the origin [$V(x) = 0$, for $-a/2 < x < +a/2$; $V(x) = \\infty$ otherwise]. Check that your allowed energies are consistent with mine (Equation 2.23), and confirm that your $\\psi$'s can be obtained from mine (Equation 2.24) by the substitution $x \\rightarrow x - a/2$.",
++    statementEs: "Resuelve la ecuación de Schrödinger independiente del tiempo con las condiciones de frontera apropiadas para un pozo cuadrado infinito centrado en el origen [$V(x) = 0$, para $-a/2 < x < +a/2$; $V(x) = \\infty$ en cualquier otro caso]. Comprueba que tus energías permitidas son consistentes con las mías (Ecuación 2.23), y confirma que tus $\\psi$'s pueden obtenerse de las mías (Ecuación 2.24) mediante la sustitución $x \\to x - a/2$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-5',
++    number: '2.5',
++    title: "Valores esperados y σₓ, σₚ en el estado n",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "29",
++    stars: 1,
++    statementEn: "Calculate $\\langle x \\rangle$, $\\langle x^2 \\rangle$, $\\langle p \\rangle$, $\\langle p^2 \\rangle$, $\\sigma_x$, and $\\sigma_p$, for the $n$th stationary state of the infinite square well. Check that the uncertainty principle is satisfied. Which state comes closest to the uncertainty limit?",
++    statementEs: "Calcula $\\langle x \\rangle$, $\\langle x^2 \\rangle$, $\\langle p \\rangle$, $\\langle p^2 \\rangle$, $\\sigma_x$ y $\\sigma_p$, para el $n$-ésimo estado estacionario del pozo cuadrado infinito. Comprueba que se satisface el principio de incertidumbre. ¿Qué estado se acerca más al límite de incertidumbre?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-6',
++    number: '2.6',
++    title: "Mezcla ψ₁+ψ₂: evolución temporal",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "29-30",
++    stars: 2,
++    statementEn: "A particle in the infinite square well has as its initial wave function an even mixture of the first two stationary states:\n$$\\Psi(x, 0) = A[\\psi_1(x) + \\psi_2(x)].$$\n(a) Normalize $\\Psi(x, 0)$. (That is, find $A$. This is very easy if you exploit the orthonormality of $\\psi_1$ and $\\psi_2$. Recall that, having normalized $\\Psi$ at $t = 0$, you can rest assured that it *stays* normalized—if you doubt this, check it explicitly after doing part b.)\n(b) Find $\\Psi(x, t)$ and $|\\Psi(x, t)|^2$. (Express the latter in terms of sinusoidal functions of time, eliminating the exponentials with the help of **Euler's formula:** $e^{i\\theta} = \\cos\\theta + i\\sin\\theta$.) Let $\\omega \\equiv \\pi^2\\hbar/2ma^2$.\n(c) Compute $\\langle x \\rangle$. Notice that it oscillates in time. What is the frequency of the oscillation? What is the amplitude of the oscillation? (If your amplitude is greater than $a/2$, go directly to jail.)\n(d) Compute $\\langle p \\rangle$. (As Peter Lorre would say, \"Do it ze *kveek* vay, Johnny!\")\n(e) Find the expectation value of $H$. How does it compare with $E_1$ and $E_2$?\n(f) A *classical* particle in this well would bounce back and forth between the walls. If its energy is equal to the expectation value you found in (e), what is the frequency of the classical motion? How does it compare with the quantum frequency you found in (c)?",
++    statementEs: "Una partícula en el pozo cuadrado infinito tiene como función de onda inicial una mezcla par de los dos primeros estados estacionarios:\n$$\\Psi(x, 0) = A[\\psi_1(x) + \\psi_2(x)].$$\n(a) Normaliza $\\Psi(x, 0)$. (Es decir, encuentra $A$. Esto es muy fácil si aprovechas la ortonormalidad de $\\psi_1$ y $\\psi_2$. Recuerda que, habiendo normalizado $\\Psi$ en $t = 0$, puedes estar seguro de que *permanece* normalizada—si lo dudas, compruébalo explícitamente después de hacer el apartado b.)\n(b) Encuentra $\\Psi(x, t)$ y $|\\Psi(x, t)|^2$. (Exprésa esta última en términos de funciones sinusoidales del tiempo, eliminando las exponenciales con la ayuda de la *fórmula de Euler:* $e^{i\\theta} = \\cos\\theta + i\\sin\\theta$.) Sea $\\omega \\equiv \\pi^2\\hbar/2ma^2$.\n(c) Calcula $\\langle x \\rangle$. Observa que oscila en el tiempo. ¿Cuál es la frecuencia de la oscilación? ¿Cuál es la amplitud de la oscilación? (Si tu amplitud es mayor que $a/2$, ve directamente a la cárcel.)\n(d) Calcula $\\langle p \\rangle$. (Como diría Peter Lorre: \"¡Hazlo por la vía *rápida*, Johnny!\")\n(e) Encuentra el valor esperado de $H$. ¿Cómo se compara con $E_1$ y $E_2$?\n(f) Una partícula *clásica* en este pozo rebotaría de pared en pared. Si su energía es igual al valor esperado que encontraste en (e), ¿cuál es la frecuencia del movimiento clásico? ¿Cómo se compara con la frecuencia cuántica que encontraste en (c)?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-7',
++    number: '2.7',
++    title: "Fase relativa entre ψ₁ y ψ₂",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "30",
++    stars: 0,
++    statementEn: "Although the *overall* phase constant of the wave function is of no physical significance (it cancels out whenever you calculate a measureable quantity), the *relative* phase of the expansion coefficients in Equation 2.14 *does* matter. For example, suppose we change the relative phase of $\\psi_1$ and $\\psi_2$ in Problem 2.6:\n$$\\Psi(x, 0) = A[\\psi_1(x) + e^{i\\phi}\\psi_2(x)],$$\nwhere $\\phi$ is some constant. Find $\\Psi(x, t)$, $|\\Psi(x, t)|^2$, and $\\langle x \\rangle$, and compare your results with what you got before. Study the special cases $\\phi = \\pi/2$ and $\\phi = \\pi$.",
++    statementEs: "Aunque la constante de fase *global* de la función de onda carece de significado físico (se cancela siempre que calculas una cantidad medible), la fase *relativa* de los coeficientes de expansión en la Ecuación 2.14 *sí* importa. Por ejemplo, supongamos que cambiamos la fase relativa de $\\psi_1$ y $\\psi_2$ en el Problema 2.6:\n$$\\Psi(x, 0) = A[\\psi_1(x) + e^{i\\phi}\\psi_2(x)],$$\ndonde $\\phi$ es una constante. Encuentra $\\Psi(x, t)$, $|\\Psi(x, t)|^2$ y $\\langle x \\rangle$, y compara tus resultados con los que obtuviste antes. Estudia los casos especiales $\\phi = \\pi/2$ y $\\phi = \\pi$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-8',
++    number: '2.8',
++    title: "Ψ = Ax(a−x): normalización y ⟨H⟩",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "30",
++    stars: 1,
++    statementEn: "A particle in the infinite square well has the initial wave function\n$$\\Psi(x, 0) = Ax(a - x).$$\n(a) Normalize $\\Psi(x, 0)$. Graph it. Which stationary state does it most closely resemble? On that basis, estimate the expectation value of the energy.\n(b) Compute $\\langle x \\rangle$, $\\langle p \\rangle$, and $\\langle H \\rangle$, at $t = 0$. (*Note:* This time you cannot get $\\langle p \\rangle$ by differentiating $\\langle x \\rangle$, because you only know $\\langle x \\rangle$ at one instant of time.) How does $\\langle H \\rangle$ compare with your estimate in (a)?",
++    statementEs: "Una partícula en el pozo cuadrado infinito tiene la función de onda inicial\n$$\\Psi(x, 0) = Ax(a - x).$$\n(a) Normaliza $\\Psi(x, 0)$. Grafícala. ¿A qué estado estacionario se parece más? Sobre esa base, estima el valor esperado de la energía.\n(b) Calcula $\\langle x \\rangle$, $\\langle p \\rangle$ y $\\langle H \\rangle$ en $t = 0$. (*Nota:* Esta vez no puedes obtener $\\langle p \\rangle$ derivando $\\langle x \\rangle$, porque solo conoces $\\langle x \\rangle$ en un instante de tiempo.) ¿Cómo se compara $\\langle H \\rangle$ con tu estimación del apartado (a)?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-9',
++    number: '2.9',
++    title: "Coeficientes cₙ y colapso de la función de onda",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "30",
++    stars: 1,
++    statementEn: "Find $\\Psi(x, t)$ for the initial wave function in Problem 2.8. Evaluate $c_1$, $c_2$, and $c_3$ numerically, to five decimal places, and comment on these numbers. ($c_n$ tells you, roughly speaking, how much $\\psi_n$ is \"contained in\" $\\Psi$.) Suppose you measured the energy at time $t_0 > 0$, and got the value $E_3$. Knowing that immediate repetition of the measurement must return the same value, what can you say about the coefficients $c_n$ *after* the measurement? (This is an example of the \"collapse of the wave function\", which we discussed briefly in Chapter 1.)",
++    statementEs: "Encuentra $\\Psi(x, t)$ para la función de onda inicial del Problema 2.8. Evalúa $c_1$, $c_2$ y $c_3$ numéricamente, con cinco cifras decimales, y comenta estos números. ($c_n$ te dice, hablando groseramente, cuánto $\\psi_n$ está \"contenido en\" $\\Psi$.) Supón que midieras la energía en un tiempo $t_0 > 0$ y obtuvieras el valor $E_3$. Sabiendo que la repetición inmediata de la medida debe devolver el mismo valor, ¿qué puedes decir de los coeficientes $c_n$ *después* de la medición? (Este es un ejemplo del \"colapso de la función de onda\", que comentamos brevemente en el Capítulo 1.)",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-10',
++    number: '2.10',
++    title: "Normalización de cₙ y ⟨H⟩",
++    sectionId: '2.2',
++    placement: 'in-section',
++    bookPage: "30",
++    stars: 1,
++    statementEn: "The wave function (Equation 2.14) has got to be normalized; given that the $\\psi_n$'s are orthonormal, what does this tell you about the coefficients $c_n$?\n*Answer:*\n$$\\sum_{n=1}^{\\infty} |c_n|^2 = 1. \\qquad [2.34]$$\n(In particular, $|c_n|^2$ is always $\\le 1$.) Show that\n$$\\langle H \\rangle = \\sum_{n=1}^{\\infty} E_n |c_n|^2. \\qquad [2.35]$$",
++    statementEs: "La función de onda (Ecuación 2.14) debe estar normalizada; dado que los $\\psi_n$ son ortonormales, ¿qué te dice esto sobre los coeficientes $c_n$? *Respuesta:*\n$$\\sum_{n=1}^{\\infty} |c_n|^2 = 1. \\qquad [2.34]$$\n(En particular, $|c_n|^2$ es siempre $\\le 1$.) Muestra que\n$$\\langle H \\rangle = \\sum_{n=1}^{\\infty} E_n |c_n|^2. \\qquad [2.35]$$",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-11',
++    number: '2.11',
++    title: "a₋ no genera estados de norma infinita",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "36",
++    stars: 0,
++    statementEn: "Show that the lowering operator cannot generate a state of infinite norm (i.e., $\\int |a_-\\psi|^2 dx < \\infty$, if $\\psi$ itself is a normalized solution to the Schrödinger equation). What does this tell you in the case $\\psi = \\psi_0$? *Hint:* Use integration by parts to show that\n$$\\int_{-\\infty}^{\\infty} (a_-\\psi)^*(a_-\\psi) dx = \\int_{-\\infty}^{\\infty} \\psi^*(a_+a_-\\psi) dx.$$\nThen invoke the Schrödinger equation (Equation 2.46) to obtain\n$$\\int_{-\\infty}^{\\infty} |a_-\\psi|^2 dx = E - \\frac{1}{2}\\hbar\\omega,$$\nwhere $E$ is the energy of the state $\\psi$.",
++    statementEs: "Muestra que el operador de descenso no puede generar un estado de norma infinita (es decir, $\\int |a_-\\psi|^2 dx < \\infty$, si $\\psi$ es una solución normalizada de la ecuación de Schrödinger). ¿Qué te dice esto en el caso $\\psi = \\psi_0$? *Pista:* Usa integración por partes para mostrar que\n$$\\int_{-\\infty}^{\\infty} (a_-\\psi)^*(a_-\\psi)\\, dx = \\int_{-\\infty}^{\\infty} \\psi^*(a_+a_-\\psi)\\, dx.$$\nLuego invoca la ecuación de Schrödinger (Ecuación 2.46) para obtener\n$$\\int_{-\\infty}^{\\infty} |a_-\\psi|^2\\, dx = E - \\tfrac{1}{2}\\hbar\\omega,$$\ndonde $E$ es la energía del estado $\\psi$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-12',
++    number: '2.12',
++    title: "Constantes de proporcionalidad de a±",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "36",
++    stars: 2,
++    statementEn: "(a) The raising and lowering operators generate new solutions to the Schrödinger equation, but these new solutions are not correctly normalized. Thus $a_+\\psi_n$ is *proportional* to $\\psi_{n+1}$, and $a_-\\psi_n$ is *proportional* to $\\psi_{n-1}$, but we'd like to know the precise proportionality constants. Use integration by parts and the Schrödinger equation (Equations 2.43 and 2.46) to show that\n$$\\int_{-\\infty}^{\\infty} |a_+\\psi_n|^2 dx = (n + 1)\\hbar\\omega, \\int_{-\\infty}^{\\infty} |a_-\\psi_n|^2 dx = n\\hbar\\omega,$$\nand hence (with $i$'s to keep the wavefunctions real)\n$$a_+\\psi_n = i\\sqrt{(n + 1)\\hbar\\omega}\\, \\psi_{n+1}, \\qquad [2.52]$$\n$$a_-\\psi_n = -i\\sqrt{n\\hbar\\omega}\\, \\psi_{n-1}. \\qquad [2.53]$$\n\n(b) Use Equation 2.52 to determine the normalization constant $A_n$ in Equation 2.50. (You'll have to normalize $\\psi_0$ \"by hand\".) Answer:\n$$A_n = \\left(\\frac{m\\omega}{\\pi\\hbar}\\right)^{1/4} \\frac{(-i)^n}{\\sqrt{n!(\\hbar\\omega)^n}}. \\qquad [2.54]$$",
++    statementEs: "(a) Los operadores de ascenso y descenso generan nuevas soluciones de la ecuación de Schrödinger, pero estas nuevas soluciones no están correctamente normalizadas. Así, $a_+\\psi_n$ es *proporcional* a $\\psi_{n+1}$, y $a_-\\psi_n$ es *proporcional* a $\\psi_{n-1}$, pero nos gustaría conocer las constantes de proporcionalidad exactas. Usa integración por partes y la ecuación de Schrödinger (Ecuaciones 2.43 y 2.46) para mostrar que\n$$\\int_{-\\infty}^{\\infty} |a_+\\psi_n|^2\\, dx = (n + 1)\\hbar\\omega, \\qquad \\int_{-\\infty}^{\\infty} |a_-\\psi_n|^2\\, dx = n\\hbar\\omega,$$\ny de ahí (con las $i$'s para mantener reales las funciones de onda)\n$$a_+\\psi_n = i\\sqrt{(n + 1)\\hbar\\omega}\\, \\psi_{n+1}, \\qquad [2.52]$$\n$$a_-\\psi_n = -i\\sqrt{n\\hbar\\omega}\\, \\psi_{n-1}. \\qquad [2.53]$$\n(b) Usa la Ecuación 2.52 para determinar la constante de normalización $A_n$ de la Ecuación 2.50. (Tendrás que normalizar $\\psi_0$ \"a mano\".) *Respuesta:*\n$$A_n = \\left(\\frac{m\\omega}{\\pi\\hbar}\\right)^{1/4} \\frac{(-i)^n}{\\sqrt{n!(\\hbar\\omega)^n}}. \\qquad [2.54]$$",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-13',
++    number: '2.13',
++    title: "ψ₀, ψ₁ y ψ₂ del oscilador armónico",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "37",
++    stars: 1,
++    statementEn: "Using the methods and results of this section,\n(a) Normalize $\\psi_1$ (Equation 2.51) by direct integration. Check your answer against the general formula (Equation 2.54).\n(b) Find $\\psi_2$, but don't bother to normalize it.\n(c) Sketch $\\psi_0$, $\\psi_1$, and $\\psi_2$.\n(d) Check the orthogonality of $\\psi_0$, $\\psi_1$, and $\\psi_2$. *Note:* If you exploit the evenness and oddness of the functions, there is really only one integral left to evaluate explicitly.",
++    statementEs: "Usando los métodos y resultados de esta sección:\n(a) Normaliza $\\psi_1$ (Ecuación 2.51) por integración directa. Compara tu respuesta con la fórmula general (Ecuación 2.54).\n(b) Encuentra $\\psi_2$, pero no te molestes en normalizarla.\n(c) Dibuja $\\psi_0$, $\\psi_1$ y $\\psi_2$.\n(d) Comprueba la ortogonalidad de $\\psi_0$, $\\psi_1$ y $\\psi_2$. *Nota:* Si aprovechas la paridad de las funciones, en realidad solo queda una integral por evaluar explícitamente.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-14',
++    number: '2.14',
++    title: "Valores esperados en ψ₀ y ψ₁",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "37",
++    stars: 1,
++    statementEn: "Using the results of Problems 2.12 and 2.13,\n(a) Compute $\\langle x \\rangle$, $\\langle p \\rangle$, $\\langle x^2 \\rangle$, and $\\langle p^2 \\rangle$, for the states $\\psi_0$ and $\\psi_1$. *Note:* In this and most problems involving the harmonic oscillator, it simplifies the notation if you introduce the variable $\\xi \\equiv \\sqrt{m\\omega/\\hbar}x$ and the constant $\\alpha \\equiv (m\\omega/\\pi\\hbar)^{1/4}$.\n(b) Check the uncertainty principle for these states.\n(c) Compute $\\langle T \\rangle$ and $\\langle V \\rangle$ for these states (no new integration allowed!). Is their sum what you would expect?",
++    statementEs: "Usando los resultados de los Problemas 2.12 y 2.13:\n(a) Calcula $\\langle x \\rangle$, $\\langle p \\rangle$, $\\langle x^2 \\rangle$ y $\\langle p^2 \\rangle$ para los estados $\\psi_0$ y $\\psi_1$. *Nota:* En este y en la mayoría de los problemas del oscilador armónico, la notación se simplifica si introduces la variable $\\xi \\equiv \\sqrt{m\\omega/\\hbar}\\, x$ y la constante $\\alpha \\equiv (m\\omega/\\pi\\hbar)^{1/4}$.\n(b) Comprueba el principio de incertidumbre para estos estados.\n(c) Calcula $\\langle T \\rangle$ y $\\langle V \\rangle$ para estos estados (¡no se permite nueva integración!). ¿Su suma es lo que esperarías?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-15',
++    number: '2.15',
++    title: "Probabilidad fuera de la región clásica",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "43",
++    stars: 0,
++    statementEn: "In the ground state of the harmonic oscillator, what is the probability (correct to three significant digits) of finding the particle outside the classically allowed region? *Hint:* Look in a math table under \"Normal Distribution\" or \"Error Function\".",
++    statementEs: "En el estado fundamental del oscilador armónico, ¿cuál es la probabilidad (con tres cifras significativas) de encontrar la partícula fuera de la región clásicamente permitida? *Pista:* Busca en una tabla matemática bajo \"Normal Distribution\" o \"Error Function\".",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-16',
++    number: '2.16',
++    title: "H₅ y H₆ por la fórmula de recursión",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "43",
++    stars: 0,
++    statementEn: "Use the recursion formula (Equation 2.68) to work out $H_5(\\xi)$ and $H_6(\\xi)$.",
++    statementEs: "Usa la fórmula de recursión (Ecuación 2.68) para obtener $H_5(\\xi)$ y $H_6(\\xi)$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-17',
++    number: '2.17',
++    title: "Superposición ψ₀+ψ₁: ⟨x⟩(t) oscila",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "43",
++    stars: 1,
++    statementEn: "A particle in the harmonic oscillator potential has the initial wave function\n$$\\Psi(x, 0) = A[\\psi_0(x) + \\psi_1(x)]$$\nfor some constant $A$.\n(a) Normalize $\\Psi(x, 0)$.\n(b) Find $\\Psi(x, t)$ and $|\\Psi(x, t)|^2$.\n(c) Find the expectation value of $x$ as a function of time. Notice that it oscillates sinusoidally. What is the amplitude of the oscillation? What is its (angular) frequency?\n(d) Use your result in (c) to determine $\\langle p \\rangle$. Check that Ehrenfest's theorem holds for this wave function.\n(e) Referring to Figure 2.5, sketch the graph of $|\\Psi|$ at $t = 0$, $\\pi/\\omega$, $2\\pi/\\omega$, $3\\pi/\\omega$, and $4\\pi/\\omega$. (Your graphs don't have to be fancy---just a rough picture to show the oscillation.)",
++    statementEs: "Una partícula en el potencial del oscilador armónico tiene la función de onda inicial\n$$\\Psi(x, 0) = A[\\psi_0(x) + \\psi_1(x)]$$\npara cierta constante $A$.\n(a) Normaliza $\\Psi(x, 0)$.\n(b) Encuentra $\\Psi(x, t)$ y $|\\Psi(x, t)|^2$.\n(c) Encuentra el valor esperado de $x$ en función del tiempo. Observa que oscila sinusoidalmente. ¿Cuál es la amplitud de la oscilación? ¿Cuál es su frecuencia (angular)?\n(d) Usa tu resultado de (c) para determinar $\\langle p \\rangle$. Comprueba que el teorema de Ehrenfest se cumple para esta función de onda.\n(e) Refiriéndote a la Figura 2.5, dibuja la gráfica de $|\\Psi|$ en $t = 0$, $\\pi/\\omega$, $2\\pi/\\omega$, $3\\pi/\\omega$ y $4\\pi/\\omega$. (Tus gráficas no tienen que estar elaboradas—solo un bosquejo aproximado que muestre la oscilación.)",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-18',
++    number: '2.18',
++    title: "Teoremas de los polinomios de Hermite",
++    sectionId: '2.3',
++    placement: 'in-section',
++    bookPage: "43",
++    stars: 2,
++    statementEn: "In this problem we explore some of the more useful theorems (stated without proof) involving Hermite polynomials.\n(a) The **Rodrigues formula** states that\n$$H_n(\\xi) = (-1)^n e^{\\xi^2}\\left(\\frac{d}{d\\xi}\\right)^n e^{-\\xi^2}. \\qquad [2.70]$$\nUse it to derive $H_3$ and $H_4$.\n(b) The following recursion relation gives you $H_{n+1}$ in terms of the two preceding Hermite polynomials:\n$$H_{n+1}(\\xi) = 2\\xi H_n(\\xi) - 2nH_{n-1}(\\xi). \\qquad [2.71]$$\nUse it, together with your answer to (a), to obtain $H_5$ and $H_6$.\n(c) If you differentiate an $n$th-order polynomial, you get a polynomial of order $(n - 1)$. For the Hermite polynomials, in fact,\n$$\\frac{dH_n}{d\\xi} = 2nH_{n-1}(\\xi). \\qquad [2.72]$$\nCheck this, by differentiating $H_5$ and $H_6$.\n(d) $H_n(\\xi)$ is the $n$th $z$-derivative, at $z = 0$, of the **generating function** $\\exp(-z^2 + 2z\\xi)$; or, to put it another way, it is the coefficient of $z^n/n!$ in the Taylor series expansion for this function:\n$$e^{-z^2 + 2z\\xi} = \\sum_{n=0}^{\\infty}\\frac{z^n}{n!}H_n(\\xi). \\qquad [2.73]$$\nUse this to rederive $H_0$, $H_1$, and $H_2$.",
++    statementEs: "En este problema exploramos algunos de los teoremas más útiles (enunciados sin demostración) sobre los polinomios de Hermite.\n(a) La fórmula de Rodrigues establece que\n$$H_n(\\xi) = (-1)^n e^{\\xi^2}\\left(\\frac{d}{d\\xi}\\right)^n e^{-\\xi^2}. \\qquad [2.70]$$\nÚsala para obtener $H_3$ y $H_4$.\n(b) La siguiente relación de recursión te da $H_{n+1}$ en función de los dos polinomios de Hermite precedentes:\n$$H_{n+1}(\\xi) = 2\\xi H_n(\\xi) - 2nH_{n-1}(\\xi). \\qquad [2.71]$$\nÚsala, junto con tu respuesta de (a), para obtener $H_5$ y $H_6$.\n(c) Si derivas un polinomio de grado $n$, obtienes un polinomio de grado $(n - 1)$. Para los polinomios de Hermite, de hecho,\n$$\\frac{dH_n}{d\\xi} = 2nH_{n-1}(\\xi). \\qquad [2.72]$$\nCompruébalo derivando $H_5$ y $H_6$.\n(d) $H_n(\\xi)$ es la $n$-ésima derivada respecto de $z$, evaluada en $z = 0$, de la función generatriz $\\exp(-z^2 + 2z\\xi)$; o, dicho de otro modo, es el coeficiente de $z^n/n!$ en el desarrollo en serie de Taylor de esa función:\n$$e^{-z^2 + 2z\\xi} = \\sum_{n=0}^{\\infty} \\frac{1}{n!}H_n(\\xi)z^n. \\qquad [2.73]$$\nÚsala para reobtener $H_0$, $H_1$ y $H_2$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-19',
++    number: '2.19',
++    title: "Exponenciales vs. senos y cosenos",
++    sectionId: '2.4',
++    placement: 'in-section',
++    bookPage: "48",
++    stars: 0,
++    statementEn: "Show that the expressions $[Ae^{ikx} + Be^{-ikx}]$, $[C \\cos kx + D \\sin kx]$, $[F \\cos(kx+\\alpha)]$, and $[G \\sin(kx+\\beta)]$ are equivalent ways of writing the same function of $x$, and determine the constants $C, D, F, G, \\alpha,$ and $\\beta$ in terms of $A$ and $B$. (In quantum mechanics, with $V = 0$, the exponentials give rise to *traveling* waves, and are most convenient in discussing the free particle, whereas sines and cosines correspond to standing waves, which arise naturally in the case of the infinite square well.) Assume the function is real.",
++    statementEs: "Muestra que las expresiones $[Ae^{ikx} + Be^{-ikx}]$, $[C\\cos kx + D\\sin kx]$, $[F\\cos(kx + \\alpha)]$ y $[G\\sin(kx + \\beta)]$ son maneras equivalentes de escribir la misma función de $x$, y determina las constantes $C, D, F, G, \\alpha$ y $\\beta$ en términos de $A$ y $B$. (En mecánica cuántica, con $V = 0$, las exponenciales dan lugar a ondas *viajeras* y son las más convenientes para discutir la partícula libre, mientras que los senos y cosenos corresponden a ondas estacionarias, que surgen de forma natural en el caso del pozo cuadrado infinito.) Supón que la función es real.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-20',
++    number: '2.20',
++    title: "Demostración guiada del teorema de Plancherel",
++    sectionId: '2.4',
++    placement: 'in-section',
++    bookPage: "49",
++    stars: 2,
++    statementEn: "This problem is designed to guide you through a \"proof\" of Plancherel's theorem, by starting with the theory of ordinary Fourier series on a *finite* interval, and allowing that interval to expand to infinity.\n(a) Dirichlet's theorem says that \"any\" function $f(x)$ on the interval $[-a, +a]$ can be expanded as a Fourier series:\n$$f(x) = \\sum_{n=0}^{\\infty} [a_n \\sin(n\\pi x/a) + b_n \\cos(n\\pi x/a)].$$\nShow that this can be written equivalently as\n$$f(x) = \\sum_{n=-\\infty}^{\\infty} c_n e^{in\\pi x/a}.$$\nWhat is $c_n$, in terms of $a_n$ and $b_n$?\n(b) Show (by appropriate modification of Fourier's trick) that\n$$c_n = \\frac{1}{2a} \\int_{-a}^{+a} f(x)e^{-in\\pi x/a}\\, dx.$$\n(c) Eliminate $n$ and $c_n$ in favor of the new variables $k = (n\\pi /a)$ and $F(k) = \\sqrt{2/\\pi}\\, ac_n$. Show that (a) and (b) now become\n$$f(x) = \\frac{1}{\\sqrt{2\\pi}} \\sum_{n=-\\infty}^{\\infty} F(k)e^{ikx}\\, \\Delta k; \\quad F(k) = \\frac{1}{\\sqrt{2\\pi}} \\int_{-a}^{+a} f(x)e^{-ikx}\\, dx,$$\nwhere $\\Delta k$ is the increment in $k$ from one $n$ to the next.\n(d) Take the limit $a \\to \\infty$ to obtain Plancherel's theorem. *Note:* In view of their quite different origins, it is surprising (and delightful) that the two formulas [one for $F(k)$ in terms of $f(x)$, the other for $f(x)$ in terms of $F(k)$] have such a similar structure in the limit $a \\to \\infty$.",
++    statementEs: "Este problema está diseñado para guiarte a través de una \"demostración\" del teorema de Plancherel, partiendo de la teoría de las series de Fourier ordinarias en un intervalo *finito*, y dejando que ese intervalo se expanda hasta el infinito.\n(a) El teorema de Dirichlet dice que \"cualquier\" función $f(x)$ en el intervalo $[-a, +a]$ puede desarrollarse en una serie de Fourier:\n$$f(x) = \\sum_{n=0}^{\\infty}[a_n\\sin(n\\pi x/a) + b_n\\cos(n\\pi x/a)].$$\nMuestra que esto puede escribirse de forma equivalente como\n$$f(x) = \\sum_{n=-\\infty}^{\\infty} c_n e^{in\\pi x/a}.$$\n¿Qué es $c_n$ en términos de $a_n$ y $b_n$?\n(b) Muestra (mediante la modificación apropiada del truco de Fourier) que\n$$c_n = \\frac{1}{2a}\\int_{-a}^{+a} f(x)e^{-in\\pi x/a}\\, dx.$$\n(c) Elimina $n$ y $c_n$ en favor de las nuevas variables $k = (n\\pi/a)$ y $F(k) = \\sqrt{2/\\pi}\\, ac_n$. Muestra que (a) y (b) se convierten ahora en\n$$f(x) = \\frac{1}{\\sqrt{2\\pi}}\\sum_{n=-\\infty}^{\\infty} F(k)e^{ikx}\\, \\Delta k; \\qquad F(k) = \\frac{1}{\\sqrt{2\\pi}}\\int_{-a}^{+a} f(x)e^{-ikx}\\, dx,$$\ndonde $\\Delta k$ es el incremento de $k$ de un $n$ al siguiente.\n(d) Toma el límite $a \\to \\infty$ para obtener el teorema de Plancherel. *Nota:* Dados sus orígenes tan distintos, es sorprendente (y delicioso) que las dos fórmulas [una para $F(k)$ en términos de $f(x)$, la otra para $f(x)$ en términos de $F(k)$] tengan una estructura tan similar en el límite $a \\to \\infty$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-21',
++    number: '2.21',
++    title: "Partícula localizada: φ(k) e incertidumbre",
++    sectionId: '2.4',
++    placement: 'in-section',
++    bookPage: "49",
++    stars: 0,
++    statementEn: "Suppose a free particle, which is initially localized in the range $-a < x < a$, is released at time $t=0$:\n$$\\Psi(x, 0) = \\begin{cases} A, & \\text{if } -a < x < a, \\\\ 0, & \\text{otherwise}, \\end{cases}$$\nwhere $A$ and $a$ are positive real constants.\n(a) Determine $A$, by normalizing $\\Psi$.\n(b) Determine $\\phi(k)$ (Equation 2.86).\n(c) Comment on the behavior of $\\phi(k)$ for very small and very large values of $a$. How does this relate to the uncertainty principle?",
++    statementEs: "Supón que una partícula libre, inicialmente localizada en el rango $-a < x < a$, se libera en el tiempo $t = 0$:\n$$\\Psi(x, 0) = \\begin{cases} A, & \\text{si } -a < x < a, \\\\ 0, & \\text{en otro caso}, \\end{cases}$$\ndonde $A$ y $a$ son constantes reales positivas.\n(a) Determina $A$ normalizando $\\Psi$.\n(b) Determina $\\phi(k)$ (Ecuación 2.86).\n(c) Comenta el comportamiento de $\\phi(k)$ para valores muy pequeños y muy grandes de $a$. ¿Cómo se relaciona esto con el principio de incertidumbre?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-22',
++    number: '2.22',
++    title: "Paquete gaussiano libre: dispersión",
++    sectionId: '2.4',
++    placement: 'in-section',
++    bookPage: "50",
++    stars: 1,
++    statementEn: "A free particle has the initial wave function\n$$\\Psi(x, 0) = Ae^{-ax^2},$$\nwhere $A$ and $a$ are constants ($a$ is real and positive).\n(a) Normalize $\\Psi(x, 0)$.\n(b) Find $\\Psi(x, t)$. *Hint:* Integrals of the form\n$$\\int_{-\\infty}^{+\\infty} e^{-(ax^2+bx)}\\, dx$$\ncan be handled by \"completing the square.\" Let $y \\equiv \\sqrt{a}[x + (b/2a)]$, and note that $(ax^2 + bx) = y^2 - (b^2/4a)$. *Answer:*\n$$\\Psi(x, t) = \\left(\\frac{2a}{\\pi}\\right)^{1/4} \\frac{e^{-ax^2/[1+(i\\hbar at/m)]}}{\\sqrt{1 + (2i\\hbarat/m)}}.$$\n(c) Find $|\\Psi(x,t)|^2$. Express your answer in terms of the quantity $w \\equiv \\sqrt{a/[1 + (2\\hbarat/m)^2]}$. Sketch $|\\Psi|^2$ (as a function of $x$) at $t = 0$, and again for some very large $t$. Qualitatively, what happens to $|\\Psi|^2$ as time goes on?\n(d) Find $\\langle x \\rangle$, $\\langle p \\rangle$, $\\langle x^2 \\rangle$, $\\langle p^2 \\rangle$, $\\sigma_x$, and $\\sigma_p$. *Partial answer:* $\\langle p^2 \\rangle = a\\hbar^2$, but it may take some algebra to reduce it to this simple form.\n(e) Does the uncertainty principle hold? At what time $t$ does the system come closest to the uncertainty limit?",
++    statementEs: "Una partícula libre tiene la función de onda inicial\n$$\\Psi(x, 0) = Ae^{-ax^2},$$\ndonde $A$ y $a$ son constantes ($a$ es real y positiva).\n(a) Normaliza $\\Psi(x, 0)$.\n(b) Encuentra $\\Psi(x, t)$. *Pista:* Las integrales de la forma\n$$\\int_{-\\infty}^{+\\infty} e^{-(ax^2 + bx)}\\, dx$$\npueden manejarse \"completando el cuadrado\". Sea $y \\equiv \\sqrt{a}[x + (b/2a)]$, y nota que $(ax^2 + bx) = y^2 - (b^2/4a)$. *Respuesta:*\n$$\\Psi(x, t) = \\left(\\frac{2a}{\\pi}\\right)^{1/4}\\frac{e^{-ax^2/[1 + (2i\\hbar at/m)]}}{\\sqrt{1 + (2i\\hbar at/m)}}.$$\n(c) Encuentra $|\\Psi(x, t)|^2$. Exprésa tu respuesta en términos de la cantidad $w \\equiv \\sqrt{a/[1 + (2\\hbar at/m)^2]}$. Dibuja $|\\Psi|^2$ (como función de $x$) en $t = 0$, y de nuevo para un tiempo muy grande. Cualitativamente, ¿qué le ocurre a $|\\Psi|^2$ conforme pasa el tiempo?\n(d) Encuentra $\\langle x \\rangle$, $\\langle p \\rangle$, $\\langle x^2 \\rangle$, $\\langle p^2 \\rangle$, $\\sigma_x$ y $\\sigma_p$. *Respuesta parcial:* $\\langle p^2 \\rangle = a\\hbar^2$, pero puede requerir algo de álgebra reducirla a esta forma tan simple.\n(e) ¿Se cumple el principio de incertidumbre? ¿En qué tiempo $t$ se acerca más el sistema al límite de incertidumbre?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-23',
++    number: '2.23',
++    title: "Integrales con la delta de Dirac",
++    sectionId: '2.5',
++    placement: 'in-section',
++    bookPage: "59",
++    stars: 0,
++    statementEn: "Evaluate the following integrals:\n(a) $\\int_{-3}^{+1}(x^3 - 3x^2 + 2x - 1)\\delta(x + 2) dx$\n(b) $\\int_0^{\\infty}[\\cos(3x) + 2]\\delta(x - \\pi) dx$\n(c) $\\int_{-1}^{+1}\\exp(|x| + 3)\\delta(x - 2) dx$.",
++    statementEs: "Evalúa las siguientes integrales:\n(a) $\\int_{-3}^{+1}(x^3 - 3x^2 + 2x - 1)\\delta(x + 2)\\, dx$\n(b) $\\int_0^{\\infty}[\\cos(3x) + 2]\\delta(x - \\pi)\\, dx$\n(c) $\\int_{-1}^{+1}\\exp(|x| + 3)\\delta(x - 2)\\, dx$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-24',
++    number: '2.24',
++    title: "δ(cx) y dθ/dx = δ(x)",
++    sectionId: '2.5',
++    placement: 'in-section',
++    bookPage: "59",
++    stars: 0,
++    statementEn: "Two expressions [$D_1(x)$ and $D_2(x)$] involving delta functions are said to be equal if\n$$\\int_{-\\infty}^{+\\infty} f(x) D_1(x) dx = \\int_{-\\infty}^{+\\infty} f(x) D_2(x) dx,$$\nfor any (ordinary) function $f(x)$.\n(a) Show that\n$$\\delta(cx) = \\frac{1}{|c|}\\delta(x), \\tag{2.124}$$\nwhere $c$ is a real constant.\n(b) Let $\\theta(x)$ be the **step function**:\n$$\\theta(x) \\equiv \\begin{cases} 1, & \\text{if } x > 0, \\\\ 0, & \\text{if } x < 0. \\end{cases} \\tag{2.125}$$\n[In the rare case where it actually matters, we define $\\theta(0)$ to be 1/2.] Show that $d\\theta/dx = \\delta(x)$.",
++    statementEs: "Se dice que dos expresiones [$D_1(x)$ y $D_2(x)$] que involucran deltas son iguales si\n$$\\int_{-\\infty}^{+\\infty} f(x)D_1(x)\\, dx = \\int_{-\\infty}^{+\\infty} f(x)D_2(x)\\, dx,$$\npara cualquier función (ordinaria) $f(x)$.\n(a) Muestra que\n$$\\delta(cx) = \\frac{1}{|c|}\\delta(x), \\tag{2.124}$$\ndonde $c$ es una constante real.\n(b) Sea $\\theta(x)$ la **función escalón**:\n$$\\theta(x) \\equiv \\begin{cases} 1, & \\text{si } x > 0, \\\\ 0, & \\text{si } x < 0. \\end{cases} \\tag{2.125}$$\n[En el raro caso en que de verdad importe, definimos $\\theta(0) = 1/2$.] Muestra que $d\\theta/dx = \\delta(x)$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-25',
++    number: '2.25',
++    title: "Transformada de Fourier de δ(x)",
++    sectionId: '2.5',
++    placement: 'in-section',
++    bookPage: "59",
++    stars: 1,
++    statementEn: "What is the Fourier transform of $\\delta(x)$? Using Plancherel's theorem, show that\n$$\\delta(x) = \\frac{1}{2\\pi}\\int_{-\\infty}^{+\\infty} e^{ikx}\\, dk. \\tag{2.126}$$\n*Comment:* This formula gives any respectable mathematician apoplexy. Although the integral is clearly infinite when $x = 0$, it doesn't converge (to zero or anything else) when $x \\neq 0$, since the integrand oscillates forever. There are ways to patch it up (for instance, you can integrate from $-L$ to $+L$, and interpret the integral in Equation 2.126 to mean the average value of the finite integral, as $L \\to \\infty$). The source of the problem is that the delta function doesn't meet the requirement (square integrability) for Plancherel's theorem (see footnote 22). In spite of this, Equation 2.126 can be extremely useful, if handled with care.",
++    statementEs: "¿Cuál es la transformada de Fourier de $\\delta(x)$? Usando el teorema de Plancherel, muestra que\n$$\\delta(x) = \\frac{1}{2\\pi}\\int_{-\\infty}^{+\\infty} e^{ikx}\\, dk. \\tag{2.126}$$\n*Comentario:* Esta fórmula provoca una apoplejía en cualquier matemático respetable. Aunque la integral es claramente infinita cuando $x = 0$, no converge (a cero ni a nada) cuando $x \\neq 0$, porque el integrando oscila para siempre. Hay maneras de remendarla (por ejemplo, puedes integrar de $-L$ a $+L$, e interpretar la integral de la Ecuación 2.126 como el valor promedio de la integral finita, cuando $L \\to \\infty$). La fuente del problema es que la delta no cumple el requisito (integrabilidad cuadrática) del teorema de Plancherel (ver nota al pie 22). A pesar de esto, la Ecuación 2.126 puede ser extremadamente útil, si se maneja con cuidado.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-26',
++    number: '2.26',
++    title: "Doble pozo delta: estados ligados",
++    sectionId: '2.5',
++    placement: 'in-section',
++    bookPage: "60",
++    stars: 1,
++    statementEn: "Consider the *double* delta-function potential\n$$V(x) = -\\alpha[\\delta(x + a) + \\delta(x - a)],$$\nwhere $\\alpha$ and $a$ are positive constants.\n(a) Sketch this potential.\n(b) How many bound states does it possess? Find the allowed energies, for $\\alpha = \\hbar^2/ma$ and for $\\alpha = \\hbar^2/4ma$, and sketch the wave functions.",
++    statementEs: "Considera el potencial de *doble* delta\n$$V(x) = -\\alpha[\\delta(x + a) + \\delta(x - a)],$$\ndonde $\\alpha$ y $a$ son constantes positivas.\n(a) Dibuja este potencial.\n(b) ¿Cuántos estados ligados posee? Encuentra las energías permitidas para $\\alpha = \\hbar^2/ma$ y para $\\alpha = \\hbar^2/4ma$, y dibuja las funciones de onda.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-27',
++    number: '2.27',
++    title: "T del doble pozo delta",
++    sectionId: '2.5',
++    placement: 'in-section',
++    bookPage: "60",
++    stars: 2,
++    statementEn: "Find the transmission coefficient for the potential in Problem 2.26.",
++    statementEs: "Encuentra el coeficiente de transmisión para el potencial del Problema 2.26.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-28',
++    number: '2.28',
++    title: "Estados impares del pozo finito",
++    sectionId: '2.6',
++    placement: 'in-section',
++    bookPage: "64",
++    stars: 1,
++    statementEn: "Analyze the odd bound-state wave functions for the finite square well. Derive the transcendental equation for the allowed energies, and solve it graphically. Examine the two limiting cases. Is there always at least one odd bound state?",
++    statementEs: "Analiza las funciones de onda de estados ligados *impares* para el pozo cuadrado finito. Deduce la ecuación trascendente para las energías permitidas, y resuélvela gráficamente. Examina los dos casos límite. ¿Existe siempre al menos un estado ligado impar?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-29',
++    number: '2.29',
++    title: "Normalizar ψ₁ del pozo finito",
++    sectionId: '2.6',
++    placement: 'in-section',
++    bookPage: "64",
++    stars: 0,
++    statementEn: "Normalize $\\psi(x)$ in Equation 2.133 to determine the constants $D$ and $F$.",
++    statementEs: "Normaliza $\\psi(x)$ en la Ecuación 2.133 para determinar las constantes $D$ y $F$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-30',
++    number: '2.30',
++    title: "Delta como límite del pozo finito",
++    sectionId: '2.6',
++    placement: 'in-section',
++    bookPage: "64",
++    stars: 0,
++    statementEn: "The Dirac delta function can be thought of as the limiting case of a rectangle of area 1, as the height goes to infinity and the width goes to zero. Show that the delta-function well (Equation 2.96) is a \"weak\" potential (even though it is infinitely deep), in the sense that $z_0 \\to 0$. Determine the bound-state energy for the delta-function potential, by treating it as the limit of a finite square well. Check that your answer is consistent with Equation 2.111. Also show that Equation 2.151 reduces to Equation 2.123 in the appropriate limit.",
++    statementEs: "La delta de Dirac puede pensarse como el caso límite de un rectángulo de área 1, cuando la altura tiende a infinito y la anchura a cero. Muestra que el pozo delta (Ecuación 2.96) es un potencial \"débil\" (aunque sea infinitamente profundo), en el sentido de que $z_0 \\to 0$. Determina la energía del estado ligado del potencial delta, tratándolo como el límite de un pozo cuadrado finito. Comprueba que tu respuesta es consistente con la Ecuación 2.111. Muestra también que la Ecuación 2.151 se reduce a la Ecuación 2.123 en el límite apropiado.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-31',
++    number: '2.31',
++    title: "Derivación de las Ecs. 2.149 y 2.150",
++    sectionId: '2.6',
++    placement: 'in-section',
++    bookPage: "65",
++    stars: 1,
++    statementEn: "Derive Equations 2.149 and 2.150. Hint: Use Equations 2.147 and 2.148 to solve for $C$ and $D$ in terms of $F$:\n\n$$C = \\left[ \\sin(la) + i\\frac{k}{l}\\cos(la) \\right] e^{ika} F; \\quad D = \\left[ \\cos(la) - i\\frac{k}{l}\\sin(la) \\right] e^{ika} F.$$\n\nPlug these back into Equations 2.145 and 2.146. Obtain the transmission coefficient, and confirm Eqation 2.151. Work out the reflection coefficient, and check that $T + R = 1$.",
++    statementEs: "Deduce las Ecuaciones 2.149 y 2.150. *Pista:* Usa las Ecuaciones 2.147 y 2.148 para resolver $C$ y $D$ en términos de $F$:\n$$C = \\left[\\sin(la) + i\\frac{k}{l}\\cos(la)\\right]e^{ika}F; \\qquad D = \\left[\\cos(la) - i\\frac{k}{l}\\sin(la)\\right]e^{ika}F.$$\nSustitúyelas en las Ecuaciones 2.145 y 2.146. Obtén el coeficiente de transmisión y confirma la Ecuación 2.151. Calcula el coeficiente de reflexión y comprueba que $T + R = 1$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-32',
++    number: '2.32',
++    title: "Barrera rectangular: T en los tres casos",
++    sectionId: '2.6',
++    placement: 'in-section',
++    bookPage: "65",
++    stars: 2,
++    statementEn: "Determine the transmission coefficient for a rectangular barrier (same as Equation 2.127, only with $+V_0$ in the region $-a < x < a$). Treat separately the three cases $E < V_0$, $E = V_0$, and $E > V_0$ (note that the wave function inside the barrier is different in the three cases). Partial answer: For $E < V_0$,^{28}\n\n$$T^{-1} = 1 + \\frac{V_0^2}{4E(V_0 - E)} \\sinh^2 \\left( \\frac{2a}{\\hbar}\\sqrt{2m(V_0 - E)} \\right).$$",
++    statementEs: "Determina el coeficiente de transmisión para una *barrera* rectangular (igual que la Ecuación 2.127, pero con $+V_0$ en la región $-a < x < a$). Trata por separado los tres casos $E < V_0$, $E = V_0$ y $E > V_0$ (nota que la función de onda dentro de la barrera es diferente en los tres casos). *Respuesta parcial:* para $E < V_0$,$^{28}$\n$$T^{-1} = 1 + \\frac{V_0^2}{4E(V_0 - E)}\\sinh^2\\left(\\frac{2a}{\\hbar}\\sqrt{2m(V_0 - E)}\\right).$$",
++    footnotes: ["28: This is a good example of tunneling—classically the particle would bounce back."],
++  },
++  {
++    id: 'bp-2-33',
++    number: '2.33',
++    title: "Escalón de potencial: R y T",
++    sectionId: '2.6',
++    placement: 'in-section',
++    bookPage: "65",
++    stars: 2,
++    statementEn: "Consider the step function potential:\n\n$$V(x) = \\begin{cases} 0, & \\text{if } x \\leq 0, \\\\ V_0, & \\text{if } x > 0. \\end{cases}$$\n\n(a) Calculate the reflection coefficient, for the case $E < V_0$, and comment on the answer.\n(b) Calculate the reflection coefficient for the case $E > V_0$.\n(c) For a potential such as this that does not go back to zero to the right of the barrier, the transmission coefficient is not simply $|F|^2/|A|^2$, with $A$ the incident amplitude and $F$ the transmitted amplitude, because the transmitted wave travels at a different speed. Show that\n\n$$T = \\sqrt{\\frac{E-V_0}{E}} \\frac{|F|^2}{|A|^2}, \\tag{2.154}$$\n\nfor $E > V_0$. Hint: You can figure it out using Equation 2.81, or—more elegantly, but less informatively—from the probability current (Problem 1.9a). What is $T$ for $E < V_0$?\n(d) For $E > V_0$, calculate the transmission coefficient for the step potential, and check that $T + R = 1$.",
++    statementEs: "Considera el potencial escalón:\n$$V(x) = \\begin{cases} 0, & \\text{si } x \\leq 0, \\\\ V_0, & \\text{si } x > 0. \\end{cases}$$\n(a) Calcula el coeficiente de reflexión para el caso $E < V_0$, y comenta la respuesta.\n(b) Calcula el coeficiente de reflexión para el caso $E > V_0$.\n(c) Para un potencial como este, que no vuelve a cero a la derecha de la barrera, el coeficiente de transmisión no es simplemente $|F|^2/|A|^2$, con $A$ la amplitud incidente y $F$ la transmitida, porque la onda transmitida viaja a una velocidad distinta. Muestra que\n$$T = \\sqrt{\\frac{E - V_0}{E}}\\, \\frac{|F|^2}{|A|^2}, \\tag{2.154}$$\npara $E > V_0$. *Pista:* Puedes deducirlo usando la Ecuación 2.81, o—más elegantemente, pero con menos información—partiendo de la corriente de probabilidad (Problema 1.9a). ¿Cuánto vale $T$ para $E < V_0$?\n(d) Para $E > V_0$, calcula el coeficiente de transmisión del potencial escalón, y comprueba que $T + R = 1$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-34',
++    number: '2.34',
++    title: "S-matrix del pozo delta",
++    sectionId: '2.7',
++    placement: 'in-section',
++    bookPage: "68",
++    stars: 1,
++    statementEn: "Construct the S-matrix for scattering from a delta-function well (Equation 2.96). Use it to obtain the bound state energy, and check your answer against Equation 2.111.",
++    statementEs: "Construye la S-matrix para dispersión desde un pozo delta (Ecuación 2.96). Úsala para obtener la energía del estado ligado, y comprueba tu respuesta contra la Ecuación 2.111.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-35',
++    number: '2.35',
++    title: "S-matrix del pozo finito",
++    sectionId: '2.7',
++    placement: 'in-section',
++    bookPage: "68",
++    stars: 0,
++    statementEn: "Find the S-matrix for the finite square well (Equation 2.127). *Hint:* This requires no new work if you carefully exploit the symmetry of the problem.",
++    statementEs: "Encuentra la S-matrix para el pozo cuadrado finito (Ecuación 2.127). *Pista:* Esto no requiere trabajo nuevo si explotas cuidadosamente la simetría del problema.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-36',
++    number: '2.36',
++    title: "Ψ = A·sin³(πx/a): ⟨x⟩(t)",
++    sectionId: '2.2',
++    placement: 'further',
++    bookPage: "68",
++    stars: 0,
++    statementEn: "A particle in the infinite square well (Equation 2.15) has the initial wave function\n$$\\Psi(x, 0) = A\\sin^3(\\pi x/a).$$\nFind $\\langle x \\rangle$ as a function of time.",
++    statementEs: "Una partícula en el pozo cuadrado infinito (Ecuación 2.15) tiene la función de onda inicial\n$$\\Psi(x, 0) = A\\sin^3(\\pi x/a).$$\nEncuentra $\\langle x \\rangle$ como función del tiempo.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-37',
++    number: '2.37',
++    title: "Valores esperados en el estado n del oscilador",
++    sectionId: '2.3',
++    placement: 'further',
++    bookPage: "68",
++    stars: 1,
++    statementEn: "Find $\\langle x \\rangle$, $\\langle p \\rangle$, $\\langle x^2 \\rangle$, $\\langle p^2 \\rangle$, $\\langle T \\rangle$, and $\\langle V(x) \\rangle$ for the $n$th stationary state of the harmonic oscillator. Check that the uncertainty principle is satisfied. *Hint:* Express $x$ and $(\\hbar / i)(d/dx)$ in terms of $(a_+ \\pm a_-)$, and use Equations 2.52 and 2.53; you may assume that the states are orthogonal.",
++    statementEs: "Encuentra $\\langle x \\rangle$, $\\langle p \\rangle$, $\\langle x^2 \\rangle$, $\\langle p^2 \\rangle$, $\\langle T \\rangle$ y $\\langle V(x) \\rangle$ para el $n$-ésimo estado estacionario del oscilador armónico. Comprueba que se satisface el principio de incertidumbre. *Pista:* Exprésa $x$ y $(\\hbar/i)(d/dx)$ en términos de $(a_+ \\pm a_-)$, y usa las Ecuaciones 2.52 y 2.53; puedes suponer que los estados son ortogonales.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-38',
++    number: '2.38',
++    title: "Semi-oscilador armónico",
++    sectionId: '2.3',
++    placement: 'further',
++    bookPage: "68",
++    stars: 0,
++    statementEn: "Find the allowed energies of the half-harmonic oscillator\n$$ V(x) = \\begin{cases} (1/2)m\\omega^2 x^2, & \\text{for } (x > 0), \\\\ \\infty, & \\text{for } (x < 0). \\end{cases} $$\n(This represents, for example, a spring that can be stretched, but not compressed.) *Hint:* This requires some careful thought, but very little actual computation.",
++    statementEs: "Encuentra las energías permitidas del semi-oscilador armónico\n$$V(x) = \\begin{cases} (1/2)m\\omega^2x^2, & \\text{si } x > 0, \\\\ \\infty, & \\text{si } x < 0. \\end{cases}$$\n(Esto representa, por ejemplo, un resorte que puede estirarse pero no comprimirse.) *Pista:* Esto requiere algo de reflexión cuidadosa, pero muy poco cálculo.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-39',
++    number: '2.39',
++    title: "Pozo infinito con barrera delta en el centro",
++    sectionId: '2.2',
++    placement: 'further',
++    bookPage: "68",
++    stars: 2,
++    statementEn: "Solve the time-independent Schrödinger equation for an infinite square well with a delta-function barrier at the center:\n$$ V(x) = \\begin{cases} \\alpha \\delta(x), & \\text{for } (-a < x < +a), \\\\ \\infty, & \\text{for } (|x| \\geq a). \\end{cases} $$\nTreat the even and odd wave functions separately. Don't bother to normalize them. Find the allowed energies (graphically, if necessary). How do they compare with the corresponding energies in the absence of the delta function? Comment on the limiting cases $\\alpha \\to 0$ and $\\alpha \\to \\infty$.",
++    statementEs: "Resuelve la ecuación de Schrödinger independiente del tiempo para un pozo cuadrado infinito con una barrera delta en el centro:\n$$V(x) = \\begin{cases} \\alpha\\delta(x), & \\text{para } (-a < x < +a), \\\\ \\infty, & \\text{para } (|x| \\geq a). \\end{cases}$$\nTrata por separado las funciones de onda pares e impares. No te molestes en normalizarlas. Encuentra las energías permitidas (gráficamente, si es necesario). ¿Cómo se comparan con las energías correspondientes en ausencia de la delta? Comenta los casos límite $\\alpha \\to 0$ y $\\alpha \\to \\infty$.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-40',
++    number: '2.40',
++    title: "Paquete gaussiano viajero",
++    sectionId: '2.4',
++    placement: 'further',
++    bookPage: "69",
++    stars: 2,
++    statementEn: "In Problem 2.22 you analyzed the *stationary* Gaussian free particle wave packet. Now solve the same problem for the *traveling* Gaussian wave packet, starting with the initial wave function\n$$ \\Psi(x, 0) = Ae^{-ax^2}e^{ilx}, $$\nwhere $l$ is a real constant.",
++    statementEs: "En el Problema 2.22 analizaste el paquete de onda gaussiano *estacionario* de la partícula libre. Ahora resuelve el mismo problema para el paquete gaussiano *viajero*, partiendo de la función de onda inicial\n$$\\Psi(x, 0) = Ae^{-ax^2}e^{ilx},$$\ndonde $l$ es una constante real.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-41',
++    number: '2.41',
++    title: "Dispersión desde un \"acantilado\"",
++    sectionId: '2.6',
++    placement: 'further',
++    bookPage: "69",
++    stars: 0,
++    statementEn: "A particle of mass $m$ and kinetic energy $E > 0$ approaches an abrupt potential drop $V_0$ (Figure 2.16).\n(a) What is the probability that it will \"reflect\" back, if $E = V_0/3$?\n(b) I drew the figure so as to make you think of a car approaching a cliff, but obviously the probability of \"bouncing back\" from the edge of a cliff is *far* smaller than what you got in (a)—unless you're Bugs Bunny. Explain why this potential does *not* correctly represent a cliff.",
++    statementEs: "Una partícula de masa $m$ y energía cinética $E > 0$ se aproxima a una caída abrupta de potencial $V_0$ (Figura 2.16).\n(a) ¿Cuál es la probabilidad de que se \"refleje\" hacia atrás, si $E = V_0/3$?\n(b) Dibujé la figura para que pensaras en un coche acercándose a un acantilado, pero obviamente la probabilidad de \"rebotar\" desde el borde de un acantilado es *mucho* menor que la que obtuviste en (a)—salvo que seas Bugs Bunny. Explica por qué este potencial no representa correctamente un acantilado.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-42',
++    number: '2.42',
++    title: "No hay estados ligados degenerados en 1D",
++    sectionId: '2.1',
++    placement: 'further',
++    bookPage: "69",
++    stars: 0,
++    statementEn: "If two (or more) distinct$^{30}$ solutions to the (time-independent) Schrödinger equation have the same energy $E$, these states are said to be **degenerate**. For example, the free particle states are doubly degenerate—one solution representing motion to the right, and the other motion to the left. But we have encountered no normalizable degenerate solutions, and this is not an accident. Prove the following theorem: In one dimension$^{31}$ there are no degenerate bound states. *Hint:* Suppose there are two solutions, $\\psi_1$ and $\\psi_2$, with the same energy $E$. Multiply the Schrödinger equation for $\\psi_1$ by $\\psi_2^*$, and the Schrödinger equation for $\\psi_2$ by $\\psi_1$, and subtract, to show that $\\left(\\psi_2^* \\frac{d\\psi_1}{dx} - \\psi_1 \\frac{d\\psi_2^*}{dx}\\right)$ is a constant. Use the fact that for normalizable solutions $\\psi \\to 0$ at $\\pm\\infty$ to demonstrate that this constant is in fact zero. Conclude that $\\psi_2$ is a multiple of $\\psi_1$, and hence that the two solutions are not distinct.",
++    statementEs: "Si dos (o más) soluciones distintas$^{30}$ de la ecuación de Schrödinger (independiente del tiempo) tienen la misma energía $E$, se dice que esos estados son **degenerados**. Por ejemplo, los estados de la partícula libre son doblemente degenerados—una solución representa movimiento hacia la derecha y la otra hacia la izquierda. Pero no hemos encontrado ninguna solución degenerada normalizable, y esto no es casualidad. Demuestra el siguiente teorema: en una dimensión$^{31}$ no existen estados ligados degenerados. *Pista:* Supón que hay dos soluciones, $\\psi_1$ y $\\psi_2$, con la misma energía $E$. Multiplica la ecuación de Schrödinger de $\\psi_1$ por $\\psi_2^*$, y la ecuación de Schrödinger de $\\psi_2$ por $\\psi_1$, y resta, para mostrar que $\\left(\\psi_2^*\\frac{d\\psi_1}{dx} - \\psi_1\\frac{d\\psi_2^*}{dx}\\right)$ es una constante. Usa el hecho de que, para soluciones normalizables, $\\psi \\to 0$ en $\\pm\\infty$, para demostrar que esa constante es en realidad cero. Concluye que $\\psi_2$ es múltiplo de $\\psi_1$, y que por tanto las dos soluciones no son distintas.",
++    footnotes: ["30: If the two solutions differ only by a multiplicative constant (so that, once normalized, they differ only by a phase factor $e^{i\\phi}$), they represent the same physical state, and in this case they are not distinct solutions. Technically, by \"distinct\" I mean \"linearly independent.\"", "31: In higher dimensions such degeneracy is very common, as we shall see in Chapter 4. Assume that the potential does not consist of isolated pieces separated by regions where $V = \\infty$—two isolated infinite square wells, for instance, would give rise to degenerate bound states, for which the particle is either in the one or in the other."],
++  },
++  {
++    id: 'bp-2-43',
++    number: '2.43',
++    title: "Partícula en un anillo",
++    sectionId: '2.4',
++    placement: 'further',
++    bookPage: "70",
++    stars: 0,
++    statementEn: "Imagine a bead of mass $m$ that slides frictionlessly around a circular wire ring of circumference $a$. [This is just like a free particle, except that $\\psi(x) = \\psi(x + a)$.] Find the stationary states (with appropriate normalization) and the corresponding allowed energies. Note that there are *two* independent solutions for each energy $E_n$—corresponding to clockwise and counterclockwise circulation; call them $\\psi_n^+(x)$ and $\\psi_n^-(x)$. How do you account for this degeneracy, in view of the theorem in Problem 2.42—that is, why does the theorem fail in this case?",
++    statementEs: "Imagina una cuenta de masa $m$ que se desliza sin fricción por un aro circular de circunferencia $a$. [Esto es igual que una partícula libre, salvo que $\\psi(x) = \\psi(x + a)$.] Encuentra los estados estacionarios (con la normalización apropiada) y las energías permitidas correspondientes. Nota que hay *dos* soluciones independientes para cada energía $E_n$—correspondientes a circulación horaria y antihoraria; llámalas $\\psi_n^+(x)$ y $\\psi_n^-(x)$. ¿Cómo explicas esta degeneración, a la luz del teorema del Problema 2.42—es decir, por qué falla el teorema en este caso?",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-44',
++    number: '2.44',
++    title: "Doble pozo cuadrado (cualitativo)",
++    sectionId: '2.6',
++    placement: 'further',
++    bookPage: "70",
++    stars: 2,
++    statementEn: "(*Attention*: This is a strictly qualitative problem—no calculations allowed!) Consider the “double square well” potential (Figure 2.17). Suppose the depth $V_0$ and the width $a$ are fixed, and great enough so that several bound states occur.\n\n(a) Sketch the ground-state wave function $\\psi_1$ and the first excited state $\\psi_2$, (i) for the case $b = 0$, (ii) for $b \\approx a$, and (iii) for $b \\gg a$.\n\n(b) Qualitatively, how do the corresponding energies ($E_1$ and $E_2$) vary, as $b$ goes from 0 to $\\infty$? Sketch $E_1(b)$ and $E_2(b)$ on the same graph.\n\n(c) The double well is a very primitive one-dimensional model for the potential experienced by an electron in a diatomic molecule (the two wells represent the attractive force of the nuclei). If the nuclei are free to move, they will adopt the configuration of minimum energy. In view of your conclusions in (b), does the electron tend to draw the nuclei together, or push them apart? (Of course, there is also the internuclear repulsion to consider, but that’s a separate problem.)",
++    statementEs: "(*Atención*: ¡Este es un problema estrictamente cualitativo—no se permiten cálculos!) Considera el potencial de \"doble pozo cuadrado\" (Figura 2.17). Supón que la profundidad $V_0$ y la anchura $a$ están fijadas, y son suficientes para que ocurran varios estados ligados.\n(a) Dibuja la función de onda del estado fundamental $\\psi_1$ y la del primer estado excitado $\\psi_2$, (i) para el caso $b = 0$, (ii) para $b \\approx a$, y (iii) para $b \\gg a$.\n(b) Cualitativamente, ¿cómo varían las energías correspondientes ($E_1$ y $E_2$) cuando $b$ va de 0 a $\\infty$? Dibuja $E_1(b)$ y $E_2(b)$ en la misma gráfica.\n(c) El doble pozo es un modelo unidimensional muy primitivo del potencial que experimenta un electrón en una molécula diatómica (los dos pozos representan la fuerza atractiva de los núcleos). Si los núcleos pueden moverse libremente, adoptarán la configuración de energía mínima. A la vista de tus conclusiones de (b), ¿el electrón tiende a acercar los núcleos o a separarlos? (Por supuesto, también está la repulsión internuclear, pero ese es un problema aparte.)",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-45',
++    number: '2.45',
++    title: "Paquete oscilante en el oscilador armónico",
++    sectionId: '2.3',
++    placement: 'further',
++    bookPage: "70",
++    stars: 3,
++    statementEn: "(a) Show that\n\n$$\\Psi(x,t) = \\left(\\frac{m\\omega}{\\pi\\hbar}\\right)^{1/4} \\exp\\left[-\\frac{m\\omega}{2\\hbar}\\left(x^2 + \\frac{a^2}{2}(1+e^{-2i\\omega t}) + \\frac{i\\hbar t}{m} - 2axe^{-i\\omega t}\\right)\\right]$$\n\nsatisfies the time-*dependent* Schrödinger equation for the harmonic oscillator potential (Equation 2.38). Here $a$ is any real constant (with the dimensions of length).$^{32}$\n\n(b) Find $|\\Psi(x,t)|^2$, and describe the motion of the wave packet.\n\n(c) Compute $\\langle x \\rangle$ and $\\langle p \\rangle$, and check that Ehrenfest’s theorem (Equation 1.38) is satisfied.",
++    statementEs: "(a) Muestra que\n$$\\Psi(x, t) = \\left(\\frac{m\\omega}{\\pi\\hbar}\\right)^{1/4}\\exp\\left[-\\frac{m\\omega}{2\\hbar}\\left(x^2 + \\frac{a^2}{2}(1 + e^{-2i\\omega t}) + \\frac{i\\hbar t}{m} - 2axe^{-i\\omega t}\\right)\\right]$$\nsatisface la ecuación de Schrödinger *dependiente* del tiempo para el potencial del oscilador armónico (Ecuación 2.38). Aquí $a$ es una constante real cualquiera (con dimensiones de longitud).$^{32}$\n(b) Encuentra $|\\Psi(x, t)|^2$, y describe el movimiento del paquete de onda.\n(c) Calcula $\\langle x \\rangle$ y $\\langle p \\rangle$, y comprueba que se satisface el teorema de Ehrenfest (Ecuación 1.38).",
++    footnotes: ["32: This rare example of an exact closed-form solution to the time-dependent Schrödinger equation was discovered by Schrödinger himself, in 1926."],
++  },
++  {
++    id: 'bp-2-46',
++    number: '2.46',
++    title: "Barrera delta junto a pared infinita: decaimiento",
++    sectionId: '2.5',
++    placement: 'further',
++    bookPage: "71",
++    stars: 0,
++    statementEn: "Consider the potential\n\n$$V(x) = \\begin{cases} \\infty, & \\text{if } x < 0, \\\\ \\alpha\\delta(x-a), & \\text{if } x \\geq 0, \\end{cases}$$\n\nwhere $a$ and $\\alpha$ are positive real constants with the appropriate units (see Figure 2.18). A particle starts out in the “well” $(0 < x < a)$, but because of tunneling its wave function gradually “leaks” out through the delta-function barrier.\n\n(a) Solve the (time-independent) Schrödinger equation for this potential; impose appropriate boundary conditions, and determine the “energy”, $E$. (An implicit equation will do.)\n\n(b) I put the word “energy” in quotes because you’ll notice that it is a *complex number*! How do you account for this, in view of the theorem you proved in Problem 2.1a?\n\n(c) Writing $E = E_0 + i\\Gamma$ (with $E_0$ and $\\Gamma$ real), calculate (in terms of $\\Gamma$) the characteristic time it takes the particle to leak out of the well (that is, the time it takes before the probability is $1/e$ that it’s still in the region $0 < x < a$).",
++    statementEs: "Considera el potencial\n$$V(x) = \\begin{cases} \\infty, & \\text{si } x < 0, \\\\ \\alpha\\delta(x - a), & \\text{si } x > 0, \\end{cases}$$\ndonde $a$ y $\\alpha$ son constantes reales positivas con las unidades apropiadas (ver Figura 2.18). Una partícula comienza en el \"pozo\" $(0 < x < a)$, pero debido al efecto túnel su función de onda \"escapa\" gradualmente a través de la barrera delta.\n(a) Resuelve la ecuación de Schrödinger (independiente del tiempo) para este potencial; impón las condiciones de frontera apropiadas y determina la \"energía\", $E$. (Basta con una ecuación implícita.)\n(b) Puse la palabra \"energía\" entre comillas porque notarás que ¡es un número *complejo*! ¿Cómo explicas esto, a la luz del teorema que demostraste en el Problema 2.1a?\n(c) Escribiendo $E = E_0 + i\\Gamma$ (con $E_0$ y $\\Gamma$ reales), calcula (en términos de $\\Gamma$) el tiempo característico que tarda la partícula en escapar del pozo (es decir, el tiempo que pasa antes de que la probabilidad de que siga en la región $0 < x < a$ sea $1/e$).",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-47',
++    number: '2.47',
++    title: "Pozo delta en movimiento",
++    sectionId: '2.5',
++    placement: 'further',
++    bookPage: "72",
++    stars: 2,
++    statementEn: "Consider the *moving* delta-function well:\n$$V(x, t) = -\\alpha \\delta(x - vt),$$\nwhere $v$ is the (constant) velocity of the well.\n(a) Show that the time-dependent Schrödinger equation admits the exact solution\n$$\\Psi(x, t) = \\frac{\\sqrt{m\\alpha}}{\\hbar} e^{-m\\alpha|x-vt|/\\hbar^2} e^{-i[(E+(1/2)mv^2)t-mvx]/\\hbar},$$\nwhere $E = -m\\alpha^2/2\\hbar^2$ is the bound-state energy of the *stationary* delta function.\n*Hint:* Plug it in and *check* it! Use Problem 2.24b.\n(b) Find the expectation value of the Hamiltonian in this state, and comment on the result.",
++    statementEs: "Considera el pozo delta *en movimiento*:\n$$V(x, t) = -\\alpha\\delta(x - vt),$$\ndonde $v$ es la velocidad (constante) del pozo.\n(a) Muestra que la ecuación de Schrödinger dependiente del tiempo admite la solución exacta\n$$\\Psi(x, t) = \\frac{\\sqrt{m\\alpha}}{\\hbar}\\, e^{-m\\alpha|x - vt|/\\hbar^2}\\, e^{-i[(E + (1/2)mv^2)t - mvx]/\\hbar},$$\ndonde $E = -m\\alpha^2/2\\hbar^2$ es la energía del estado ligado del delta *estacionario*. *Pista:* ¡Sustitúyela y *compruébala*! Usa el Problema 2.24b.\n(b) Encuentra el valor esperado del hamiltoniano en este estado, y comenta el resultado.",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-48',
++    number: '2.48',
++    title: "Potencial sech² sin reflexión",
++    sectionId: '2.7',
++    placement: 'further',
++    bookPage: "72",
++    stars: 3,
++    statementEn: "Consider the potential\n$$V(x) = -\\frac{\\hbar^2 a^2}{m} \\text{sech}^2(ax),$$\nwhere $a$ is a positive constant and \"sech\" stands for the hyperbolic secant.\n(a) Show that this potential has the bound state\n$$\\psi_0(x) = A \\text{ sech}(ax),$$\nand find its energy. Normalize $\\psi_0$, and sketch its graph.\n(b) Show that the function\n$$\\psi_k(x) = A \\left( \\frac{ik - a \\tanh(ax)}{ik + a} \\right) e^{ikx}$$\n(where $k \\equiv \\sqrt{2mE}/\\hbar$, as usual) solves the Schrödinger equation for any (positive) energy $E$. Since $\\tanh z \\to -1$ as $z \\to -\\infty$,\n$$\\psi_k(x) \\approx Ae^{ikx}, \\quad \\text{for large negative } x.$$\nThis represents, then, a wave coming in from the left with *no accompanying reflected wave* [i.e., no term $\\exp(-ikx)$]. What is the asymptotic form of $\\psi_k(x)$ at large positive $x$? What are $R$ and $T$ for this potential? *Note:* $\\text{sech}^2$ is a famous example of a \"reflectionless\" potential—every incident particle, regardless of its energy, passes right through. See R. E. Crandall and B. R. Litt, *Annals of Physics* **146**, 458 (1983).\n(c) Construct the $S$-matrix for this potential, and use it to locate the bound states. How many of them are there? What are their energies? Check that your answer is consistent with part (a).",
++    statementEs: "Considera el potencial\n$$V(x) = -\\frac{\\hbar^2a^2}{m}\\,\\mathrm{sech}^2(ax),$$\ndonde $a$ es una constante positiva y \"sech\" denota la secante hiperbólica.\n(a) Muestra que este potencial tiene el estado ligado\n$$\\psi_0(x) = A\\,\\mathrm{sech}(ax),$$\ny encuentra su energía. Normaliza $\\psi_0$ y dibuja su gráfica.\n(b) Muestra que la función\n$$\\psi_k(x) = A\\left(\\frac{ik - a\\tanh(ax)}{ik + a}\\right)e^{ikx}$$\n(donde $k \\equiv \\sqrt{2mE}/\\hbar$, como de costumbre) resuelve la ecuación de Schrödinger para cualquier energía (positiva) $E$. Dado que $\\tanh z \\to -1$ cuando $z \\to -\\infty$,\n$$\\psi_k(x) \\approx Ae^{ikx}, \\quad \\text{para } x \\text{ muy negativo}.$$\nEsto representa, entonces, una onda incidente desde la izquierda *sin onda reflejada acompañante* [es decir, sin término $\\exp(-ikx)$]. ¿Cuál es la forma asintótica de $\\psi_k(x)$ para $x$ muy positivo? ¿Cuánto valen $R$ y $T$ para este potencial? *Nota:* sech² es un ejemplo célebre de potencial \"sin reflexión\"—toda partícula incidente, sin importar su energía, pasa a través. Ver R. E. Crandall y B. R. Litt, *Annals of Physics* **146**, 458 (1983).\n(c) Construye la S-matrix para este potencial, y úsala para localizar los estados ligados. ¿Cuántos hay? ¿Cuáles son sus energías? Comprueba que tu respuesta es consistente con el apartado (a).",
++    footnotes: [],
++  },
++  {
++    id: 'bp-2-49',
++    number: '2.49',
++    title: "La matriz de transferencia M",
++    sectionId: '2.7',
++    placement: 'further',
++    bookPage: "73",
++    stars: 3,
++    statementEn: "The $S$-matrix tells you the *outgoing* amplitudes ($B$ and $F$) in terms of the *incoming* amplitudes ($A$ and $G$):\n$$\\begin{pmatrix} B \\\\ F \\end{pmatrix} = \\begin{pmatrix} S_{11} & S_{12} \\\\ S_{21} & S_{22} \\end{pmatrix} \\begin{pmatrix} A \\\\ G \\end{pmatrix}.$$\nFor some purposes it is more convenient to work with the **transfer matrix**, **M**, which gives you the amplitudes to the *right* of the potential ($F$ and $G$) in terms of those to the *left* ($A$ and $B$):\n$$\\begin{pmatrix} F \\\\ G \\end{pmatrix} = \\begin{pmatrix} M_{11} & M_{12} \\\\ M_{21} & M_{22} \\end{pmatrix} \\begin{pmatrix} A \\\\ B \\end{pmatrix}.$$\n(a) Find the four elements of the $M$-matrix in terms of the elements of the $S$-matrix, and vice versa. Express $R_l$, $T_l$, $R_r$, and $T_r$ (Equations 2.161 and 2.162) in terms of elements of the $M$-matrix.\n(b) Suppose you have a potential consisting of two isolated pieces (Figure 2.19). Show that the $M$-matrix for the combination is the *product* of the two $M$-matrices for each section separately:\n$$\\mathbf{M} = \\mathbf{M}_2 \\mathbf{M}_1.$$\n(This obviously generalizes to any number of pieces, and accounts for the usefulness of the $M$-matrix.)\n(c) Construct the $M$-matrix for scattering from a single delta-function potential at point $a$:\n$$V(x) = -\\alpha \\delta(x - a).$$\n(d) By the method of part (b), find the $M$-matrix for scattering from the double delta function\n$$V(x) = -\\alpha[\\delta(x + a) + \\delta(x - a)].$$\nWhat is the transmission coefficient for this potential?",
++    statementEs: "La S-matrix te da las amplitudes *salientes* ($B$ y $F$) en función de las amplitudes *entrantes* ($A$ y $G$):\n$$\\begin{pmatrix} B \\\\ F \\end{pmatrix} = \\begin{pmatrix} S_{11} & S_{12} \\\\ S_{21} & S_{22} \\end{pmatrix}\\begin{pmatrix} A \\\\ G \\end{pmatrix}.$$\nPara algunos propósitos es más cómodo trabajar con la **matriz de transferencia**, **M**, que da las amplitudes a la *derecha* del potencial ($F$ y $G$) en función de las de la *izquierda* ($A$ y $B$):\n$$\\begin{pmatrix} F \\\\ G \\end{pmatrix} = \\begin{pmatrix} M_{11} & M_{12} \\\\ M_{21} & M_{22} \\end{pmatrix}\\begin{pmatrix} A \\\\ B \\end{pmatrix}.$$\n(a) Encuentra los cuatro elementos de la matriz M en términos de los elementos de la S-matrix, y viceversa. Exprésa $R_l$, $T_l$, $R_r$ y $T_r$ (Ecuaciones 2.161 y 2.162) en términos de los elementos de la matriz M.\n(b) Supón que tienes un potencial formado por dos piezas aisladas (Figura 2.19). Muestra que la matriz M de la combinación es el *producto* de las dos matrices M de cada tramo por separado:\n$$\\mathbf{M} = \\mathbf{M}_2\\mathbf{M}_1.$$\n(Esto obviamente se generaliza a cualquier número de piezas, y explica la utilidad de la matriz M.)\n(c) Construye la matriz M para la dispersión desde un único potencial delta situado en el punto $a$:\n$$V(x) = -\\alpha\\delta(x - a).$$\n(d) Por el método del apartado (b), encuentra la matriz M para la dispersión desde la doble delta\n$$V(x) = -\\alpha[\\delta(x + a) + \\delta(x - a)].$$\n¿Cuál es el coeficiente de transmisión de este potencial?",
++    footnotes: [],
++  },
++]
++
++export function getBookProblem(id: string): BookProblem | undefined {
++  return BOOK_PROBLEMS.find(p => p.id === id)
++}
++
++export const FURTHER_PROBLEMS = BOOK_PROBLEMS.filter(p => p.placement === 'further')
++export const IN_SECTION_PROBLEMS = BOOK_PROBLEMS.filter(p => p.placement === 'in-section')
+diff -ruN /tmp/quantum-repo/src/lib/store.ts /home/z/my-project/src/lib/store.ts
+--- /tmp/quantum-repo/src/lib/store.ts	2026-10-03 21:41:24.949587401 +0000
++++ /home/z/my-project/src/lib/store.ts	2026-10-03 22:11:23.906091676 +0000
+@@ -9,6 +9,8 @@
+   | { name: 'concept'; conceptId: string }
+   | { name: 'exercise'; exerciseId: string }
+   | { name: 'exercises-list'; sectionId?: string }
++  | { name: 'book-problems'; sectionId?: string }
++  | { name: 'book-problem'; problemId: string }
+   | { name: 'concept-graph' }
+   | { name: 'decision-tree'; nodeId?: string }
+   | { name: 'model-problem'; problemId: string }
