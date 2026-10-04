@@ -4,7 +4,7 @@ import { useRecentlyViewed, clearRecentlyViewed } from '@/lib/recently-viewed'
 import { useUI } from '@/lib/store'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Clock, BookOpen, ListChecks, ArrowRight, Trash2 } from 'lucide-react'
+import { Clock, BookOpen, ListChecks, ArrowRight, Trash2, BookMarked } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function RecentlyViewedList() {
@@ -15,6 +15,7 @@ export function RecentlyViewedList() {
 
   const open = (item: typeof items[number]) => {
     if (item.type === 'concept') setView({ name: 'concept', conceptId: item.id })
+    else if (item.type === 'book-problem') setView({ name: 'book-problem', problemId: item.id })
     else setView({ name: 'exercise', exerciseId: item.id })
   }
 
@@ -38,7 +39,9 @@ export function RecentlyViewedList() {
             >
               {item.type === 'concept'
                 ? <BookOpen className="h-3.5 w-3.5 text-teal-500" />
-                : <ListChecks className="h-3.5 w-3.5 text-sky-500" />}
+                : item.type === 'book-problem'
+                  ? <BookMarked className="h-3.5 w-3.5 text-violet-500" />
+                  : <ListChecks className="h-3.5 w-3.5 text-sky-500" />}
               <span className="max-w-[180px] truncate font-medium">{item.title}</span>
               <span className="rounded bg-muted px-1 py-0.5 font-mono text-[9px] text-muted-foreground">{item.sectionId}</span>
               <ArrowRight className="h-3 w-3 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />

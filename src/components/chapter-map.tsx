@@ -5,10 +5,11 @@ import { useUI } from '@/lib/store'
 import { SECTIONS, getActiveChapter } from '@/data/structure'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { EXERCISES } from '@/data/exercises'
+import { BOOK_PROBLEMS } from '@/data/book-problems'
 import { RenderBlocks } from '@/components/render-blocks'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { BookOpen, ListChecks, ChevronRight, Star } from 'lucide-react'
+import { BookOpen, ListChecks, ChevronRight, Star, BookMarked } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useState as useRState } from 'react'
 import type { Exercise } from '@/lib/content-types'
@@ -88,6 +89,26 @@ export function ExercisesList() {
           Cada ejercicio tiene preguntas orientadoras, pistas progresivas y solución paso a paso con botón "¿Por qué?". Clasifica tu resultado para alimentar el análisis de errores.
         </p>
       </header>
+
+      {/* Alternar entre banco original y problemas del libro */}
+      <button
+        type="button"
+        onClick={() => setView({ name: 'book-problems' })}
+        className="group flex w-full items-center gap-3 rounded-lg border border-violet-300/70 bg-violet-50/60 p-4 text-left transition-colors hover:border-violet-400 hover:bg-violet-100/60 dark:border-violet-800 dark:bg-violet-950/30 dark:hover:bg-violet-950/50"
+      >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-sm">
+          <BookMarked className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-violet-900 dark:text-violet-100">
+            ¿Buscas los problemas reales de Griffiths? → Problemas del libro
+          </div>
+          <div className="text-xs leading-5 text-muted-foreground">
+            Los {BOOK_PROBLEMS.length} problemas oficiales del Capítulo 2 (1.ª ed.), transcritos literalmente del libro: {BOOK_PROBLEMS.filter(p => p.placement === 'in-section').length} en las secciones + {BOOK_PROBLEMS.filter(p => p.placement === 'further').length} Further Problems, con traducción al español.
+          </div>
+        </div>
+        <ChevronRight className="h-5 w-5 shrink-0 text-violet-500 transition-transform group-hover:translate-x-0.5" />
+      </button>
 
       <div className="flex flex-wrap gap-2">
         <button

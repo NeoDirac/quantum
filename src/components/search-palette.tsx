@@ -6,8 +6,9 @@ import { useUI } from '@/lib/store'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { ALL_EXERCISES } from '@/data/exercises'
 import { MODEL_PROBLEMS } from '@/data/model-problems'
+import { BOOK_PROBLEMS } from '@/data/book-problems'
 import { SECTIONS } from '@/data/structure'
-import { BookOpen, ListChecks, GraduationCap, Layers, Search } from 'lucide-react'
+import { BookOpen, ListChecks, GraduationCap, Layers, Search, BookMarked } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (b: boolean) => void }) {
@@ -105,6 +106,28 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
             </CommandItem>
           ))}
         </CommandGroup>
+        <CommandGroup heading={`Problemas del libro · Griffiths (${BOOK_PROBLEMS.length})`}>
+          {BOOK_PROBLEMS.map(p => {
+            const stars = '★'.repeat(p.stars)
+            return (
+              <CommandItem
+                key={p.id}
+                value={`problema libro griffiths ${p.number} ${p.title} ${p.sectionId} ${p.statementEn.slice(0, 120)}`}
+                onSelect={() => go({ name: 'book-problem', problemId: p.id })}
+                className="cursor-pointer"
+              >
+                <BookMarked className="mr-2 h-4 w-4 text-violet-500" />
+                <div className="flex flex-1 items-center gap-2">
+                  <span className="rounded bg-violet-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">{p.number}</span>
+                  <span className="font-medium">{p.title}</span>
+                  {p.placement === 'further' && <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">Further</span>}
+                </div>
+                {p.stars > 0 && <span className="text-[10px] text-amber-500">{stars}</span>}
+              </CommandItem>
+            )
+          })}
+        </CommandGroup>
+
       </CommandList>
     </CommandDialog>
   )

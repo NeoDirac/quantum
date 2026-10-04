@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 
 export interface RecentlyViewedItem {
-  type: 'concept' | 'exercise'
+  type: 'concept' | 'exercise' | 'book-problem'
   id: string
   title: string
   sectionId: string

@@ -4,11 +4,13 @@ import { useUI } from '@/lib/store'
 import { SECTIONS, getActiveChapter, getSectionsForChapter } from '@/data/structure'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { EXERCISES } from '@/data/exercises'
+import { BOOK_PROBLEMS } from '@/data/book-problems'
 import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
-  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays
+  GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays,
+  BookMarked
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -27,7 +29,17 @@ export function Sidebar() {
     })
   }
 
-  const navItem = (label: string, icon: any, active: boolean, onClick: () => void, count?: number) => (
+  // Navega y cierra el drawer en móvil; en desktop el sidebar es fijo (lg:translate-x-0)
+  const go = (fn: () => void) => () => {
+    fn()
+    setSidebarOpen(false)
+  }
+
+  const navItem = (label: string, icon: any, active: boolean, onClick: () => void, count?: number) => {
+    // Los componentes JSX deben empezar en mayúscula (icon → Icon);
+    // en minúscula React lo trata como etiqueta DOM desconocida y no renderiza nada.
+    const Icon = icon
+    return (
     <button
       type="button"
       onClick={onClick}
@@ -38,7 +50,7 @@ export function Sidebar() {
           : 'text-muted-foreground hover:bg-muted hover:text-foreground'
       )}
     >
-      <icon className={cn('h-4 w-4 shrink-0 transition-transform', !active && 'group-hover:scale-110')} />
+      <Icon className={cn('h-4 w-4 shrink-0 transition-transform', !active && 'group-hover:scale-110')} />
       <span className="flex-1 text-left">{label}</span>
       {count !== undefined && (
         <span className={cn('rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
@@ -47,7 +59,8 @@ export function Sidebar() {
         </span>
       )}
     </button>
-  )
+    )
+  }
 
   return (
     <>
@@ -61,7 +74,7 @@ export function Sidebar() {
       )}
       <aside className={cn(
         'fixed inset-y-0 left-0 z-40 w-72 shrink-0 border-r border-border bg-sidebar/95 backdrop-blur transition-transform duration-300 ease-out lg:static lg:translate-x-0 lg:bg-sidebar',
-        sidebarOpen ? 'translate-x-0 shadow-xl lg:shadow-none' : '-translate-x-full lg:hidden'
+        sidebarOpen ? 'translate-x-0 shadow-xl lg:shadow-none' : '-translate-x-full'
       )}>
         <div className="flex h-full flex-col">
           <div className="flex items-center justify-between gap-2.5 border-b border-sidebar-border px-4 py-4">
@@ -85,13 +98,14 @@ export function Sidebar() {
           </div>
 
           <nav className="flex-1 space-y-1 overflow-y-auto p-3">
-            {navItem('Panel', LayoutDashboard, view.name === 'dashboard', () => setView({ name: 'dashboard' }))}
-            {navItem('Conceptos', BookOpen, view.name === 'concept' || view.name === 'chapter-map', () => setView({ name: 'chapter-map' }))}
-            {navItem('Mapa de relaciones', Share2, view.name === 'concept-graph', () => setView({ name: 'concept-graph' }))}
-            {navItem('Ejercicios', ListChecks, view.name === 'exercises-list' || view.name === 'exercise', () => setView({ name: 'exercises-list' }), EXERCISES.length)}
-            {navItem('Árbol de decisión', Network, view.name === 'decision-tree', () => setView({ name: 'decision-tree' }))}
-            {navItem('¿Qué hace Griffiths?', GraduationCap, view.name === 'model-problem', () => setView({ name: 'model-problem', problemId: MODEL_PROBLEMS[0].id }), MODEL_PROBLEMS.length)}
-            {navItem('Visualizaciones', Waves, view.name === 'visualizations', () => setView({ name: 'visualizations' }))}
+            {navItem('Panel', LayoutDashboard, view.name === 'dashboard', go(() => setView({ name: 'dashboard' })))}
+            {navItem('Conceptos', BookOpen, view.name === 'concept' || view.name === 'chapter-map', go(() => setView({ name: 'chapter-map' })))}
+            {navItem('Mapa de relaciones', Share2, view.name === 'concept-graph', go(() => setView({ name: 'concept-graph' })))}
+            {navItem('Ejercicios', ListChecks, view.name === 'exercises-list' || view.name === 'exercise', go(() => setView({ name: 'exercises-list' })), EXERCISES.length)}
+            {navItem('Problemas del libro', BookMarked, view.name === 'book-problems' || view.name === 'book-problem', go(() => setView({ name: 'book-problems' })), BOOK_PROBLEMS.length)}
+            {navItem('Árbol de decisión', Network, view.name === 'decision-tree', go(() => setView({ name: 'decision-tree' })))}
+            {navItem('¿Qué hace Griffiths?', GraduationCap, view.name === 'model-problem', go(() => setView({ name: 'model-problem', problemId: MODEL_PROBLEMS[0].id })), MODEL_PROBLEMS.length)}
+            {navItem('Visualizaciones', Waves, view.name === 'visualizations', go(() => setView({ name: 'visualizations' })))}
 
             <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Capítulo {chapter.number} — secciones
@@ -118,7 +132,7 @@ export function Sidebar() {
                           <button
                             key={c.id}
                             type="button"
-                            onClick={() => setView({ name: 'concept', conceptId: c.id })}
+                            onClick={go(() => setView({ name: 'concept', conceptId: c.id }))}
                             className={cn(
                               'group flex w-full items-start gap-2 rounded-md px-2.5 py-1.5 text-left text-[13px] transition-all',
                               isActive
@@ -142,13 +156,13 @@ export function Sidebar() {
           </nav>
 
           <div className="space-y-1 border-t border-sidebar-border p-3">
-            {navItem('Repaso adaptativo', Brain, view.name === 'review', () => setView({ name: 'review' }))}
-            {navItem('Memoria a largo plazo', Zap, view.name === 'spaced-repetition', () => setView({ name: 'spaced-repetition' }))}
-            {navItem('Mis favoritos', Star, view.name === 'bookmarks', () => setView({ name: 'bookmarks' }))}
-            {navItem('Modo examen', Timer, view.name === 'exam', () => setView({ name: 'exam' }))}
-            {navItem('Entrenamiento', GitBranch, view.name === 'training', () => setView({ name: 'training' }))}
-            {navItem('Mi progreso', BarChart3, view.name === 'progress', () => setView({ name: 'progress' }))}
-            {navItem('Calendario', CalendarDays, view.name === 'study-calendar', () => setView({ name: 'study-calendar' }))}
+            {navItem('Repaso adaptativo', Brain, view.name === 'review', go(() => setView({ name: 'review' })))}
+            {navItem('Memoria a largo plazo', Zap, view.name === 'spaced-repetition', go(() => setView({ name: 'spaced-repetition' })))}
+            {navItem('Mis favoritos', Star, view.name === 'bookmarks', go(() => setView({ name: 'bookmarks' })))}
+            {navItem('Modo examen', Timer, view.name === 'exam', go(() => setView({ name: 'exam' })))}
+            {navItem('Entrenamiento', GitBranch, view.name === 'training', go(() => setView({ name: 'training' })))}
+            {navItem('Mi progreso', BarChart3, view.name === 'progress', go(() => setView({ name: 'progress' })))}
+            {navItem('Calendario', CalendarDays, view.name === 'study-calendar', go(() => setView({ name: 'study-calendar' })))}
           </div>
         </div>
       </aside>

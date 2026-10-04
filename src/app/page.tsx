@@ -7,6 +7,7 @@ import { ChapterMap, ExercisesList } from '@/components/chapter-map'
 import { ConceptGraphView } from '@/components/concept-graph-view'
 import { ConceptView } from '@/components/concept-view'
 import { ExerciseView } from '@/components/exercise-view'
+import { BookProblemsList, BookProblemDetail } from '@/components/book-problems-view'
 import { DecisionTreeView } from '@/components/decision-tree-view'
 import { ModelProblemView } from '@/components/model-problem-view'
 import { Visualizations } from '@/components/visualizations'
@@ -47,6 +48,8 @@ export default function Home() {
         return e ? <ExerciseView exercise={e} /> : <NotFound />
       }
       case 'exercises-list': return <ExercisesList />
+      case 'book-problems': return <BookProblemsList />
+      case 'book-problem': return <BookProblemDetail problemId={view.problemId} />
       case 'decision-tree': return <DecisionTreeView />
       case 'model-problem': return <ModelProblemView />
       case 'visualizations': return <Visualizations />
