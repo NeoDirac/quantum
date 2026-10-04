@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { getActiveChapter } from '@/data/structure'
 import { useKeyboardShortcuts, KeyboardHelpDialog } from '@/components/keyboard-shortcuts'
 import { SearchPalette, useSearchPalette, SearchTrigger } from '@/components/search-palette'
+import { ThemeToggle } from '@/components/theme-toggle'
 
 export default function Home() {
   const { view, setView, setSidebarOpen, sidebarOpen } = useUI()
@@ -48,13 +49,13 @@ export default function Home() {
         return e ? <ExerciseView exercise={e} /> : <NotFound />
       }
       case 'exercises-list': return <ExercisesList />
-      case 'book-problems': return <BookProblemsList />
+      case 'book-problems': return <BookProblemsList key={view.query ?? 'q'} />
       case 'book-problem': return <BookProblemDetail problemId={view.problemId} />
       case 'decision-tree': return <DecisionTreeView />
       case 'model-problem': return <ModelProblemView />
       case 'visualizations': return <Visualizations />
       case 'exam': return <ExamMode />
-      case 'training': return <TrainingMode />
+      case 'training': return <TrainingMode initialPreset={view.preset} />
       case 'review': return <ReviewMode />
       case 'spaced-repetition': return <SpacedRepetitionMode />
       case 'sm2-stats': return <SM2CardStats />
@@ -83,6 +84,7 @@ export default function Home() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <SearchTrigger onClick={() => search.setOpen(true)} />
+          <ThemeToggle />
           {view.name !== 'dashboard' && (
             <Button variant="ghost" size="sm" onClick={() => setView({ name: 'dashboard' })}>
               <BookOpen className="mr-1 h-3.5 w-3.5" /> Inicio

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { BlockMath } from 'react-katex'
 import 'katex/dist/katex.min.css'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -21,9 +21,15 @@ import { cn } from '@/lib/utils'
 // el enunciado cita explícitamente, renderizados debajo de la pregunta.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function EquationCard({ eq, onNavigate }: { eq: BookEquationRef; onNavigate: (problemNumber: string) => void }) {
+function EquationCard({ eq, onNavigate, highlight }: { eq: BookEquationRef; onNavigate: (problemNumber: string) => void; highlight?: boolean }) {
   return (
-    <div className="rounded-lg border border-amber-200/80 bg-card/80 p-3.5 transition-colors hover:border-amber-300/90 dark:border-amber-900/60 dark:hover:border-amber-800">
+    <div
+      id={`ref-eq-${eq.id}`}
+      className={cn(
+        'rounded-lg border border-amber-200/80 bg-card/80 p-3.5 transition-all duration-300 hover:border-amber-300/90 dark:border-amber-900/60 dark:hover:border-amber-800',
+        highlight && 'border-amber-400/90 shadow-md shadow-amber-400/20 ring-2 ring-amber-400/70 ring-offset-2 ring-offset-background dark:border-amber-600/70 dark:ring-amber-500/60',
+      )}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
           Ec. {eq.id}
@@ -52,16 +58,19 @@ function EquationCard({ eq, onNavigate }: { eq: BookEquationRef; onNavigate: (pr
   )
 }
 
-function ProblemRefCard({ refData, onNavigate }: { refData: ProblemRef; onNavigate: (problemNumber: string) => void }) {
+function ProblemRefCard({ refData, onNavigate, highlight }: { refData: ProblemRef; onNavigate: (problemNumber: string) => void; highlight?: boolean }) {
   const target = BOOK_PROBLEMS.find((p) => p.number === refData.number)
   const external = target ? undefined : getExternalProblemRef(refData.number + (refData.part ?? ''))
+  const domId = `ref-prob-${refData.number}${refData.part ? `-${refData.part}` : ''}`
+  const ring = highlight ? 'border-teal-400/90 shadow-md shadow-teal-400/20 ring-2 ring-teal-400/70 ring-offset-2 ring-offset-background dark:border-teal-700' : ''
 
   if (target) {
     return (
       <button
         type="button"
+        id={domId}
         onClick={() => onNavigate(refData.number)}
-        className="group w-full rounded-lg border border-border bg-card/80 p-3.5 text-left transition-colors hover:border-teal-400 dark:hover:border-teal-700"
+        className={cn('group w-full rounded-lg border border-border bg-card/80 p-3.5 text-left transition-all duration-300 hover:border-teal-400 dark:hover:border-teal-700', ring)}
       >
         <div className="flex items-center gap-2">
           <span className="rounded-md bg-teal-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
@@ -79,7 +88,7 @@ function ProblemRefCard({ refData, onNavigate }: { refData: ProblemRef; onNaviga
 
   if (external) {
     return (
-      <div className="rounded-lg border border-border bg-card/80 p-3.5">
+      <div id={domId} className={cn('rounded-lg border border-border bg-card/80 p-3.5 transition-all duration-300', ring)}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-md bg-teal-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
             Prob. {refData.number}{refData.part ? `(${refData.part})` : ''}
@@ -104,6 +113,32 @@ function ProblemRefCard({ refData, onNavigate }: { refData: ProblemRef; onNaviga
 export function CrossReferencesSection({ problem }: { problem: BookProblem }) {
   const { setView } = useUI()
   const [open, setOpen] = useState(true)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const timers = useRef<number[]>([])
+
+  // Anclas del enunciado: «Equation 2.6» despacha 'qm:open-ref' → expandir la
+  // sección (si estaba plegada), hacer scroll suave a la tarjeta y resaltarla.
+  useEffect(() => {
+    const onOpenRef = (e: Event) => {
+      const target = (e as CustomEvent<string>).detail
+      if (!target || typeof target !== 'string') return
+      setOpen(true)
+      setHighlightId(target)
+      timers.current.push(
+        window.setTimeout(() => {
+          document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }, open ? 60 : 420),
+        window.setTimeout(() => setHighlightId(null), 3400),
+      )
+    }
+    window.addEventListener('qm:open-ref', onOpenRef)
+    return () => {
+      window.removeEventListener('qm:open-ref', onOpenRef)
+      timers.current.forEach(t => window.clearTimeout(t))
+      timers.current = []
+    }
+  }, [open])
+
   // El parseo es barato (regex sobre ~2 KB de texto) y `problem` es estable:
   // sin memoización manual para no pelechar con el React Compiler.
   const refs = findCrossRefs(problem)
@@ -137,6 +172,9 @@ export function CrossReferencesSection({ problem }: { problem: BookProblem }) {
           Referencias cruzadas del libro
         </div>
         <div className="flex items-center gap-2">
+          <span className="hidden rounded-full border border-amber-300/50 px-2.5 py-1 text-[10.5px] font-medium text-amber-700/90 sm:inline-block dark:border-amber-800/60 dark:text-amber-300/90">
+            las menciones del enunciado son clicables
+          </span>
           <span className="rounded-full bg-amber-100/80 px-2.5 py-1 text-[10.5px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
             {parts.join(' · ')}
           </span>
@@ -170,22 +208,36 @@ export function CrossReferencesSection({ problem }: { problem: BookProblem }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, delay: Math.min(i * 0.05, 0.25) }}
                 >
-                  <EquationCard eq={eq} onNavigate={onNavigate} />
+                  <EquationCard eq={eq} onNavigate={onNavigate} highlight={highlightId === `ref-eq-${eq.id}`} />
                 </motion.div>
               ))}
 
               {missingEqs.map((id) => (
-                <div key={id} className="rounded-lg border border-dashed border-amber-300/60 p-3 text-xs text-muted-foreground dark:border-amber-800/50">
+                <div
+                  key={id}
+                  id={`ref-eq-${id}`}
+                  className={cn(
+                    'rounded-lg border border-dashed border-amber-300/60 p-3 text-xs text-muted-foreground transition-all duration-300 dark:border-amber-800/50',
+                    highlightId === `ref-eq-${id}` && 'border-amber-400/90 ring-2 ring-amber-400/70 ring-offset-2 ring-offset-background dark:ring-amber-500/60',
+                  )}
+                >
                   <span className="font-mono font-semibold">Ec. {id}</span> — citada en el enunciado; transcripción pendiente.
                 </div>
               ))}
 
               {refs.problems.map((r) => (
-                <ProblemRefCard key={`${r.number}-${r.part ?? ''}`} refData={r} onNavigate={onNavigate} />
+                <ProblemRefCard key={`${r.number}-${r.part ?? ''}`} refData={r} onNavigate={onNavigate} highlight={highlightId === `ref-prob-${r.number}${r.part ? `-${r.part}` : ''}`} />
               ))}
 
               {figs.map((fig) => (
-                <div key={fig!.id} className="rounded-lg border border-amber-200/80 bg-card/80 p-3.5 dark:border-amber-900/60">
+                <div
+                  key={fig!.id}
+                  id={`ref-fig-${fig!.id}`}
+                  className={cn(
+                    'rounded-lg border border-amber-200/80 bg-card/80 p-3.5 transition-all duration-300 dark:border-amber-900/60',
+                    highlightId === `ref-fig-${fig!.id}` && 'border-amber-400/90 shadow-md shadow-amber-400/20 ring-2 ring-amber-400/70 ring-offset-2 ring-offset-background dark:ring-amber-500/60',
+                  )}
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
                       <ImageIcon className="h-3 w-3" /> Fig. {fig!.id}
@@ -198,7 +250,14 @@ export function CrossReferencesSection({ problem }: { problem: BookProblem }) {
               ))}
 
               {fns.map((fn) => (
-                <div key={fn!.id} className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50/40 p-3.5 dark:border-amber-800/50 dark:bg-amber-950/20">
+                <div
+                  key={fn!.id}
+                  id={`ref-fn-${fn!.id}`}
+                  className={cn(
+                    'rounded-lg border border-dashed border-amber-300/70 bg-amber-50/40 p-3.5 transition-all duration-300 dark:border-amber-800/50 dark:bg-amber-950/20',
+                    highlightId === `ref-fn-${fn!.id}` && 'border-amber-400/90 ring-2 ring-amber-400/70 ring-offset-2 ring-offset-background dark:ring-amber-500/60',
+                  )}
+                >
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
                       <StickyNote className="h-3 w-3" /> Nota {fn!.id}

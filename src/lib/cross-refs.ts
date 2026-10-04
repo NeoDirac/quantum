@@ -114,3 +114,107 @@ export function findCrossRefs(problem: BookProblem): CrossRefs {
 export function crossRefsCount(refs: CrossRefs): number {
   return refs.equations.length + refs.problems.length + refs.figures.length + refs.footnotes.length
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ANCLAS DE MENCIONES: convierte «Equation 2.6» / «Ecuación 2.6» / «Problem
+// 2.1(a)» / «Figure 2.5» / «footnote 22» del texto del enunciado (o de las
+// pistas) en enlaces que apuntan a la tarjeta correspondiente de la sección
+// «Referencias cruzadas del libro» (ids DOM: ref-eq-* / ref-prob-* / ref-fig-* /
+// ref-fn-*). Solo se enlazan las menciones cuya tarjeta existe (targets).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Conjunto de ids DOM de las tarjetas de referencia disponibles para un problema. */
+export function getRefTargets(problem: BookProblem): Set<string> {
+  const refs = findCrossRefs(problem)
+  const targets = new Set<string>()
+  for (const id of refs.equations) targets.add(`ref-eq-${id}`)
+  for (const r of refs.problems) targets.add(`ref-prob-${r.number}${r.part ? `-${r.part}` : ''}`)
+  for (const id of refs.figures) targets.add(`ref-fig-${id}`)
+  for (const n of refs.footnotes) targets.add(`ref-fn-${n}`)
+  return targets
+}
+
+export interface RefMention {
+  label: string   // texto visible del enlace («Equation 2.6»)
+  target: string  // id DOM de la tarjeta («ref-eq-2.6»)
+}
+
+export type RefToken = { text: string } | { mention: RefMention }
+
+interface MentionRange {
+  start: number
+  end: number
+  label: string
+  target: string
+}
+
+/**
+ * Divide `text` en fragmentos planos y menciones enlazables.
+ * Solo produce menciones cuyo `target` está en `targets` (si se pasa);
+ * si no hay ninguna, devuelve [] (el texto no necesita tratamiento).
+ */
+export function tokenizeRefMentions(text: string, targets?: Set<string>): RefToken[] {
+  const ranges: MentionRange[] = []
+  const add = (start: number, end: number, label: string, target: string) => {
+    if (end > start && (!targets || targets.has(target))) {
+      ranges.push({ start, end, label, target })
+    }
+  }
+
+  let m: RegExpExecArray | null
+
+  // Ecuaciones — «Equation 2.6» y, en plurales, la continuación «and 2.46»
+  EQ_RE.lastIndex = 0
+  while ((m = EQ_RE.exec(text)) !== null) {
+    const off1 = m[0].indexOf(m[1])
+    add(m.index, m.index + off1 + m[1].length, m[0].slice(0, off1 + m[1].length), `ref-eq-${m[1]}`)
+    if (m[2]) {
+      const off2 = m[0].lastIndexOf(m[2])
+      add(m.index + off2, m.index + off2 + m[2].length, m[2], `ref-eq-${m[2]}`)
+    }
+  }
+
+  // Problemas — «Problem 2.1(a)» / «Problemas 2.12 y 2.13»
+  PROB_RE.lastIndex = 0
+  while ((m = PROB_RE.exec(text)) !== null) {
+    const off1 = m[0].indexOf(m[1])
+    const after1 = m[0].slice(off1 + m[1].length)
+    const pm1 = after1.match(/^\(?([a-z])\)?/)
+    const len1 = m[1].length + (pm1 ? pm1[0].length : 0)
+    add(m.index, m.index + off1 + len1, m[0].slice(0, off1 + len1), `ref-prob-${m[1]}${m[2] ? `-${m[2]}` : ''}`)
+    if (m[3]) {
+      const off2 = m[0].lastIndexOf(m[3])
+      const after2 = m[0].slice(off2 + m[3].length)
+      const pm2 = after2.match(/^\(?([a-z])\)?/)
+      const len2 = m[3].length + (pm2 ? pm2[0].length : 0)
+      add(m.index + off2, m.index + off2 + len2, m[0].slice(off2, off2 + len2), `ref-prob-${m[3]}${m[4] ? `-${m[4]}` : ''}`)
+    }
+  }
+
+  // Figuras — «Figure 2.5»
+  FIG_RE.lastIndex = 0
+  while ((m = FIG_RE.exec(text)) !== null) {
+    add(m.index, m.index + m[0].length, m[0], `ref-fig-${m[1]}`)
+  }
+
+  // Notas al pie — «footnote 22»
+  FOOTNOTE_RE.lastIndex = 0
+  while ((m = FOOTNOTE_RE.exec(text)) !== null) {
+    add(m.index, m.index + m[0].length, m[0].trimEnd(), `ref-fn-${m[1] ?? m[2]}`)
+  }
+
+  if (ranges.length === 0) return []
+
+  // Orden por posición; ante solapamiento gana la mención anterior.
+  ranges.sort((a, b) => a.start - b.start || b.end - a.end)
+  const tokens: RefToken[] = []
+  let cursor = 0
+  for (const r of ranges) {
+    if (r.start < cursor) continue
+    if (r.start > cursor) tokens.push({ text: text.slice(cursor, r.start) })
+    tokens.push({ mention: { label: r.label, target: r.target } })
+    cursor = r.end
+  }
+  if (cursor < text.length) tokens.push({ text: text.slice(cursor) })
+  return tokens
+}

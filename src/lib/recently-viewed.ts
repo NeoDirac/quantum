@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useSyncExternalStore } from 'react'
 
 export interface RecentlyViewedItem {
   type: 'concept' | 'exercise' | 'book-problem'
@@ -32,33 +32,65 @@ function save(items: RecentlyViewedItem[]) {
   }
 }
 
-// Record a visit (dedupes by type+id, moves to front, caps at MAX_ITEMS)
-export function recordView(item: Omit<RecentlyViewedItem, 'ts'>) {
-  const items = load()
-  const filtered = items.filter(x => !(x.type === item.type && x.id === item.id))
-  const next = [{ ...item, ts: Date.now() }, ...filtered].slice(0, MAX_ITEMS)
-  save(next)
-  // notify listeners
-  window.dispatchEvent(new Event('qm-recently-viewed-changed'))
+// ── Snapshot cache (useSyncExternalStore exige referencias estables) ────────
+// La primera lectura se hace tras la hidratación (nunca durante), por lo que
+// el primer render del cliente coincide con el HTML del servidor (SSR = []) y
+// no hay mismatch de hidratación para usuarios que vuelven.
+let snapshot: RecentlyViewedItem[] = []
+let snapshotRead = false
+
+const EMPTY: RecentlyViewedItem[] = []
+
+function getSnapshot(): RecentlyViewedItem[] {
+  if (!snapshotRead) {
+    snapshot = load()
+    snapshotRead = true
+  }
+  return snapshot
 }
 
-// Hook: returns the current recently-viewed list, updates on changes.
-// Initial value is loaded lazily via useState initializer (avoids set-state-in-effect).
-export function useRecentlyViewed(): RecentlyViewedItem[] {
-  const [items, setItems] = useState<RecentlyViewedItem[]>(() => load())
-  useEffect(() => {
-    const handler = () => { setItems(load()) }
-    window.addEventListener('qm-recently-viewed-changed', handler)
-    window.addEventListener('storage', handler)
-    return () => {
-      window.removeEventListener('qm-recently-viewed-changed', handler)
-      window.removeEventListener('storage', handler)
+function getServerSnapshot(): RecentlyViewedItem[] {
+  return EMPTY
+}
+
+const listeners = new Set<() => void>()
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  // Cambios desde otra pestaña del navegador.
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === null || e.key === STORAGE_KEY) {
+      snapshot = load()
+      snapshotRead = true
+      listener()
     }
-  }, [])
-  return items
+  }
+  window.addEventListener('storage', onStorage)
+  return () => {
+    listeners.delete(listener)
+    window.removeEventListener('storage', onStorage)
+  }
+}
+
+function commit(next: RecentlyViewedItem[]) {
+  snapshot = next
+  snapshotRead = true
+  save(next)
+  listeners.forEach(l => l())
+}
+
+// Record a visit (dedupes by type+id, moves to front, caps at MAX_ITEMS)
+export function recordView(item: Omit<RecentlyViewedItem, 'ts'>) {
+  const items = getSnapshot()
+  const filtered = items.filter(x => !(x.type === item.type && x.id === item.id))
+  commit([{ ...item, ts: Date.now() }, ...filtered].slice(0, MAX_ITEMS))
+}
+
+// Hook: devuelve la lista de vistos recientemente; se actualiza en vivo.
+export function useRecentlyViewed(): RecentlyViewedItem[] {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }
 
 export function clearRecentlyViewed() {
-  save([])
-  window.dispatchEvent(new Event('qm-recently-viewed-changed'))
+  commit([])
 }

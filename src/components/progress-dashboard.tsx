@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useUI } from '@/lib/store'
 import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { SECTIONS } from '@/data/structure'
+import { BOOK_PROBLEMS } from '@/data/book-problems'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +13,9 @@ import { apiGet, getOrCreateStudentId } from '@/lib/student'
 import { useToast } from '@/hooks/use-toast'
 import { ERROR_TYPE_LABELS, type ErrorType } from '@/lib/content-types'
 import { Button } from '@/components/ui/button'
+import { BookProgressCard } from '@/components/book-progress-card'
+import { ActivityChart, type ActivityDay } from '@/components/activity-chart'
+import { useBookProgress } from '@/lib/book-progress'
 
 interface ProgressData {
   conceptProgress: { conceptId: string; mastery: number; correctCount: number; errorsCount: number; errorBreakdown: Record<string, number> }[]
@@ -23,21 +27,38 @@ interface ProgressData {
   totalErrors: number
 }
 
+interface StudySeries {
+  series: { date: string; exercisesDone: number; conceptsRead: number; goalsMet: number; minutesStudied: number; isToday: boolean }[]
+}
+
 export function ProgressDashboard() {
   const { setView } = useUI()
   const { toast } = useToast()
   const [data, setData] = useState<ProgressData | null>(null)
+  const [study, setStudy] = useState<StudySeries | null>(null)
+  const [studyFailed, setStudyFailed] = useState(false)
   const [loading, setLoading] = useState(true)
   const studentId = getOrCreateStudentId()
+  const { progress: bookProgress } = useBookProgress()
 
+  // CSV unificado: conceptos + intentos (API) y problemas del libro (localStorage).
+  // Funciona aunque la API falle: las filas del libro siempre están disponibles.
   const exportCSV = () => {
-    if (!data) return
-    const rows = [
+    const rows: string[][] = [
       ['Tipo', 'ID', 'Sección', 'Dominio', 'Correctos', 'Errores', 'Detalle errores'],
-      ...data.conceptProgress.map(c => ['Concepto', c.conceptId, '', String(c.mastery), String(c.correctCount), String(c.errorsCount),
+      ...(data?.conceptProgress ?? []).map(c => ['Concepto', c.conceptId, '', String(c.mastery), String(c.correctCount), String(c.errorsCount),
         Object.entries(c.errorBreakdown).map(([k, v]) => `${ERROR_TYPE_LABELS[k as ErrorType] ?? k}:${v}`).join('; ')]),
-      ...data.recentAttempts.map(a => ['Intento', a.exerciseId, a.sectionId, '', a.correct ? '1' : '0', a.correct ? '0' : '1',
+      ...(data?.recentAttempts ?? []).map(a => ['Intento', a.exerciseId, a.sectionId, '', a.correct ? '1' : '0', a.correct ? '0' : '1',
         a.errorType ? ERROR_TYPE_LABELS[a.errorType as ErrorType] ?? a.errorType : '']),
+      ...Object.entries(bookProgress).map(([id, e]) => {
+        const problem = BOOK_PROBLEMS.find(p => p.id === id)
+        const section = problem ? (problem.placement === 'further' ? 'FP' : problem.sectionId) : ''
+        const steps = Object.values(e.appSteps ?? {}).reduce((a, b) => a + b, 0)
+        const failed = e.lastOutcome === 'no' || e.lastOutcome === 'partial'
+        return ['Problema libro', id, section, e.solved ? '100' : '0',
+          e.lastOutcome === 'match' ? '1' : '0', failed ? '1' : '0',
+          `pistas:${e.hintsUsed}; pasos:${steps}; comparaciones:${e.attempts}; último:${e.lastOutcome ?? '—'}${e.lastTriedAt ? `; última actividad:${new Date(e.lastTriedAt).toISOString()}` : ''}`]
+      }),
     ]
     const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -47,12 +68,18 @@ export function ProgressDashboard() {
     a.download = `progreso-qm-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    toast({ title: 'CSV exportado', description: `${rows.length - 1} filas` })
+    toast({ title: 'CSV exportado', description: `${rows.length - 1} filas · conceptos + intentos + problemas del libro` })
   }
 
+  // Hay algo que exportar si la API trajo datos O si hay problemas del libro con actividad.
+  const canExport = !!(
+    (data && (data.totalAttempts > 0 || data.conceptProgress.length > 0)) ||
+    Object.keys(bookProgress).length > 0
+  )
+
   const exportJSON = () => {
-    if (!data) return
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const payload = { ...data, problemasLibro: bookProgress }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -69,14 +96,66 @@ export function ProgressDashboard() {
         const d = await apiGet(`/api/progress?studentId=${encodeURIComponent(studentId)}`)
         if (mounted) { setData(d); setLoading(false) }
       } catch { if (mounted) setLoading(false) }
+      try {
+        const s = await apiGet(`/api/study?studentId=${encodeURIComponent(studentId)}&days=14`)
+        if (mounted) setStudy(s)
+      } catch { if (mounted) setStudyFailed(true) }
     })()
     return () => { mounted = false }
   }, [studentId])
 
+  // Actividad de los problemas del libro por día local (YYYY-MM-DD): un problema
+  // «cuenta» el día de su ÚLTIMO intento comparado (el localStorage no guarda historial completo).
+  const activityDays: ActivityDay[] = useMemo(() => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const keyOf = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` }
+    const byDate = new Map<string, { tried: number; solved: number; failed: number }>()
+    for (const e of Object.values(bookProgress)) {
+      if (!e?.lastTriedAt) continue
+      const k = keyOf(e.lastTriedAt)
+      const cur = byDate.get(k) ?? { tried: 0, solved: 0, failed: 0 }
+      cur.tried++
+      if (e.lastOutcome === 'match') cur.solved++
+      if (e.lastOutcome === 'no' || e.lastOutcome === 'partial') cur.failed++
+      byDate.set(k, cur)
+    }
+    const today = new Date()
+    const out: ActivityDay[] = []
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today)
+      d.setDate(d.getDate() - i)
+      const key = keyOf(d.getTime())
+      const api = study?.series.find(s => s.date === key)
+      const book = byDate.get(key)
+      out.push({
+        date: key,
+        exercisesDone: api?.exercisesDone ?? 0,
+        conceptsRead: api?.conceptsRead ?? 0,
+        minutesStudied: api?.minutesStudied ?? 0,
+        bookTried: book?.tried ?? 0,
+        bookSolved: book?.solved ?? 0,
+        bookFailed: book?.failed ?? 0,
+      })
+    }
+    return out
+  }, [study, bookProgress])
+
   const conceptTitle = (id: string) => ALL_CONCEPTS.find(c => c.id === id)?.title ?? id
 
   if (loading) {
-    return <div className="space-y-4"><div className="h-32 animate-pulse rounded-lg bg-muted" /></div>
+    return (
+      <div className="space-y-5">
+        <header className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
+            <BarChart3 className="h-6 w-6 text-teal-600" /> Mi progreso
+          </h1>
+          <p className="text-muted-foreground">Tu dominio por concepto, tu historial de errores y tus sesiones de estudio.</p>
+        </header>
+        {/* El progreso de los problemas del libro vive en localStorage: no espera a la API. */}
+        <BookProgressCard />
+        <div className="h-52 animate-pulse rounded-lg bg-muted" />
+      </div>
+    )
   }
 
   const totalAttempts = data?.totalAttempts ?? 0
@@ -91,12 +170,12 @@ export function ProgressDashboard() {
           <h1 className="text-2xl font-bold tracking-tight sm:text-3xl flex items-center gap-2">
             <BarChart3 className="h-6 w-6 text-teal-600" /> Mi progreso
           </h1>
-          {data && (data.totalAttempts > 0 || data.conceptProgress.length > 0) && (
+          {canExport && (
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={exportCSV}>
+              <Button variant="outline" size="sm" onClick={exportCSV} title="Exportar CSV unificado: conceptos, intentos y problemas del libro" className="border-teal-300/60 transition-colors hover:border-teal-400 hover:bg-teal-50/60 dark:border-teal-800/60 dark:hover:bg-teal-950/30">
                 <Download className="mr-1.5 h-3.5 w-3.5" /> CSV
               </Button>
-              <Button variant="outline" size="sm" onClick={exportJSON}>
+              <Button variant="outline" size="sm" onClick={exportJSON} title="Exportar JSON con conceptos, intentos y problemas del libro" className="border-teal-300/60 transition-colors hover:border-teal-400 hover:bg-teal-50/60 dark:border-teal-800/60 dark:hover:bg-teal-950/30">
                 <FileJson className="mr-1.5 h-3.5 w-3.5" /> JSON
               </Button>
             </div>
@@ -112,6 +191,12 @@ export function ProgressDashboard() {
         <Stat label="Errores" value={totalErrors} icon={XCircle} tone="rose" />
         <Stat label="Precisión" value={`${accuracy}%`} icon={BarChart3} tone="teal" />
       </div>
+
+      {/* Actividad combinada: ejercicios + conceptos (API) y problemas del libro (localStorage) */}
+      <ActivityChart days={activityDays} apiOffline={studyFailed} />
+
+      {/* Problemas del libro (localStorage — siempre disponible) */}
+      <BookProgressCard />
 
       {/* Mastery by section */}
       <Card>
@@ -223,14 +308,14 @@ export function ProgressDashboard() {
 
 function Stat({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: any; tone: string }) {
   return (
-    <Card>
+    <Card className="group transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <CardContent className="flex items-center gap-3 p-4">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-${tone}-100 dark:bg-${tone}-950/40 text-${tone}-700 dark:text-${tone}-300`}>
+        <div className={`flex h-10 w-10 items-center justify-center rounded-lg bg-${tone}-100 transition-transform duration-200 group-hover:scale-110 dark:bg-${tone}-950/40 text-${tone}-700 dark:text-${tone}-300`}>
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <div className="text-2xl font-bold leading-none">{value}</div>
-          <div className="text-xs text-muted-foreground">{label}</div>
+          <div className="text-2xl font-bold leading-none tabular-nums">{value}</div>
+          <div className="mt-1 text-xs text-muted-foreground">{label}</div>
         </div>
       </CardContent>
     </Card>

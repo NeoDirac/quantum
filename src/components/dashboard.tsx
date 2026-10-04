@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { StudyStreakWidget } from '@/components/study-streak-widget'
+import { ContinueStudyingCard } from '@/components/continue-studying-card'
 import { RecentlyViewedList } from '@/components/recently-viewed-list'
 import { Atom, BookOpen, ListChecks, Network, GraduationCap, Waves, Timer, GitBranch, ArrowRight, Sparkles, BrainCircuit, Star, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -50,6 +51,9 @@ export function Dashboard() {
 
       {/* Study streak widget */}
       <StudyStreakWidget />
+
+      {/* Continue where you left off */}
+      <ContinueStudyingCard />
 
       {/* Recently viewed */}
       <RecentlyViewedList />
@@ -138,7 +142,7 @@ export function Dashboard() {
               <GitBranch className="h-5 w-5 text-amber-600" />
               <span className="font-semibold">Entrenamiento intensivo</span>
             </div>
-            <p className="text-sm text-muted-foreground">Elige 30 min, 1 h o 10 problemas. La sesión se adapta: refuerza lo que fallaste, acelera lo que dominas.</p>
+            <p className="text-sm text-muted-foreground">Elige 30 min, 1 h o 10 problemas, de ejercicios guiados o de los problemas del libro. La sesión se adapta: refuerza lo que fallaste, acelera lo que dominas.</p>
           </button>
         </Card>
         <Card className="cursor-pointer border-violet-200/60 bg-violet-50/40 dark:bg-violet-950/20 lift-on-hover">
@@ -156,7 +160,7 @@ export function Dashboard() {
               <Timer className="h-5 w-5 text-rose-600" />
               <span className="font-semibold">Modo examen</span>
             </div>
-            <p className="text-sm text-muted-foreground">Sin pistas. Mezcla conceptuales, identificación de potencial, fronteras, cálculo. Al final: informe de conceptos a reforzar.</p>
+            <p className="text-sm text-muted-foreground">Sin pistas. Elige ejercicios de la plataforma o los problemas del libro y compara con el solucionario. Al final: informe de conceptos y secciones a reforzar.</p>
           </button>
         </Card>
       </div>

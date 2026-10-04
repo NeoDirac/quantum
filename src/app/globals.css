@@ -193,6 +193,24 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+  /* Entrada suave para preguntas de examen / tarjetas de sesión */
+  .animate-question-in {
+    animation: question-in 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes question-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.995);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-question-in { animation: none; }
+  }
+
   /* Focus ring refinement */
   .focus-ring:focus-visible {
     outline: 2px solid oklch(0.6 0.15 180);

@@ -7,12 +7,55 @@ import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { ALL_EXERCISES } from '@/data/exercises'
 import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { BOOK_PROBLEMS } from '@/data/book-problems'
+import { getBookHints } from '@/data/book-hints'
 import { SECTIONS } from '@/data/structure'
-import { BookOpen, ListChecks, GraduationCap, Layers, Search, BookMarked } from 'lucide-react'
+import { BookOpen, ListChecks, GraduationCap, Layers, Search, BookMarked, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
+// Blob de búsqueda por problema del libro (una sola pasada): número, título,
+// enunciados EN/ES y TODO el contenido pedagógico de pistas y pasos de
+// aplicación — así «⌘K normalización» encuentra los mismos problemas que el
+// buscador de la lista de problemas.
+function buildBookSearchBlobs(): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const p of BOOK_PROBLEMS) {
+    const parts = [p.number, p.title, p.statementEn, p.statementEs]
+    const entry = getBookHints(p.id)
+    if (entry) {
+      for (const h of entry.hints) {
+        parts.push(h.text)
+        if (h.application) {
+          if (h.application.intro) parts.push(h.application.intro)
+          for (const s of h.application.steps) parts.push(s.title, s.text)
+        }
+      }
+      // La respuesta final del solucionario también se indexa (buscar por resultado).
+      if (entry.finalAnswer) {
+        parts.push(entry.finalAnswer.answer)
+        if (entry.finalAnswer.note) parts.push(entry.finalAnswer.note)
+      }
+    }
+    map.set(p.id, parts.join(' ').toLowerCase())
+  }
+  return map
+}
+
+// Técnicas que aparecen una y otra vez en el capítulo — accesos rápidos
+// (verificado contra el contenido real: todas encuentran ≥1 problema).
+const TECHNIQUE_SUGGESTIONS = [
+  'normalización',            // 11 problemas
+  'paridad',                  // 12
+  'pozo infinito',            // 11
+  'oscilador armónico',       // 9
+  'valores esperados',        // 6
+  'coeficiente de transmisión', // 5
+  'efecto túnel',             // 3
+  'corriente de probabilidad', // 1
+]
 
 export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (b: boolean) => void }) {
   const { setView } = useUI()
+  const bookBlobs = useMemo(() => buildBookSearchBlobs(), [])
 
   const go = (view: Parameters<typeof setView>[0]) => {
     setView(view)
@@ -21,7 +64,7 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Busca conceptos, ejercicios, secciones, problemas modelo…" />
+      <CommandInput placeholder="Busca conceptos, ejercicios, problemas, técnicas… (normalización, tunneling)" />
       <CommandList>
         <CommandEmpty>No se encontraron resultados.</CommandEmpty>
 
@@ -106,13 +149,13 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
             </CommandItem>
           ))}
         </CommandGroup>
-        <CommandGroup heading={`Problemas del libro · Griffiths (${BOOK_PROBLEMS.length})`}>
+        <CommandGroup heading="Problemas del libro · Griffiths (49) — también por técnica">
           {BOOK_PROBLEMS.map(p => {
             const stars = '★'.repeat(p.stars)
             return (
               <CommandItem
                 key={p.id}
-                value={`problema libro griffiths ${p.number} ${p.title} ${p.sectionId} ${p.statementEn.slice(0, 120)}`}
+                value={`problema libro griffiths ${p.number} ${p.title} ${p.sectionId} ${bookBlobs.get(p.id) ?? ''}`}
                 onSelect={() => go({ name: 'book-problem', problemId: p.id })}
                 className="cursor-pointer"
               >
@@ -126,6 +169,21 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
               </CommandItem>
             )
           })}
+        </CommandGroup>
+
+        <CommandGroup heading="Técnicas frecuentes">
+          {TECHNIQUE_SUGGESTIONS.map(t => (
+            <CommandItem
+              key={t}
+              value={`técnica ${t}`}
+              onSelect={() => go({ name: 'book-problems', query: t })}
+              className="cursor-pointer"
+            >
+              <Sparkles className="mr-2 h-4 w-4 text-amber-500" />
+              <span>{t}</span>
+              <span className="ml-auto hidden text-[10px] text-muted-foreground sm:inline">lista de problemas</span>
+            </CommandItem>
+          ))}
         </CommandGroup>
 
       </CommandList>
