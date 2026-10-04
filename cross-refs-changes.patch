@@ -1,0 +1,826 @@
+diff --git a/src/components/book-cross-refs.tsx b/src/components/book-cross-refs.tsx
+new file mode 100644
+index 0000000..84a772f
+--- /dev/null
++++ b/src/components/book-cross-refs.tsx
+@@ -0,0 +1,224 @@
++'use client'
++
++import { useState } from 'react'
++import { BlockMath } from 'react-katex'
++import 'katex/dist/katex.min.css'
++import { motion, AnimatePresence } from 'framer-motion'
++import { ChevronRight, Sigma, StickyNote, Link2, Image as ImageIcon, ArrowRight, ChevronsDownUp } from 'lucide-react'
++import type { BookProblem } from '@/data/book-problems'
++import { BOOK_PROBLEMS } from '@/data/book-problems'
++import { findCrossRefs, crossRefsCount, type ProblemRef } from '@/lib/cross-refs'
++import {
++  getBookEquation, getBookFigure, getBookTextFootnote, getExternalProblemRef,
++  type BookEquationRef,
++} from '@/data/book-refs'
++import { useUI } from '@/lib/store'
++import { Card, CardContent } from '@/components/ui/card'
++import { cn } from '@/lib/utils'
++
++// ─────────────────────────────────────────────────────────────────────────────
++// «Referencias cruzadas del libro»: ecuaciones, figuras, problemas y notas que
++// el enunciado cita explícitamente, renderizados debajo de la pregunta.
++// ─────────────────────────────────────────────────────────────────────────────
++
++function EquationCard({ eq, onNavigate }: { eq: BookEquationRef; onNavigate: (problemNumber: string) => void }) {
++  return (
++    <div className="rounded-lg border border-amber-200/80 bg-card/80 p-3.5 transition-colors hover:border-amber-300/90 dark:border-amber-900/60 dark:hover:border-amber-800">
++      <div className="flex flex-wrap items-center gap-2">
++        <span className="rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
++          Ec. {eq.id}
++        </span>
++        <span className="text-xs font-semibold leading-tight">{eq.label}</span>
++        <span className="ml-auto whitespace-nowrap font-mono text-[10px] text-muted-foreground">{eq.where}</span>
++      </div>
++
++      <div className="mt-2.5 overflow-x-auto overflow-y-hidden py-0.5">
++        <BlockMath math={eq.latex} />
++      </div>
++
++      <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{eq.context}</p>
++
++      {eq.definedInProblem && (
++        <button
++          type="button"
++          onClick={() => onNavigate(eq.definedInProblem!)}
++          className="mt-2 inline-flex items-center gap-1 rounded-full border border-amber-300/70 bg-amber-50 px-2.5 py-1 text-[10.5px] font-medium text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-900/40"
++        >
++          etiqueta definida en el Prob. {eq.definedInProblem}
++          <ArrowRight className="h-3 w-3" />
++        </button>
++      )}
++    </div>
++  )
++}
++
++function ProblemRefCard({ refData, onNavigate }: { refData: ProblemRef; onNavigate: (problemNumber: string) => void }) {
++  const target = BOOK_PROBLEMS.find((p) => p.number === refData.number)
++  const external = target ? undefined : getExternalProblemRef(refData.number + (refData.part ?? ''))
++
++  if (target) {
++    return (
++      <button
++        type="button"
++        onClick={() => onNavigate(refData.number)}
++        className="group w-full rounded-lg border border-border bg-card/80 p-3.5 text-left transition-colors hover:border-teal-400 dark:hover:border-teal-700"
++      >
++        <div className="flex items-center gap-2">
++          <span className="rounded-md bg-teal-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
++            Prob. {refData.number}{refData.part ? `(${refData.part})` : ''}
++          </span>
++          <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-teal-600" />
++        </div>
++        <div className="mt-1.5 text-sm font-medium leading-snug">{target.title}</div>
++        <div className="mt-0.5 text-[11px] text-muted-foreground">
++          Griffiths 1.ª ed., p. {target.bookPage} · haz clic para abrirlo
++        </div>
++      </button>
++    )
++  }
++
++  if (external) {
++    return (
++      <div className="rounded-lg border border-border bg-card/80 p-3.5">
++        <div className="flex flex-wrap items-center gap-2">
++          <span className="rounded-md bg-teal-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-teal-800 dark:bg-teal-900/40 dark:text-teal-200">
++            Prob. {refData.number}{refData.part ? `(${refData.part})` : ''}
++          </span>
++          <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
++            Capítulo 1 · fuera de esta plataforma
++          </span>
++        </div>
++        {external.latex && (
++          <div className="mt-2.5 overflow-x-auto overflow-y-hidden py-0.5">
++            <BlockMath math={external.latex} />
++          </div>
++        )}
++        <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{external.context}</p>
++      </div>
++    )
++  }
++
++  return null
++}
++
++export function CrossReferencesSection({ problem }: { problem: BookProblem }) {
++  const { setView } = useUI()
++  const [open, setOpen] = useState(true)
++  // El parseo es barato (regex sobre ~2 KB de texto) y `problem` es estable:
++  // sin memoización manual para no pelechar con el React Compiler.
++  const refs = findCrossRefs(problem)
++  const total = crossRefsCount(refs)
++
++  const onNavigate = (problemNumber: string) => {
++    const target = BOOK_PROBLEMS.find((p) => p.number === problemNumber)
++    if (target) setView({ name: 'book-problem', problemId: target.id })
++  }
++
++  if (total === 0) return null
++
++  const eqs = refs.equations.map((id) => getBookEquation(id)).filter((x): x is BookEquationRef => Boolean(x))
++  const missingEqs = refs.equations.filter((id) => !getBookEquation(id))
++  const figs = refs.figures.map((id) => getBookFigure(id)).filter(Boolean)
++  const fns = refs.footnotes.map((n) => getBookTextFootnote(n)).filter(Boolean)
++
++  const parts: string[] = []
++  if (refs.equations.length) parts.push(`${refs.equations.length} ${refs.equations.length === 1 ? 'ecuación' : 'ecuaciones'}`)
++  if (refs.problems.length) parts.push(`${refs.problems.length} ${refs.problems.length === 1 ? 'problema' : 'problemas'}`)
++  if (refs.figures.length) parts.push(`${refs.figures.length} ${refs.figures.length === 1 ? 'figura' : 'figuras'}`)
++  if (refs.footnotes.length) parts.push(`${refs.footnotes.length} ${refs.footnotes.length === 1 ? 'nota' : 'notas'}`)
++
++  return (
++    <Card className="border-amber-300/60 bg-gradient-to-b from-amber-50/70 to-transparent dark:border-amber-900/50 dark:from-amber-950/20">
++      <CardContent className="space-y-3 p-5 sm:p-6">
++      {/* header */}
++      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-3 dark:border-amber-900/50">
++        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
++          <Link2 className="h-4 w-4" />
++          Referencias cruzadas del libro
++        </div>
++        <div className="flex items-center gap-2">
++          <span className="rounded-full bg-amber-100/80 px-2.5 py-1 text-[10.5px] font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
++            {parts.join(' · ')}
++          </span>
++          <button
++            type="button"
++            onClick={() => setOpen((v) => !v)}
++            aria-expanded={open}
++            className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-amber-100/60 dark:hover:bg-amber-900/30"
++            title={open ? 'Ocultar referencias' : 'Mostrar referencias'}
++          >
++            <ChevronsDownUp className={cn('h-4 w-4 transition-transform', !open && 'rotate-180')} />
++          </button>
++        </div>
++      </div>
++
++      <AnimatePresence initial={false}>
++        {open && (
++          <motion.div
++            key="refs-body"
++            initial={{ height: 0, opacity: 0 }}
++            animate={{ height: 'auto', opacity: 1 }}
++            exit={{ height: 0, opacity: 0 }}
++            transition={{ duration: 0.22 }}
++            className="overflow-hidden"
++          >
++            <div className="space-y-2.5 pt-3.5">
++              {eqs.map((eq, i) => (
++                <motion.div
++                  key={eq.id}
++                  initial={{ opacity: 0, y: 6 }}
++                  animate={{ opacity: 1, y: 0 }}
++                  transition={{ duration: 0.2, delay: Math.min(i * 0.05, 0.25) }}
++                >
++                  <EquationCard eq={eq} onNavigate={onNavigate} />
++                </motion.div>
++              ))}
++
++              {missingEqs.map((id) => (
++                <div key={id} className="rounded-lg border border-dashed border-amber-300/60 p-3 text-xs text-muted-foreground dark:border-amber-800/50">
++                  <span className="font-mono font-semibold">Ec. {id}</span> — citada en el enunciado; transcripción pendiente.
++                </div>
++              ))}
++
++              {refs.problems.map((r) => (
++                <ProblemRefCard key={`${r.number}-${r.part ?? ''}`} refData={r} onNavigate={onNavigate} />
++              ))}
++
++              {figs.map((fig) => (
++                <div key={fig!.id} className="rounded-lg border border-amber-200/80 bg-card/80 p-3.5 dark:border-amber-900/60">
++                  <div className="flex flex-wrap items-center gap-2">
++                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
++                      <ImageIcon className="h-3 w-3" /> Fig. {fig!.id}
++                    </span>
++                    <span className="text-xs font-semibold leading-tight">{fig!.label}</span>
++                    <span className="ml-auto whitespace-nowrap font-mono text-[10px] text-muted-foreground">{fig!.where}</span>
++                  </div>
++                  <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{fig!.description}</p>
++                </div>
++              ))}
++
++              {fns.map((fn) => (
++                <div key={fn!.id} className="rounded-lg border border-dashed border-amber-300/70 bg-amber-50/40 p-3.5 dark:border-amber-800/50 dark:bg-amber-950/20">
++                  <div className="flex flex-wrap items-center gap-2">
++                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-1.5 py-0.5 font-mono text-[11px] font-bold text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
++                      <StickyNote className="h-3 w-3" /> Nota {fn!.id}
++                    </span>
++                    <span className="text-xs font-semibold leading-tight">{fn!.label}</span>
++                    <span className="ml-auto whitespace-nowrap font-mono text-[10px] text-muted-foreground">{fn!.where}</span>
++                  </div>
++                  <p className="mt-1.5 text-xs leading-5 text-muted-foreground">{fn!.text}</p>
++                </div>
++              ))}
++            </div>
++
++            <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-4 text-muted-foreground">
++              <Sigma className="mt-0.5 h-3 w-3 shrink-0" />
++              Ecuaciones transcritas del texto de Griffiths (1.ª ed.); los contextos son notas pedagógicas de la plataforma. Si una referencia te lleva a otro problema, se abre en un clic.
++            </p>
++          </motion.div>
++        )}
++      </AnimatePresence>
++      </CardContent>
++    </Card>
++  )
++}
+diff --git a/src/components/book-problems-view.tsx b/src/components/book-problems-view.tsx
+index f0ea340..da2343f 100644
+--- a/src/components/book-problems-view.tsx
++++ b/src/components/book-problems-view.tsx
+@@ -9,6 +9,7 @@ import { useBookProgress } from '@/lib/book-progress'
+ import { getBookHints, HINT_KIND_META, type ProblemHintsEntry } from '@/data/book-hints'
+ import type { HintKind } from '@/data/book-hints'
+ import { recordView } from '@/lib/recently-viewed'
++import { CrossReferencesSection } from '@/components/book-cross-refs'
+ import { Card, CardContent } from '@/components/ui/card'
+ import { Badge } from '@/components/ui/badge'
+ import { Input } from '@/components/ui/input'
+@@ -522,6 +523,9 @@ export function BookProblemDetail({ problemId }: { problemId: string }) {
+         </CardContent>
+       </Card>
+ 
++      {/* Cross-references: ecuaciones, figuras y problemas citados en el enunciado */}
++      <CrossReferencesSection problem={p} />
++
+       {/* Graduated hints ladder + final answer comparison */}
+       {p && hintsEntry && hintsEntry.hints.length > 0 && (
+         <HintsSection problem={p} entry={hintsEntry} />
+diff --git a/src/data/book-refs.ts b/src/data/book-refs.ts
+new file mode 100644
+index 0000000..2b951fd
+--- /dev/null
++++ b/src/data/book-refs.ts
+@@ -0,0 +1,446 @@
++// ════════════════════════════════════════════════════════════════════════════
++// REFERENCIAS CRUZADAS DEL LIBRO — Griffiths, "Introduction to Quantum
++// Mechanics" (1.ª ed.), Capítulos 1-2.
++// Ecuaciones, figuras y notas del texto que los enunciados de los problemas
++// citan explícitamente («Equation 2.6», «Figure 2.5», …).
++// Las ecuaciones fueron transcritas del PDF (verificación visual + OCR)
++// y sus contextos son redacción pedagógica original de la plataforma.
++// ════════════════════════════════════════════════════════════════════════════
++
++export interface BookEquationRef {
++  id: string                 // '2.6'
++  chapter: 1 | 2
++  label: string             // nombre corto (ES)
++  latex: string              // ecuación en LaTeX (display)
++  where: string              // dónde vive en el libro: '§2.1 · p. 22'
++  definedInProblem?: string  // '2.12' — la etiqueta la asigna un problema
++  context: string            // por qué importa / cómo se usa (ES, pedagógico)
++}
++
++export interface BookFigureRef {
++  id: string                 // '2.5'
++  label: string
++  where: string
++  description: string        // qué muestra (redacción propia)
++}
++
++export interface BookFootnoteRef {
++  id: number                 // 22
++  label: string
++  where: string
++  text: string               // contenido de la nota (traducido/resumido)
++}
++
++export interface ExternalProblemRef {
++  id: string                 // '1.9a'
++  label: string
++  latex?: string             // fórmula clave, si aplica
++  context: string
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Ecuaciones citadas por los problemas del Capítulo 2
++// ─────────────────────────────────────────────────────────────────────────────
++
++export const BOOK_EQUATIONS: Record<string, BookEquationRef> = {
++  '1.20': {
++    id: '1.20',
++    chapter: 1,
++    label: 'Normalización de Ψ',
++    latex: '\\int_{-\\infty}^{+\\infty} |\\Psi(x, t)|^2\\, dx = 1',
++    where: '§1.4 · p. 11',
++    context:
++      'La condición de normalización: la partícula tiene que estar en algún sitio. El 2.1(a) la invoca «para todo t»: sustituye E → E₀ + iΓ en la fase temporal de la Ec. 2.6 y muestra que, para que esta integral siga valiendo 1 a cualquier tiempo, Γ tiene que ser 0.',
++  },
++  '1.38': {
++    id: '1.38',
++    chapter: 1,
++    label: 'Teorema de Ehrenfest',
++    latex: '\\frac{d\\langle p \\rangle}{dt} = \\left\\langle -\\frac{\\partial V}{\\partial x} \\right\\rangle',
++    where: 'Prob. 1.12 · p. 17',
++    context:
++      'Los valores esperados obedecen la segunda ley de Newton. Se demuestra en el Problema 1.12 del libro. Para el 2.45(c) basta calcular ⟨x⟩ y ⟨p⟩ por separado y comprobar que m d⟨x⟩/dt = ⟨p⟩ sale solo.',
++  },
++  '2.4': {
++    id: '2.4',
++    chapter: 2,
++    label: 'Ecuación de Schrödinger independiente del tiempo',
++    latex: '-\\frac{\\hbar^2}{2m} \\frac{d^2\\psi}{dx^2} + V(x)\\,\\psi = E\\,\\psi',
++    where: '§2.1 · p. 21',
++    context:
++      'La TISE, protagonista del capítulo: cada problema es resolverla con su V(x) y sus condiciones de frontera. El 2.2 te pide reescribirla como ψ″ = (2m/ħ²)(V−E)ψ para argumentar que, si E < V_min, ψ y ψ″ van del mismo lado y ψ no se puede normalizar.',
++  },
++  '2.6': {
++    id: '2.6',
++    chapter: 2,
++    label: 'Solución estacionaria completa',
++    latex: '\\Psi(x, t) = \\psi(x)\\, e^{-iEt/\\hbar}',
++    where: '§2.1 · p. 22',
++    context:
++      'La parte espacial ψ(x) por la fase temporal e^{−iEt/ħ}. Aquí «vive» la energía de separación: el 2.1(a) la escribe como E₀ + iΓ y demuestra que Γ = 0 (si no, la normalización — Ec. 1.20 — se rompería con el tiempo).',
++  },
++  '2.14': {
++    id: '2.14',
++    chapter: 2,
++    label: 'Estado general = superposición de estacionarios',
++    latex: '\\Psi(x, t) = \\sum_{n=1}^{\\infty} c_n\\, \\psi_n(x)\\, e^{-iE_n t/\\hbar}',
++    where: '§2.1 · p. 23',
++    context:
++      'El estado general como suma de estacionarios. Es la ecuación que alimenta el 2.5 (Σ|cₙ|² = 1), el 2.7 (la fase relativa de c₁ y c₂ sí importa) y el 2.10 (⟨H⟩ = ΣEₙ|cₙ|²).',
++  },
++  '2.15': {
++    id: '2.15',
++    chapter: 2,
++    label: 'Potencial del pozo cuadrado infinito',
++    latex: 'V(x) = \\begin{cases} 0, & \\text{si } 0 < x < a, \\\\ \\infty, & \\text{en el resto.} \\end{cases}',
++    where: '§2.2 · p. 24',
++    context:
++      'El «pozo infinito» de todo el capítulo: libre dentro de (0, a), paredes impenetrables. El 2.36 opera con él (Ψ = A sin³(πx/a)), y el 2.3 lo resuelve centrado en el origen.',
++  },
++  '2.23': {
++    id: '2.23',
++    chapter: 2,
++    label: 'Niveles de energía del pozo infinito',
++    latex: 'E_n = \\frac{\\hbar^2 k^2}{2m} = \\frac{n^2 \\pi^2 \\hbar^2}{2 m a^2}',
++    where: '§2.2 · p. 26',
++    context:
++      'La energía solo toma estos valores. El 2.3 resuelve el pozo centrado en el origen y pide verificar que salen las mismas Eₙ; el 2.4 juega con cambiar la anchura del pozo.',
++  },
++  '2.24': {
++    id: '2.24',
++    chapter: 2,
++    label: 'Estados estacionarios del pozo infinito',
++    latex: '\\psi_n(x) = \\sqrt{\\frac{2}{a}} \\sin\\!\\left(\\frac{n \\pi x}{a}\\right)',
++    where: '§2.2 · p. 26',
++    context:
++      'Los estados normalizados del pozo infinito (0 < x < a). El 2.3 pide confirmar que sus ψ del pozo centrado salen de estos con el desplazamiento x → x − a/2.',
++  },
++  '2.38': {
++    id: '2.38',
++    chapter: 2,
++    label: 'Potencial del oscilador armónico',
++    latex: 'V(x) = \\tfrac{1}{2} m \\omega^2 x^2',
++    where: '§2.3 · p. 32',
++    context:
++      'La parábola del oscilador: cualquier pozo suave se ve así cerca de su mínimo. El 2.45 pide verificar que su paquete gaussiano satisface la ecuación dependiente del tiempo con esta V.',
++  },
++  '2.43': {
++    id: '2.43',
++    chapter: 2,
++    label: 'TISE del oscilador factorizada (a₋a₊)',
++    latex: '\\left( a_- a_+ - \\tfrac{1}{2}\\hbar\\omega \\right)\\psi = E\\psi',
++    where: '§2.3.1 · p. 33',
++    context:
++      'La TISE del oscilador escrita con operadores escalera. Junto con la Ec. 2.46 es la clave del 2.11 y del 2.12: integrando por partes te da la norma de a₊ψₙ sin calcular nada explícito.',
++  },
++  '2.46': {
++    id: '2.46',
++    chapter: 2,
++    label: 'TISE del oscilador factorizada (a₊a₋)',
++    latex: '\\left( a_+ a_- + \\tfrac{1}{2}\\hbar\\omega \\right)\\psi = E\\psi',
++    where: '§2.3.1 · p. 34',
++    context:
++      'La forma hermana de la Ec. 2.43. Con ambas, el 2.12 demuestra que ∫|a₊ψₙ|²dx = (n+1)ħω y ∫|a₋ψₙ|²dx = nħω: las constantes de proporcionalidad de la escalera.',
++  },
++  '2.50': {
++    id: '2.50',
++    chapter: 2,
++    label: 'La escalera del oscilador: ψₙ y Eₙ',
++    latex: '\\psi_n(x) = A_n (a_+)^n e^{-\\frac{m\\omega}{2\\hbar}x^2}, \\qquad E_n = \\left(n + \\tfrac{1}{2}\\right)\\hbar\\omega',
++    where: '§2.3.2 · p. 35',
++    context:
++      'Toda la escalera en una línea: aplica a₊ n veces al suelo y sale ψₙ, con Eₙ = (n+½)ħω. El 2.12(b) usa la Ec. 2.52 para fijar Aₙ; el 2.13 normaliza ψ₁ y contrasta con la fórmula general (Ec. 2.54).',
++  },
++  '2.51': {
++    id: '2.51',
++    chapter: 2,
++    label: 'Primer estado excitado del oscilador',
++    latex: '\\psi_1(x) = i A_1\\, \\omega \\sqrt{2m}\\; x\\; e^{-\\frac{m\\omega}{2\\hbar}x^2}',
++    where: '§2.3.2 · p. 36',
++    context:
++      'El primer peldaño sobre el suelo: ψ₁ sale de aplicar a₊ a ψ₀. El 2.13 pide normalizarlo por integración directa y comprobar el resultado contra la fórmula general (Ec. 2.54).',
++  },
++  '2.52': {
++    id: '2.52',
++    chapter: 2,
++    label: 'Acción del operador de subida',
++    latex: 'a_+ \\psi_n = i \\sqrt{(n+1)\\hbar\\omega}\\; \\psi_{n+1}',
++    where: 'resultado del Prob. 2.12',
++    definedInProblem: '2.12',
++    context:
++      'El ascensor sube un peldaño: a₊ψₙ ∝ ψₙ₊₁ con constante i√((n+1)ħω) — las «i» mantienen reales las funciones. El 2.12(b) lo usa para hallar Aₙ (Ec. 2.54) y el 2.37 lo invoca para ⟨x⟩ y ⟨p⟩ con la escalera.',
++  },
++  '2.53': {
++    id: '2.53',
++    chapter: 2,
++    label: 'Acción del operador de bajada',
++    latex: 'a_- \\psi_n = -i \\sqrt{n\\hbar\\omega}\\; \\psi_{n-1}',
++    where: 'resultado del Prob. 2.12',
++    definedInProblem: '2.12',
++    context:
++      'El descensor: a₋ψₙ ∝ ψₙ₋₁. Su constante al cuadrado, nħω, es exactamente el ∫|a₋ψₙ|²dx que el 2.12 calcula por integración por partes.',
++  },
++  '2.54': {
++    id: '2.54',
++    chapter: 2,
++    label: 'Constante de normalización Aₙ',
++    latex: 'A_n = \\left(\\frac{m\\omega}{\\pi\\hbar}\\right)^{1/4} \\frac{(-i)^n}{\\sqrt{n!\\,(\\hbar\\omega)^n}}',
++    where: 'respuesta del Prob. 2.12(b)',
++    definedInProblem: '2.12',
++    context:
++      'La constante que normaliza toda la escalera — respuesta del 2.12(b). El 2.13(a) la comprueba normalizando ψ₁ (Ec. 2.51) a mano.',
++  },
++  '2.68': {
++    id: '2.68',
++    chapter: 2,
++    label: 'Recurrencia de la serie de Hermite',
++    latex: 'a_{j+2} = \\frac{-2\\,(n - j)}{(j + 1)(j + 2)}\\, a_j',
++    where: '§2.3.2 · p. 40',
++    context:
++      'La máquina que genera los coeficientes de la serie: paridad separada (a₀ y a₁) y terminación cuando j alcanza n. Con ella el 2.16 construye H₅ y H₆ sin resolver la ecuación de nuevo.',
++  },
++  '2.81': {
++    id: '2.81',
++    chapter: 2,
++    label: 'Velocidad clásica de la partícula libre',
++    latex: 'v_{\\text{clásica}} = \\sqrt{\\frac{2E}{m}} = 2\\, v_{\\text{cuántica}}',
++    where: '§2.4 · p. 45',
++    context:
++      'La partícula clásica viaja al doble de la velocidad que el paquete de ondas (Ec. 2.80). El 2.33 sugiere usarla para entender por qué, cuando el potencial no vuelve a 0, T no es simplemente |F/A|²: la onda transmitida viaja a otra velocidad.',
++  },
++  '2.86': {
++    id: '2.86',
++    chapter: 2,
++    label: 'Transformada de Fourier de la inicial',
++    latex: '\\phi(k) = \\frac{1}{\\sqrt{2\\pi}} \\int_{-\\infty}^{+\\infty} \\Psi(x, 0)\\, e^{-ikx}\\, dx',
++    where: '§2.4 · p. 46',
++    context:
++      'El análisis de Fourier de la partícula libre: φ(k) descompone la inicial en ondas planas. El 2.21 pide calcularla para el pulso rectangular y discutir sus límites a → 0 y a → ∞ (incertidumbre).',
++  },
++  '2.96': {
++    id: '2.96',
++    chapter: 2,
++    label: 'Pozo delta',
++    latex: 'V(x) = -\\alpha\\, \\delta(x)',
++    where: '§2.5 · p. 53',
++    context:
++      'Un pozo infinitamente estrecho y profundo de «fuerza» α. El 2.30 lo obtiene como límite z₀ → 0 del pozo finito; el 2.34 le construye la S-matrix y recupera su único estado ligado.',
++  },
++  '2.111': {
++    id: '2.111',
++    chapter: 2,
++    label: 'Estado ligado del pozo delta',
++    latex: '\\psi(x) = \\frac{\\sqrt{m\\alpha}}{\\hbar}\\, e^{-m\\alpha|x|/\\hbar^2}, \\qquad E = -\\frac{m\\alpha^2}{2\\hbar^2}',
++    where: '§2.5 · p. 55',
++    context:
++      'El único estado ligado del pozo delta, con su energía. El 2.30 pide verificarlo con el límite del pozo finito y el 2.34 con la S-matrix.',
++  },
++  '2.123': {
++    id: '2.123',
++    chapter: 2,
++    label: 'R y T del pozo delta (E > 0)',
++    latex: 'R = \\frac{1}{1 + \\dfrac{2\\hbar^2 E}{m\\alpha^2}}, \\qquad T = \\frac{1}{1 + \\dfrac{m\\alpha^2}{2\\hbar^2 E}}',
++    where: '§2.5 · p. 57',
++    context:
++      'Reflexión y transmisión del pozo delta para energías positivas. El 2.30 pide demostrar que la T del pozo finito (Ec. 2.151) reduce exactamente a esta cuando el pozo se vuelve estrecho y profundo.',
++  },
++  '2.126': {
++    id: '2.126',
++    chapter: 2,
++    label: 'La delta como integral de ondas planas',
++    latex: '\\delta(x) = \\frac{1}{2\\pi} \\int_{-\\infty}^{+\\infty} e^{ikx}\\, dk',
++    where: 'resultado del Prob. 2.25',
++    definedInProblem: '2.25',
++    context:
++      'La delta de Dirac escrita como integral de ondas planas. La etiqueta [2.126] la fija el propio enunciado del 2.25 al pedírtela como resultado. Ojo con el comentario del libro: la integral no converge en el sentido ordinario.',
++  },
++  '2.127': {
++    id: '2.127',
++    chapter: 2,
++    label: 'Potencial del pozo cuadrado finito',
++    latex: 'V(x) = \\begin{cases} -V_0, & \\text{si } -a < x < a, \\\\ 0, & \\text{si } |x| > a. \\end{cases}',
++    where: '§2.6 · p. 60',
++    context:
++      'El «pozo finito»: −V₀ dentro de |x| < a, 0 fuera. Es el potencial del 2.32 (estados ligados), el 2.35 (S-matrix) y el 2.30 (límite delta).',
++  },
++  '2.133': {
++    id: '2.133',
++    chapter: 2,
++    label: 'Ansatz par del pozo finito (ligados)',
++    latex: '\\psi(x) = \\begin{cases} F e^{-\\kappa x}, & \\text{si } x > a, \\\\ D \\cos(lx), & \\text{si } 0 < x < a, \\\\ \\psi(-x), & \\text{si } x < 0. \\end{cases}',
++    where: '§2.6 · p. 61',
++    context:
++      'El ansatz de Griffiths para las soluciones pares de los estados ligados del pozo finito: exponencial decayente fuera, coseno dentro, simetría a la izquierda. El 2.29 pide normalizar ψ para fijar D y F.',
++  },
++  '2.145': {
++    id: '2.145',
++    chapter: 2,
++    label: 'Continuidad de ψ en x = −a (scattering)',
++    latex: 'A e^{-ika} + B e^{ika} = -C \\sin(la) + D \\cos(la)',
++    where: '§2.6 · p. 63',
++    context:
++      'Continuidad de ψ en la pared izquierda, para estados de scattering del pozo finito. Junto con las Ecs. 2.147 y 2.149 es la materia prima del 2.31: de ahí sale B en función de F.',
++  },
++  '2.146': {
++    id: '2.146',
++    chapter: 2,
++    label: 'Continuidad de ψ′ en x = −a (scattering)',
++    latex: 'ik\\left[A e^{-ika} - B e^{ika}\\right] = l\\left[C \\cos(la) + D \\sin(la)\\right]',
++    where: '§2.6 · p. 63',
++    context:
++      'La hermana de la Ec. 2.145, para las pendientes: continuidad de ψ′ en la pared izquierda del pozo finito. El 2.31 la usa junto con las demás para eliminar C y D.',
++  },
++  '2.147': {
++    id: '2.147',
++    chapter: 2,
++    label: 'Continuidad de ψ en x = +a (scattering)',
++    latex: 'C \\sin(la) + D \\cos(la) = F e^{ika}',
++    where: '§2.6 · p. 63',
++    context:
++      'La condición hermana de la Ec. 2.145, en la pared derecha. El 2.31 las usa en conjunto para eliminar C y D y despejar la relación entre amplitudes.',
++  },
++  '2.148': {
++    id: '2.148',
++    chapter: 2,
++    label: 'Continuidad de ψ′ en x = +a (scattering)',
++    latex: 'l\\left[C \\cos(la) - D \\sin(la)\\right] = ik\\, F e^{ika}',
++    where: '§2.6 · p. 63',
++    context:
++      'Continuidad de ψ′ en la pared derecha: empareja la pendiente interior con la onda transmitida. La pista del 2.31 te pide usarla (junto con la 2.147) para despejar C y D en función de F.',
++  },
++  '2.149': {
++    id: '2.149',
++    chapter: 2,
++    label: 'Amplitud reflejada B en función de F',
++    latex: 'B = i\\, \\frac{\\sin(2la)}{2kl} \\left(l^2 - k^2\\right) F',
++    where: '§2.6 · p. 63',
++    context:
++      'La amplitud reflejada en términos de la transmitida para el pozo finito: el resultado intermedio del 2.31 antes de calcular T = 1 − |B/A|².',
++  },
++  '2.150': {
++    id: '2.150',
++    chapter: 2,
++    label: 'Amplitud transmitida F en función de A',
++    latex: 'F = \\frac{e^{-2ika} A}{\\cos(2la) - i\\, \\frac{\\sin(2la)}{2kl} \\left(k^2 + l^2\\right)}',
++    where: '§2.6 · p. 64',
++    context:
++      'La compañera de la Ec. 2.149: la amplitud transmitida en función de la incidente. El 2.31 te pide derivarlas ambas y obtener de aquí la T que confirma la Ec. 2.151.',
++  },
++  '2.151': {
++    id: '2.151',
++    chapter: 2,
++    label: 'Transmisión del pozo finito',
++    latex: 'T^{-1} = 1 + \\frac{V_0^2}{4E(E + V_0)} \\sin^2\\!\\left(\\frac{2a}{\\hbar} \\sqrt{2m(E + V_0)}\\right)',
++    where: '§2.6 · p. 64',
++    context:
++      'La transmisión del pozo cuadrado finito (E > 0). El 2.30 pide mostrar que reduce a la Ec. 2.123 (pozo delta) en el límite apropiado. Fíjate en las resonancias: T = 1 cada vez que el argumento del seno es múltiplo de π.',
++  },
++  '2.161': {
++    id: '2.161',
++    chapter: 2,
++    label: 'R y T desde la izquierda con la S-matrix',
++    latex: 'R_l = \frac{|B|^2}{|A|^2}\Big|_{G=0} = |S_{11}|^2, \qquad T_l = \frac{|F|^2}{|A|^2}\Big|_{G=0} = |S_{21}|^2',
++    where: '§2.7 · p. 67',
++    context:
++      'Reflexión y transmisión desde la izquierda, escritas con elementos de la S-matrix (Ec. 2.160: (B, F)ᵗ = S(A, G)ᵗ). El 2.49 las usa para combinar dos trozos aislados de potencial y obtener la transmisión total.',
++  },
++  '2.162': {
++    id: '2.162',
++    chapter: 2,
++    label: 'R y T desde la derecha con la S-matrix',
++    latex: 'R_r = \\frac{|F|^2}{|G|^2}\\Big|_{A=0} = |S_{22}|^2, \\qquad T_r = \\frac{|B|^2}{|G|^2}\\Big|_{A=0} = |S_{12}|^2',
++    where: '§2.7 · p. 67',
++    context:
++      'Reflexión y transmisión desde la derecha (A = 0), con los elementos restantes de la S-matrix. El 2.49 combina la física de ambos lados para los dos trozos aislados de potencial.',
++  },
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Figuras citadas por los problemas
++// ─────────────────────────────────────────────────────────────────────────────
++
++export const BOOK_FIGURES: Record<string, BookFigureRef> = {
++  '2.5': {
++    id: '2.5',
++    label: 'Primeros estados del oscilador y límite clásico',
++    where: '§2.3 · p. 42',
++    description:
++      'En (a), los cuatro primeros estados estacionarios ψ₀-ψ₃ del oscilador armónico, cada uno con un nodo más. En (b), |ψ₁₀₀|² del estado n = 100 con la distribución clásica punteada superpuesta: a energías altas lo cuántico imita lo clásico. Para el 2.17(e) te sirve la parte (a): de ahí sacas ψ₀ y ψ₁, cuyas superposiciones |Ψ|² debes esbozar.',
++  },
++  '2.16': {
++    id: '2.16',
++    label: 'Scattering desde un «acantilado»',
++    where: 'Prob. 2.41 · p. 69',
++    description:
++      'V = 0 a la izquierda de x = 0 y un escalón hacia abajo hasta −V₀ a la derecha (el libro dibuja un coche acercándose al borde). Un clásico cae y acelera; la onda cuántica se transmite y refleja a la vez — y con E < V₀ hay reflexión total aunque no haya ningún muro.',
++  },
++  '2.17': {
++    id: '2.17',
++    label: 'El doble pozo cuadrado',
++    where: 'Prob. 2.44 · p. 71',
++    description:
++      'Dos pozos cuadrados de profundidad −V₀ y anchura a, separados por una barrera central de anchura b. El 2.44 lo usa para estudiar el túnel entre pozos y el par simétrico/antisimétrico de estados que produce.',
++  },
++  '2.18': {
++    id: '2.18',
++    label: 'Pared infinita + barrera delta',
++    where: 'Prob. 2.46 · p. 72',
++    description:
++      'El potencial del 2.46: muro infinito en x = 0, una barrera delta en x = a y V = 0 más allá. La partícula arranca «en el pozo» (0, a) y su función de onda escapa lentamente por efecto túnel a través del delta.',
++  },
++  '2.19': {
++    id: '2.19',
++    label: 'Dos piezas aisladas de potencial',
++    where: 'Prob. 2.49 · p. 73',
++    description:
++      'Dos trozos de potencial, M₁ y M₂, flotando en un mar de V = 0. El 2.49 te pide combinar sus transmisiones con la S-matrix — sin resolver nada nuevo dentro de las piezas.',
++  },
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Notas al pie del TEXTO citadas por los problemas (no las del propio problema)
++// ─────────────────────────────────────────────────────────────────────────────
++
++export const BOOK_TEXT_FOOTNOTES: Record<number, BookFootnoteRef> = {
++  22: {
++    id: 22,
++    label: 'Requisito del teorema de Plancherel',
++    where: 'p. 46',
++    text:
++      'La condición necesaria y suficiente para aplicar el teorema de Plancherel es que ∫|f(x)|²dx sea finito (y entonces ∫|F(k)|²dk también lo es, con el mismo valor). La delta de Dirac no la cumple — de ahí el «apoplexy» del comentario del 2.25.',
++  },
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Problemas de otros capítulos citados (Capítulo 1: fuera de la plataforma)
++// ─────────────────────────────────────────────────────────────────────────────
++
++export const EXTERNAL_PROBLEM_REFS: Record<string, ExternalProblemRef> = {
++  '1.9a': {
++    id: '1.9a',
++    label: 'Corriente de probabilidad',
++    latex: 'J = \\frac{i\\hbar}{2m} \\left( \\Psi\\, \\frac{\\partial \\Psi^*}{\\partial x} - \\Psi^*\\, \\frac{\\partial \\Psi}{\\partial x} \\right)',
++    context:
++      'El Problema 1.9(a) introduce la corriente de probabilidad: el flujo de probabilidad por unidad de tiempo que atraviesa el punto x. El 2.33 sugiere usarla para obtener la transmisión del escalón «de forma más elegante»: T = J_trans/J_inc ya tiene en cuenta que la onda transmitida viaja a otra velocidad. (El Capítulo 1 no está incluido en esta plataforma, centrada en el Capítulo 2.)',
++  },
++}
++
++// ─────────────────────────────────────────────────────────────────────────────
++// Helpers
++// ─────────────────────────────────────────────────────────────────────────────
++
++export function getBookEquation(id: string): BookEquationRef | undefined {
++  return BOOK_EQUATIONS[id]
++}
++
++export function getBookFigure(id: string): BookFigureRef | undefined {
++  return BOOK_FIGURES[id]
++}
++
++export function getBookTextFootnote(n: number): BookFootnoteRef | undefined {
++  return BOOK_TEXT_FOOTNOTES[n]
++}
++
++export function getExternalProblemRef(id: string): ExternalProblemRef | undefined {
++  return EXTERNAL_PROBLEM_REFS[id]
++}
+diff --git a/src/lib/cross-refs.ts b/src/lib/cross-refs.ts
+new file mode 100644
+index 0000000..75dee50
+--- /dev/null
++++ b/src/lib/cross-refs.ts
+@@ -0,0 +1,116 @@
++// ════════════════════════════════════════════════════════════════════════════
++// PARSER DE REFERENCIAS CRUZADAS
++// Detecta, dentro de un enunciado (EN literal + ES traducción + notas al pie),
++// las menciones explícitas a ecuaciones, problemas, figuras y notas del libro:
++//   «Equation 2.6», «Ecuación 2.6», «Equations 2.43 and 2.46»,
++//   «Problem 2.1a», «Problema 2.6», «Figure 2.5», «footnote 22», …
++// ════════════════════════════════════════════════════════════════════════════
++
++import type { BookProblem } from '@/data/book-problems'
++
++export interface ProblemRef {
++  number: string   // '2.6'
++  part?: string    // 'a' (de «Problem 2.1a» o «Problem 2.1(a)»)
++}
++
++export interface CrossRefs {
++  equations: string[]      // ids de ecuación: ['2.6', '1.20']
++  problems: ProblemRef[]   // problemas citados: [{number:'2.6'}]
++  figures: string[]        // ids de figura: ['2.5']
++  footnotes: number[]      // notas del texto: [22]
++}
++
++const NUM = '\\d{1,2}\\.\\d{1,3}'
++
++// «Equation 2.6» / «Ecuación 2.6» / «Equations 2.43 and 2.46» / «Ecs. 2.4»
++const EQ_RE = new RegExp(
++  `\\b(?:equations?|ecuaciones?|ecuaci[oó]n|eqs?|ecs?)\\.?\\s+(${NUM}[a-z]?)` +
++  `(?:\\s*[,;]\\s*|\\s+(?:and|y|e)\\s+(${NUM}[a-z]?))?`,
++  'gi',
++)
++
++// «Problem 2.6» / «Problema 2.1(a)» / «Problems 2.12 and 2.13»
++const PROB_RE = new RegExp(
++  `\\b(?:problems?|problemas?)\\.?\\s+(${NUM})(?:\\(?([a-z])\\)?)?` +
++  `(?:\\s+(?:and|y|e)\\s+(${NUM})(?:\\(?([a-z])\\)?)?)?`,
++  'gi',
++)
++
++// «Figure 2.5» / «Figura 2.5»
++const FIG_RE = new RegExp(`\\b(?:figures?|figuras?)\\.?\\s+(${NUM})`, 'gi')
++
++// «footnote 22» / «nota 22 al pie»
++const FOOTNOTE_RE = /\b(?:footnote|nota)\s+(\d{1,2})\s*(?:al\s+pie\b)?|\bfootnote\s+(\d{1,2})/gi
++
++function normalizeEqId(raw: string): string {
++  // «2.52» → '2.52' (sin cambios; los ids del dataset no llevan letra)
++  return raw.trim()
++}
++
++function pushUnique(list: string[], v: string) {
++  if (v && !list.includes(v)) list.push(v)
++}
++
++function eqNumber(id: string): number {
++  const [maj, min] = id.split('.').map(Number)
++  return maj * 1000 + min
++}
++
++export function findCrossRefs(problem: BookProblem): CrossRefs {
++  const text = [
++    problem.statementEn,
++    problem.statementEs,
++    ...problem.footnotes,
++  ].join('\n')
++
++  const equations: string[] = []
++  const problems: ProblemRef[] = []
++  const figures: string[] = []
++  const footnotes: number[] = []
++
++  // Ecuaciones
++  let m: RegExpExecArray | null
++  EQ_RE.lastIndex = 0
++  while ((m = EQ_RE.exec(text)) !== null) {
++    pushUnique(equations, normalizeEqId(m[1]))
++    if (m[2]) pushUnique(equations, normalizeEqId(m[2]))
++  }
++
++  // Problemas
++  PROB_RE.lastIndex = 0
++  while ((m = PROB_RE.exec(text)) !== null) {
++    const first = { number: m[1], part: m[2] || undefined }
++    if (!problems.some((p) => p.number === first.number && p.part === first.part)) {
++      problems.push(first)
++    }
++    if (m[3]) {
++      const second = { number: m[3], part: m[4] || undefined }
++      if (!problems.some((p) => p.number === second.number && p.part === second.part)) {
++        problems.push(second)
++      }
++    }
++  }
++
++  // Figuras
++  FIG_RE.lastIndex = 0
++  while ((m = FIG_RE.exec(text)) !== null) {
++    pushUnique(figures, m[1])
++  }
++
++  // Notas al pie del texto
++  FOOTNOTE_RE.lastIndex = 0
++  while ((m = FOOTNOTE_RE.exec(text)) !== null) {
++    const n = parseInt(m[1] ?? m[2], 10)
++    if (!footnotes.includes(n)) footnotes.push(n)
++  }
++
++  // Orden natural: 1.20 antes que 2.4 antes que 2.111
++  equations.sort((a, b) => eqNumber(a) - eqNumber(b))
++  figures.sort((a, b) => eqNumber(a) - eqNumber(b))
++
++  return { equations, problems, figures, footnotes }
++}
++
++export function crossRefsCount(refs: CrossRefs): number {
++  return refs.equations.length + refs.problems.length + refs.figures.length + refs.footnotes.length
++}

@@ -9,6 +9,7 @@ import { useBookProgress } from '@/lib/book-progress'
 import { getBookHints, HINT_KIND_META, type ProblemHintsEntry } from '@/data/book-hints'
 import type { HintKind } from '@/data/book-hints'
 import { recordView } from '@/lib/recently-viewed'
+import { CrossReferencesSection } from '@/components/book-cross-refs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -521,6 +522,9 @@ export function BookProblemDetail({ problemId }: { problemId: string }) {
           )}
         </CardContent>
       </Card>
+
+      {/* Cross-references: ecuaciones, figuras y problemas citados en el enunciado */}
+      <CrossReferencesSection problem={p} />
 
       {/* Graduated hints ladder + final answer comparison */}
       {p && hintsEntry && hintsEntry.hints.length > 0 && (
