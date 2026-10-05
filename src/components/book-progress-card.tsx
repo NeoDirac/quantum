@@ -5,12 +5,14 @@
 // fallados y última actividad — con barras y navegación directa a cada sección.
 
 import { useBookProgress } from '@/lib/book-progress'
+import { usePotentialsProgress } from '@/lib/potentials-progress'
 import { useRecentlyViewed } from '@/lib/recently-viewed'
 import { BOOK_PROBLEMS } from '@/data/book-problems'
+import { BOOK_POTENTIALS } from '@/data/book-potentials'
 import { SECTIONS } from '@/data/structure'
 import { useUI } from '@/lib/store'
 import { Card, CardContent } from '@/components/ui/card'
-import { BookMarked, ArrowRight, Lightbulb, Footprints, Scale, Target, Activity, XCircle } from 'lucide-react'
+import { BookMarked, ArrowRight, Lightbulb, Footprints, Scale, Target, Activity, XCircle, Spline } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Tiempo relativo compacto («hace 2 h», «ayer»…).
@@ -39,6 +41,7 @@ interface SectionStat {
 export function BookProgressCard() {
   const { setView } = useUI()
   const { progress, solvedCount, totalAppSteps } = useBookProgress()
+  const { progress: potProgress, masteredCount: potMastered } = usePotentialsProgress()
   const recent = useRecentlyViewed()
 
   const entries = Object.values(progress).filter(Boolean)
@@ -60,6 +63,11 @@ export function BookProgressCard() {
   ]
 
   const pct = Math.round((solvedCount / BOOK_PROBLEMS.length) * 100)
+
+  // Potenciales en curso (actividad sin dominar) para el strip discreto.
+  const potInCourse = Object.values(potProgress).filter(e =>
+    e && !e.mastered && (e.derivationSteps > 0 || e.hintsUsed > 0 || (e.questionsDone?.length ?? 0) > 0)
+  ).length
 
   return (
     <Card className="border-violet-200/50 dark:border-violet-900/50">
@@ -108,6 +116,23 @@ export function BookProgressCard() {
             <MiniStat icon={Target} tone="teal" value={accuracy !== null ? `${accuracy}%` : '—'} label="aciertos" />
           </div>
         </div>
+
+        {/* Strip discreto: potenciales del libro (§2.2–§2.6) dominados */}
+        {BOOK_POTENTIALS.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setView({ name: 'book-potentials' })}
+            className="mt-3 flex w-full items-center gap-2.5 rounded-lg border border-emerald-300/50 bg-emerald-50/40 px-3 py-2 text-left text-xs text-emerald-900 transition-colors hover:border-emerald-400 hover:bg-emerald-100/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 dark:border-emerald-800/50 dark:bg-emerald-950/20 dark:text-emerald-200 dark:hover:bg-emerald-950/40"
+            title="Abrir los potenciales del libro (§2.2–§2.6)"
+          >
+            <Spline className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <span className="min-w-0 flex-1">
+              Potenciales del libro — <strong>{potMastered}</strong> de {BOOK_POTENTIALS.length} dominados
+              {potInCourse > 0 && <> · <span className="font-medium">{potInCourse} en curso</span></>}
+            </span>
+            <ArrowRight className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+          </button>
+        )}
 
         {/* Progreso por sección */}
         {hasActivity ? (

@@ -5,17 +5,20 @@ import { SECTIONS, getActiveChapter, getSectionsForChapter } from '@/data/struct
 import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { EXERCISES } from '@/data/exercises'
 import { BOOK_PROBLEMS } from '@/data/book-problems'
+import { BOOK_POTENTIALS } from '@/data/book-potentials'
+import { usePotentialsProgress } from '@/lib/potentials-progress'
 import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
   GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays,
-  BookMarked
+  BookMarked, Spline
 } from 'lucide-react'
 import { useState } from 'react'
 
 export function Sidebar() {
   const { view, setView, sidebarOpen, setSidebarOpen } = useUI()
+  const { masteredCount: potentialsMastered } = usePotentialsProgress()
   const chapter = getActiveChapter()
   const sections = getSectionsForChapter(chapter.id)
   const [openSections, setOpenSections] = useState<Set<string>>(new Set([sections[0]?.id]))
@@ -35,7 +38,7 @@ export function Sidebar() {
     setSidebarOpen(false)
   }
 
-  const navItem = (label: string, icon: any, active: boolean, onClick: () => void, count?: number) => {
+  const navItem = (label: string, icon: any, active: boolean, onClick: () => void, count?: number | string) => {
     // Los componentes JSX deben empezar en mayúscula (icon → Icon);
     // en minúscula React lo trata como etiqueta DOM desconocida y no renderiza nada.
     const Icon = icon
@@ -103,6 +106,7 @@ export function Sidebar() {
             {navItem('Mapa de relaciones', Share2, view.name === 'concept-graph', go(() => setView({ name: 'concept-graph' })))}
             {navItem('Ejercicios', ListChecks, view.name === 'exercises-list' || view.name === 'exercise', go(() => setView({ name: 'exercises-list' })), EXERCISES.length)}
             {navItem('Problemas del libro', BookMarked, view.name === 'book-problems' || view.name === 'book-problem', go(() => setView({ name: 'book-problems' })), BOOK_PROBLEMS.length)}
+            {BOOK_POTENTIALS.length > 0 && navItem('Potenciales del libro', Spline, view.name === 'book-potentials' || view.name === 'book-potential', go(() => setView({ name: 'book-potentials' })), `${potentialsMastered}/${BOOK_POTENTIALS.length}`)}
             {navItem('Árbol de decisión', Network, view.name === 'decision-tree', go(() => setView({ name: 'decision-tree' })))}
             {navItem('¿Qué hace Griffiths?', GraduationCap, view.name === 'model-problem', go(() => setView({ name: 'model-problem', problemId: MODEL_PROBLEMS[0].id })), MODEL_PROBLEMS.length)}
             {navItem('Visualizaciones', Waves, view.name === 'visualizations', go(() => setView({ name: 'visualizations' })))}

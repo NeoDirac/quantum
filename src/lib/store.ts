@@ -11,6 +11,8 @@ export type View =
   | { name: 'exercises-list'; sectionId?: string }
   | { name: 'book-problems'; sectionId?: string; query?: string }
   | { name: 'book-problem'; problemId: string }
+  | { name: 'book-potentials' }
+  | { name: 'book-potential'; potentialId: string }
   | { name: 'concept-graph' }
   | { name: 'decision-tree'; nodeId?: string }
   | { name: 'model-problem'; problemId: string }

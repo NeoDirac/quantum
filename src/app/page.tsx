@@ -8,6 +8,7 @@ import { ConceptGraphView } from '@/components/concept-graph-view'
 import { ConceptView } from '@/components/concept-view'
 import { ExerciseView } from '@/components/exercise-view'
 import { BookProblemsList, BookProblemDetail } from '@/components/book-problems-view'
+import { BookPotentialsList, BookPotentialDetail } from '@/components/book-potentials-view'
 import { DecisionTreeView } from '@/components/decision-tree-view'
 import { ModelProblemView } from '@/components/model-problem-view'
 import { Visualizations } from '@/components/visualizations'
@@ -51,6 +52,8 @@ export default function Home() {
       case 'exercises-list': return <ExercisesList />
       case 'book-problems': return <BookProblemsList key={view.query ?? 'q'} />
       case 'book-problem': return <BookProblemDetail problemId={view.problemId} />
+      case 'book-potentials': return <BookPotentialsList />
+      case 'book-potential': return <BookPotentialDetail potentialId={view.potentialId} />
       case 'decision-tree': return <DecisionTreeView />
       case 'model-problem': return <ModelProblemView />
       case 'visualizations': return <Visualizations />

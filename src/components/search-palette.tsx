@@ -7,9 +7,10 @@ import { ALL_CONCEPTS } from '@/data/concepts-2'
 import { ALL_EXERCISES } from '@/data/exercises'
 import { MODEL_PROBLEMS } from '@/data/model-problems'
 import { BOOK_PROBLEMS } from '@/data/book-problems'
+import { BOOK_POTENTIALS } from '@/data/book-potentials'
 import { getBookHints } from '@/data/book-hints'
 import { SECTIONS } from '@/data/structure'
-import { BookOpen, ListChecks, GraduationCap, Layers, Search, BookMarked, Sparkles } from 'lucide-react'
+import { BookOpen, ListChecks, GraduationCap, Layers, Search, BookMarked, Sparkles, Spline } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 // Blob de búsqueda por problema del libro (una sola pasada): número, título,
@@ -40,6 +41,25 @@ function buildBookSearchBlobs(): Map<string, string> {
   return map
 }
 
+// Blob de búsqueda por potencial del libro (una sola pasada): título, tagline y
+// TODO el contenido de las pistas (consejo + aplicación paso a paso) — así
+// «⌘K pozo» o «⌘K paridad» también encuentran los potenciales.
+function buildPotentialBlobs(): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const p of BOOK_POTENTIALS) {
+    const parts = [p.title, p.tagline, p.sectionId]
+    for (const h of p.hints) {
+      parts.push(h.title, h.text)
+      if (h.application) {
+        if (h.application.intro) parts.push(h.application.intro)
+        for (const s of h.application.steps) parts.push(s.title, s.text)
+      }
+    }
+    map.set(p.id, parts.join(' ').toLowerCase())
+  }
+  return map
+}
+
 // Técnicas que aparecen una y otra vez en el capítulo — accesos rápidos
 // (verificado contra el contenido real: todas encuentran ≥1 problema).
 const TECHNIQUE_SUGGESTIONS = [
@@ -56,6 +76,7 @@ const TECHNIQUE_SUGGESTIONS = [
 export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (b: boolean) => void }) {
   const { setView } = useUI()
   const bookBlobs = useMemo(() => buildBookSearchBlobs(), [])
+  const potentialBlobs = useMemo(() => buildPotentialBlobs(), [])
 
   const go = (view: Parameters<typeof setView>[0]) => {
     setView(view)
@@ -169,6 +190,25 @@ export function SearchPalette({ open, onOpenChange }: { open: boolean; onOpenCha
               </CommandItem>
             )
           })}
+        </CommandGroup>
+
+        <CommandGroup heading={`Potenciales del libro (${BOOK_POTENTIALS.length}) — §2.2–§2.6`}>
+          {BOOK_POTENTIALS.map(p => (
+            <CommandItem
+              key={p.id}
+              value={`potencial libro ${p.title} ${p.tagline} ${p.sectionId} ${potentialBlobs.get(p.id) ?? ''}`}
+              onSelect={() => go({ name: 'book-potential', potentialId: p.id })}
+              className="cursor-pointer"
+            >
+              <Spline className="mr-2 h-4 w-4 text-emerald-500" />
+              <div className="flex flex-1 items-center gap-2">
+                <span className="rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">§{p.sectionId}</span>
+                <span className="font-medium">{p.title}</span>
+                <span className="text-[10px] text-amber-500">{'★'.repeat(p.difficulty)}</span>
+              </div>
+              <span className="ml-auto hidden text-[10px] text-muted-foreground sm:inline">derivación + pistas</span>
+            </CommandItem>
+          ))}
         </CommandGroup>
 
         <CommandGroup heading="Técnicas frecuentes">

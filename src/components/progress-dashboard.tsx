@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button'
 import { BookProgressCard } from '@/components/book-progress-card'
 import { ActivityChart, type ActivityDay } from '@/components/activity-chart'
 import { useBookProgress } from '@/lib/book-progress'
+import { usePotentialsProgress } from '@/lib/potentials-progress'
+import { BOOK_POTENTIALS, totalPotentialAppSteps } from '@/data/book-potentials'
 
 interface ProgressData {
   conceptProgress: { conceptId: string; mastery: number; correctCount: number; errorsCount: number; errorBreakdown: Record<string, number> }[]
@@ -40,6 +42,7 @@ export function ProgressDashboard() {
   const [loading, setLoading] = useState(true)
   const studentId = getOrCreateStudentId()
   const { progress: bookProgress } = useBookProgress()
+  const { progress: potProgress } = usePotentialsProgress()
 
   // CSV unificado: conceptos + intentos (API) y problemas del libro (localStorage).
   // Funciona aunque la API falle: las filas del libro siempre están disponibles.
@@ -59,6 +62,17 @@ export function ProgressDashboard() {
           e.lastOutcome === 'match' ? '1' : '0', failed ? '1' : '0',
           `pistas:${e.hintsUsed}; pasos:${steps}; comparaciones:${e.attempts}; último:${e.lastOutcome ?? '—'}${e.lastTriedAt ? `; última actividad:${new Date(e.lastTriedAt).toISOString()}` : ''}`]
       }),
+      // Potenciales del libro (§2.2–§2.6, localStorage): dominio, pistas,
+      // pasos de derivación/aplicación, preguntas de examen y última actividad.
+      ...BOOK_POTENTIALS.map(p => {
+        const e = potProgress[p.id]
+        const derivTotal = p.derivation.steps.length
+        const appTotal = totalPotentialAppSteps(p)
+        const appUsed = Object.values(e?.appSteps ?? {}).reduce((a, b) => a + b, 0)
+        return ['Potencial libro', p.id, p.sectionId, e?.mastered ? '100' : '0',
+          String(e?.questionsDone?.length ?? 0), '',
+          `título:${p.title}; dominado:${e?.mastered ? 'sí' : 'no'}; pistas:${e?.hintsUsed ?? 0}/${p.hints.length}; derivación:${Math.min(e?.derivationSteps ?? 0, derivTotal)}/${derivTotal}; aplicación:${appUsed}/${appTotal}; preguntas:${e?.questionsDone?.length ?? 0}/${p.examQuestions.length}; última actividad:${e?.lastStudiedAt ? new Date(e.lastStudiedAt).toISOString() : '—'}`]
+      }),
     ]
     const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -68,17 +82,18 @@ export function ProgressDashboard() {
     a.download = `progreso-qm-${new Date().toISOString().slice(0, 10)}.csv`
     a.click()
     URL.revokeObjectURL(url)
-    toast({ title: 'CSV exportado', description: `${rows.length - 1} filas · conceptos + intentos + problemas del libro` })
+    toast({ title: 'CSV exportado', description: `${rows.length - 1} filas · conceptos + intentos + problemas y potenciales del libro` })
   }
 
-  // Hay algo que exportar si la API trajo datos O si hay problemas del libro con actividad.
+  // Hay algo que exportar si la API trajo datos O si hay problemas/potenciales del libro con actividad.
   const canExport = !!(
     (data && (data.totalAttempts > 0 || data.conceptProgress.length > 0)) ||
-    Object.keys(bookProgress).length > 0
+    Object.keys(bookProgress).length > 0 ||
+    Object.keys(potProgress).length > 0
   )
 
   const exportJSON = () => {
-    const payload = { ...data, problemasLibro: bookProgress }
+    const payload = { ...data, problemasLibro: bookProgress, potencialesLibro: potProgress }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

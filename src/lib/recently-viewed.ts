@@ -3,7 +3,7 @@
 import { useSyncExternalStore } from 'react'
 
 export interface RecentlyViewedItem {
-  type: 'concept' | 'exercise' | 'book-problem'
+  type: 'concept' | 'exercise' | 'book-problem' | 'book-potential'
   id: string
   title: string
   sectionId: string
