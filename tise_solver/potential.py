@@ -57,19 +57,19 @@ class Potential:
 
         return Potential(x_new, v_new, unit_x='Bohr', unit_v='Hartree')
 
-
 class PicklePotentialLoader:
     @classmethod
-    def load(cls, file_path):
-        # Lectura directa del archivo .pickle
+    def load(cls, file_path, unit_x='Angstrom', unit_v='eV'):
         with open(file_path, 'rb') as handle:
             data = pickle.load(handle)
+        if isinstance(data, dict):      
+            data = [data['h'], data['V']]
 
-        h = float(data['h'])
-        L = float(data['L'])
-        v_values = np.asarray(data['V'], dtype=float)
+        h = float(data[0])
+        v_values = np.asarray(data[1], dtype=float)
 
+        # La malla empieza en 0 y L = N*h
         n_points = len(v_values)
         x_grid = h * np.arange(n_points)
 
-        return Potential(x_grid, v_values, unit_x='Angstrom', unit_v='eV')
+        return Potential(x_grid, v_values, unit_x=unit_x, unit_v=unit_v)
