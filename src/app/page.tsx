@@ -12,6 +12,7 @@ import { BookPotentialsList, BookPotentialDetail } from '@/components/book-poten
 import { DecisionTreeView } from '@/components/decision-tree-view'
 import { ModelProblemView } from '@/components/model-problem-view'
 import { Visualizations } from '@/components/visualizations'
+import { TiseSolverView } from '@/components/tise-solver-view'
 import { ExamMode } from '@/components/exam-mode'
 import { TrainingMode } from '@/components/training-mode'
 import { ReviewMode } from '@/components/review-mode'
@@ -57,6 +58,7 @@ export default function Home() {
       case 'decision-tree': return <DecisionTreeView />
       case 'model-problem': return <ModelProblemView />
       case 'visualizations': return <Visualizations />
+      case 'tise-solver': return <TiseSolverView />
       case 'exam': return <ExamMode />
       case 'training': return <TrainingMode initialPreset={view.preset} />
       case 'review': return <ReviewMode />

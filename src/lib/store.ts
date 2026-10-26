@@ -17,6 +17,7 @@ export type View =
   | { name: 'decision-tree'; nodeId?: string }
   | { name: 'model-problem'; problemId: string }
   | { name: 'visualizations'; preset?: string }
+  | { name: 'tise-solver' }
   | { name: 'exam' }
   | { name: 'training'; preset?: 'book-review' }
   | { name: 'review' }

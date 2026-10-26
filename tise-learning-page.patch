@@ -1,0 +1,2216 @@
+diff --git a/src/app/page.tsx b/src/app/page.tsx
+index aa4d3e8..8bc827a 100644
+--- a/src/app/page.tsx
++++ b/src/app/page.tsx
+@@ -12,6 +12,7 @@ import { BookPotentialsList, BookPotentialDetail } from '@/components/book-poten
+ import { DecisionTreeView } from '@/components/decision-tree-view'
+ import { ModelProblemView } from '@/components/model-problem-view'
+ import { Visualizations } from '@/components/visualizations'
++import { TiseSolverView } from '@/components/tise-solver-view'
+ import { ExamMode } from '@/components/exam-mode'
+ import { TrainingMode } from '@/components/training-mode'
+ import { ReviewMode } from '@/components/review-mode'
+@@ -57,6 +58,7 @@ export default function Home() {
+       case 'decision-tree': return <DecisionTreeView />
+       case 'model-problem': return <ModelProblemView />
+       case 'visualizations': return <Visualizations />
++      case 'tise-solver': return <TiseSolverView />
+       case 'exam': return <ExamMode />
+       case 'training': return <TrainingMode initialPreset={view.preset} />
+       case 'review': return <ReviewMode />
+diff --git a/src/components/sidebar.tsx b/src/components/sidebar.tsx
+index 8650952..e08ef40 100644
+--- a/src/components/sidebar.tsx
++++ b/src/components/sidebar.tsx
+@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
+ import {
+   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
+   GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays,
+-  BookMarked, Spline
++  BookMarked, Spline, Sigma
+ } from 'lucide-react'
+ import { useState } from 'react'
+ 
+@@ -110,6 +110,7 @@ export function Sidebar() {
+             {navItem('Árbol de decisión', Network, view.name === 'decision-tree', go(() => setView({ name: 'decision-tree' })))}
+             {navItem('¿Qué hace Griffiths?', GraduationCap, view.name === 'model-problem', go(() => setView({ name: 'model-problem', problemId: MODEL_PROBLEMS[0].id })), MODEL_PROBLEMS.length)}
+             {navItem('Visualizaciones', Waves, view.name === 'visualizations', go(() => setView({ name: 'visualizations' })))}
++            {navItem('tise_solver (interactivo)', Sigma, view.name === 'tise-solver', go(() => setView({ name: 'tise-solver' })))}
+ 
+             <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+               Capítulo {chapter.number} — secciones
+diff --git a/src/components/tise-lab.tsx b/src/components/tise-lab.tsx
+new file mode 100644
+index 0000000..1612f14
+--- /dev/null
++++ b/src/components/tise-lab.tsx
+@@ -0,0 +1,834 @@
++'use client'
++
++// Laboratorio interactivo: resuelve el MISMO problema que tise_solver,
++// pero en el navegador y en milisegundos.
++//  - Explorador del pozo: N, estados y las ψ calculadas en vivo
++//  - La matriz H: estructura tridiagonal + ecuación de cada fila
++//  - Convergencia: el error O(h²) medido en tu navegador
++//  - Unidades: convertidor + el simulador del bug de unidades
++
++import { useMemo, useState, useDeferredValue } from 'react'
++import { Slider } from '@/components/ui/slider'
++import { Card, CardContent } from '@/components/ui/card'
++import { Button } from '@/components/ui/button'
++import { Switch } from '@/components/ui/switch'
++import { Label } from '@/components/ui/label'
++import { Input } from '@/components/ui/input'
++import { Badge } from '@/components/ui/badge'
++import { M } from '@/components/math'
++import { cn } from '@/lib/utils'
++import { BOHR_TO_ANGSTROM, HARTREE_TO_EV } from '@/data/tise-notes'
++
++// ============================================================
++// MOTOR (verificado: reproduce las energías de la corrida real
++// de tise_solver a 1e-10 Hartree; ver test del paquete de estudio)
++// ============================================================
++
++const PIVMIN = 1e-300
++
++// Cuenta autovalores < x de la tridiagonal (d, e) con la secuencia de Sturm (LDLᵀ)
++function sturmCount(d: number[], e: number[], x: number): number {
++  const n = d.length
++  let count = 0
++  let q = d[0] - x
++  if (q < 0) count++
++  for (let i = 1; i < n; i++) {
++    if (q === 0) q = -PIVMIN
++    q = d[i] - x - (e[i - 1] * e[i - 1]) / q
++    if (q < 0) count++
++  }
++  return count
++}
++
++function gershgorin(d: number[], e: number[]): [number, number] {
++  const n = d.length
++  let lo = Infinity
++  let hi = -Infinity
++  for (let i = 0; i < n; i++) {
++    const r = (i > 0 ? Math.abs(e[i - 1]) : 0) + (i < n - 1 ? Math.abs(e[i]) : 0)
++    lo = Math.min(lo, d[i] - r)
++    hi = Math.max(hi, d[i] + r)
++  }
++  return [lo, hi]
++}
++
++// k-ésimo autovalor (base 0) por bisección: O(N) por evaluación de Sturm
++function tridiagEigenvalue(d: number[], e: number[], k: number): number {
++  const [gl, gu] = gershgorin(d, e)
++  let lo = gl - 1e-8 * Math.max(1, Math.abs(gl))
++  let hi = gu + 1e-8 * Math.max(1, Math.abs(gu))
++  const scale = Math.max(1, Math.abs(lo), Math.abs(hi))
++  for (let iter = 0; iter < 100; iter++) {
++    const mid = 0.5 * (lo + hi)
++    if (hi - lo < 1e-15 * scale) break
++    if (sturmCount(d, e, mid) >= k + 1) hi = mid
++    else lo = mid
++  }
++  return hi
++}
++
++// Resuelve (T − xI) z = b vía LDLᵀ con guarda de pivote
++function ldltSolve(d: number[], e: number[], x: number, b: number[]): number[] {
++  const n = d.length
++  const piv = new Array<number>(n)
++  const z1 = new Array<number>(n)
++  let p = d[0] - x
++  if (Math.abs(p) < PIVMIN) p = -PIVMIN
++  piv[0] = p
++  z1[0] = b[0]
++  for (let i = 1; i < n; i++) {
++    const l = e[i - 1] / piv[i - 1]
++    p = d[i] - x - l * e[i - 1]
++    if (Math.abs(p) < PIVMIN) p = -PIVMIN
++    piv[i] = p
++    z1[i] = b[i] - l * z1[i - 1]
++  }
++  const z = new Array<number>(n)
++  z[n - 1] = z1[n - 1] / piv[n - 1]
++  for (let i = n - 2; i >= 0; i--) {
++    const l = e[i] / piv[i]
++    z[i] = z1[i] / piv[i] - l * z[i + 1]
++  }
++  return z
++}
++
++function norm2(v: number[]): number {
++  let s = 0
++  for (let i = 0; i < v.length; i++) s += v[i] * v[i]
++  return Math.sqrt(s)
++}
++
++// Autovalor k + autovector por iteración inversa
++function tridiagEigPair(d: number[], e: number[], k: number, prevVec?: number[]): { value: number; vector: number[] } {
++  const n = d.length
++  const lam = tridiagEigenvalue(d, e, k)
++  const scale = Math.max(1e-12, Math.abs(lam))
++  const shift = lam + 1e-13 * scale
++  let best: number[] | null = null
++  let bestRes = Infinity
++  for (let attempt = 0; attempt < 4; attempt++) {
++    let s = 12345 + attempt * 99991 + k * 7919
++    const rnd = () => {
++      s = (s * 1103515245 + 12345) & 0x7fffffff
++      return s / 0x3fffffff - 1
++    }
++    let b = new Array<number>(n)
++    for (let i = 0; i < n; i++) b[i] = rnd()
++    if (prevVec) {
++      let dot = 0
++      for (let i = 0; i < n; i++) dot += b[i] * prevVec[i]
++      for (let i = 0; i < n; i++) b[i] -= dot * prevVec[i]
++    }
++    const b0 = norm2(b)
++    for (let i = 0; i < n; i++) b[i] /= b0
++    for (let it = 0; it < 3; it++) {
++      const z = ldltSolve(d, e, shift, b)
++      const zn = norm2(z)
++      if (!isFinite(zn) || zn === 0) {
++        b = null as unknown as number[]
++        break
++      }
++      for (let i = 0; i < n; i++) b[i] = z[i] / zn
++    }
++    if (!b) continue
++    if (prevVec) {
++      let dot = 0
++      for (let i = 0; i < n; i++) dot += b[i] * prevVec[i]
++      for (let i = 0; i < n; i++) b[i] -= dot * prevVec[i]
++    }
++    const v = b
++    let res = 0
++    for (let i = 0; i < n; i++) {
++      const r = (d[i] - lam) * v[i] + (i > 0 ? e[i - 1] * v[i - 1] : 0) + (i < n - 1 ? e[i] * v[i + 1] : 0)
++      res += r * r
++    }
++    res = Math.sqrt(res)
++    if (res < bestRes) {
++      bestRes = res
++      best = v
++    }
++    if (res < 1e-11 * scale) break
++  }
++  if (!best) throw new Error('iteración inversa falló para k=' + k)
++  return { value: lam, vector: best }
++}
++
++function solveTridiagStates(d: number[], e: number[], numStates: number) {
++  const out: { value: number; vector: number[] }[] = []
++  for (let k = 0; k < numStates; k++) {
++    out.push(tridiagEigPair(d, e, k, k > 0 ? out[k - 1].vector : undefined))
++  }
++  return out
++}
++
++// Jacobi denso (para matrices pequeñas; soporta esquinas periódicas)
++function jacobiEigen(Ain: number[][], numStates: number) {
++  const n = Ain.length
++  const A = Ain.map((r) => r.slice())
++  const V: number[][] = Array.from({ length: n }, (_, i) => {
++    const row = new Array<number>(n).fill(0)
++    row[i] = 1
++    return row
++  })
++  for (let sweep = 0; sweep < 60; sweep++) {
++    let off = 0
++    for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) off += A[i][j] * A[i][j]
++    if (off < 1e-22) break
++    for (let p = 0; p < n - 1; p++) {
++      for (let q = p + 1; q < n; q++) {
++        const apq = A[p][q]
++        if (Math.abs(apq) < 1e-14) continue
++        const theta = (A[q][q] - A[p][p]) / (2 * apq)
++        const t = Math.sign(theta || 1) / (Math.abs(theta) + Math.sqrt(theta * theta + 1))
++        const c = 1 / Math.sqrt(t * t + 1)
++        const s = t * c
++        for (let i = 0; i < n; i++) {
++          const aip = A[i][p]
++          const aiq = A[i][q]
++          A[i][p] = c * aip - s * aiq
++          A[i][q] = s * aip + c * aiq
++        }
++        for (let i = 0; i < n; i++) {
++          const api = A[p][i]
++          const aqi = A[q][i]
++          A[p][i] = c * api - s * aqi
++          A[q][i] = s * api + c * aqi
++        }
++        for (let i = 0; i < n; i++) {
++          const vip = V[i][p]
++          const viq = V[i][q]
++          V[i][p] = c * vip - s * viq
++          V[i][q] = s * vip + c * viq
++        }
++      }
++    }
++  }
++  const pairs = Array.from({ length: n }, (_, i) => ({ value: A[i][i], vector: V.map((r) => r[i]) }))
++  pairs.sort((a, b) => a.value - b.value)
++  return pairs.slice(0, numStates)
++}
++
++// ============================================================
++// POTENCIAL Y MALLA (los mismos del paquete, centrados en 0:
++// invariancia traslacional → mismas energías)
++// ============================================================
++
++const L_BOX = 2000 // Bohr (como Vsoft.pickle: N·h = 40000·0.05)
++const softCoulomb = (x: number) => -1 / Math.sqrt(x * x + 1)
++
++function buildTridiag(N: number) {
++  const h = L_BOX / N
++  const d = new Array<number>(N)
++  const e = new Array<number>(N - 1).fill(-0.5 / (h * h))
++  for (let i = 0; i < N; i++) {
++    const x = -L_BOX / 2 + h * i
++    d[i] = 1 / (h * h) + softCoulomb(x)
++  }
++  return { d, e, h }
++}
++
++type Solution = { energies: number[]; vecs: number[][]; h: number }
++
++// El equivalente exacto de TISESolver.solve: construir H, diagonalizar,
++// normalizar con Σψ²h = 1
++function solveStates(N: number, numStates: number): Solution {
++  const { d, e, h } = buildTridiag(N)
++  const pairs = solveTridiagStates(d, e, numStates)
++  const vecs = pairs.map((p) => {
++    const s = p.vector.reduce((a, z) => a + z * z, 0) * h
++    const f = 1 / Math.sqrt(s)
++    return p.vector.map((z) => z * f)
++  })
++  return { energies: pairs.map((p) => p.value), vecs, h }
++}
++
++let _refE0: number | null = null
++function referenceE0(): number {
++  if (_refE0 === null) {
++    const { d, e } = buildTridiag(128000)
++    _refE0 = tridiagEigenvalue(d, e, 0)
++  }
++  return _refE0
++}
++
++const TAB10 = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b']
++const N_LIST = [200, 400, 600, 800, 1200, 2000, 3000, 4000, 6000, 8000, 12000, 20000]
++
++function samplePath(xs: number[], ys: number[], maxPts: number): string {
++  const step = Math.max(1, Math.ceil(xs.length / maxPts))
++  const pts: string[] = []
++  for (let i = 0; i < xs.length; i += step) pts.push(`${xs[i].toFixed(4)},${ys[i].toFixed(4)}`)
++  const last = xs.length - 1
++  if ((xs.length - 1) % step !== 0) pts.push(`${xs[last].toFixed(4)},${ys[last].toFixed(4)}`)
++  return pts.join(' ')
++}
++
++// ============================================================
++// DEMO 1: Explorador del pozo
++// ============================================================
++export function PozoExplorer() {
++  const [nIdx, setNIdx] = useState(7) // N = 4000
++  const [numStates, setNumStates] = useState(5)
++  const [showGrid, setShowGrid] = useState(false)
++  const deferredIdx = useDeferredValue(nIdx)
++
++  const sol = useMemo(() => solveStates(N_LIST[deferredIdx], numStates), [deferredIdx, numStates])
++  const N = N_LIST[nIdx]
++  const hBohr = L_BOX / N
++  const ref = referenceE0()
++  const errE0 = Math.abs(sol.energies[0] - ref)
++
++  // Geometría del gráfico (en eV y Å, como la figura de matplotlib)
++  const W = 640
++  const H = 380
++  const pad = { l: 56, r: 16, t: 14, b: 34 }
++  const vw = W - pad.l - pad.r
++  const vh = H - pad.t - pad.b
++  const xMinA = (-L_BOX / 2) * BOHR_TO_ANGSTROM
++  const xMaxA = (L_BOX / 2) * BOHR_TO_ANGSTROM
++  const yLow = -1 * HARTREE_TO_EV
++  const yHighEv = sol.energies[numStates - 1] * HARTREE_TO_EV
++  const ySpan = yHighEv - yLow
++  let maxPsi = 0
++  for (const vec of sol.vecs) for (const z of vec) maxPsi = Math.max(maxPsi, Math.abs(z))
++  const psiScale = (0.25 * ySpan) / maxPsi
++  const top = Math.max(
++    yHighEv + 0.3 * ySpan,
++    Math.max(...sol.energies.map((E) => E * HARTREE_TO_EV + psiScale * maxPsi)) + 0.05 * ySpan
++  )
++  const sx = (xBohr: number) => pad.l + ((xBohr * BOHR_TO_ANGSTROM - xMinA) / (xMaxA - xMinA)) * vw
++  const sy = (yEv: number) => pad.t + vh - ((yEv - (yLow - 0.08 * ySpan)) / (top - (yLow - 0.08 * ySpan))) * vh
++
++  // Curva de V (muestreada) y puntos de malla
++  const vCurve = useMemo(() => {
++    const xs: number[] = []
++    const ys: number[] = []
++    for (let i = 0; i <= 900; i++) {
++      const x = -L_BOX / 2 + (L_BOX * i) / 900
++      xs.push(x)
++      ys.push(softCoulomb(x) * HARTREE_TO_EV)
++    }
++    return samplePath(xs, ys, 900)
++  }, [])
++  const gridDots = (() => {
++    if (!showGrid || N > 300) return ''
++    const pts: string[] = []
++    for (let i = 0; i < N; i++) {
++      const x = -L_BOX / 2 + hBohr * i
++      pts.push(`${sx(x).toFixed(1)},${(pad.t + vh - 3).toFixed(1)}`)
++    }
++    return pts.join(' ')
++  })()
++
++  const psiPaths = sol.vecs.map((vec, n) => {
++    const xs: number[] = []
++    const ys: number[] = []
++    const step = Math.max(1, Math.ceil(N_LIST[deferredIdx] / 1000))
++    for (let i = 0; i < N_LIST[deferredIdx]; i += step) {
++      const x = -L_BOX / 2 + sol.h * i
++      xs.push(x)
++      ys.push(sol.energies[n] * HARTREE_TO_EV + psiScale * vec[i])
++    }
++    return samplePath(xs, ys, 1000)
++  })
++
++  return (
++    <div className="space-y-4">
++      <div className="grid gap-4 lg:grid-cols-[1fr_260px]">
++        <Card>
++          <CardContent className="p-4">
++            <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Potencial y autofunciones">
++              <rect x={pad.l} y={pad.t} width={vw} height={vh} fill="none" className="stroke-border" strokeWidth={1} />
++              <line x1={pad.l} y1={sy(0)} x2={pad.l + vw} y2={sy(0)} className="stroke-muted-foreground/40" strokeDasharray="3 4" strokeWidth={1} />
++              {showGrid && gridDots && <polyline points={gridDots} fill="none" className="stroke-muted-foreground" strokeWidth={2} strokeDasharray="1 5" strokeLinecap="round" />}
++              <polyline points={vCurve} fill="none" stroke="currentColor" className="text-foreground" strokeWidth={1.6} />
++              {Array.from({ length: numStates }, (_, n) => (
++                <g key={n}>
++                  <line
++                    x1={pad.l}
++                    y1={sy(sol.energies[n] * HARTREE_TO_EV)}
++                    x2={pad.l + vw}
++                    y2={sy(sol.energies[n] * HARTREE_TO_EV)}
++                    stroke={TAB10[n]}
++                    strokeDasharray="5 4"
++                    strokeWidth={1}
++                    opacity={0.55}
++                  />
++                  <polyline points={psiPaths[n]} fill="none" stroke={TAB10[n]} strokeWidth={1.6} />
++                </g>
++              ))}
++              <text x={pad.l + vw / 2} y={H - 10} textAnchor="middle" fontSize={11} className="fill-muted-foreground">
++                x (Å) — pozo centrado en 0 (invariancia traslacional: tu corrida lo tenía en 529 Å)
++              </text>
++              <text x={12} y={pad.t + vh / 2} textAnchor="middle" fontSize={11} className="fill-muted-foreground" transform={`rotate(-90 12 ${pad.t + vh / 2})`}>
++                Energía (eV)
++              </text>
++              <text x={pad.l + 6} y={sy(-27.211) - 5} fontSize={10} className="fill-muted-foreground">
++                fondo V = −27.21 eV (−1 Hartree)
++              </text>
++            </svg>
++            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
++              <span className="font-medium text-foreground">V(x)</span>
++              {Array.from({ length: numStates }, (_, n) => (
++                <span key={n} className="flex items-center gap-1.5">
++                  <span className="inline-block h-2 w-2 rounded-full" style={{ background: TAB10[n] }} />
++                  n={n}: E = {(sol.energies[n] * HARTREE_TO_EV).toFixed(6)} eV
++                </span>
++              ))}
++            </div>
++          </CardContent>
++        </Card>
++
++        <div className="space-y-4">
++          <Card>
++            <CardContent className="space-y-4 p-4">
++              <div>
++                <div className="mb-1 flex items-center justify-between text-sm">
++                  <span className="font-medium">Malla N</span>
++                  <Badge variant="secondary" className="tabular-nums">{N} puntos</Badge>
++                </div>
++                <Slider value={[nIdx]} min={0} max={N_LIST.length - 1} step={1} onValueChange={(v) => setNIdx(v[0])} />
++                <div className="mt-1 text-xs text-muted-foreground tabular-nums">
++                  h = {hBohr} Bohr = {(hBohr * BOHR_TO_ANGSTROM).toFixed(4)} Å · matriz {N}×{N}
++                </div>
++              </div>
++              <div>
++                <div className="mb-1 flex items-center justify-between text-sm">
++                  <span className="font-medium">Estados</span>
++                  <Badge variant="secondary" className="tabular-nums">{numStates}</Badge>
++                </div>
++                <Slider value={[numStates]} min={1} max={6} step={1} onValueChange={(v) => setNumStates(v[0])} />
++              </div>
++              <div className="flex items-center justify-between">
++                <Label htmlFor="grid-dots" className="text-sm">Ver puntos de la malla</Label>
++                <Switch id="grid-dots" checked={showGrid} onCheckedChange={setShowGrid} />
++              </div>
++              {showGrid && N > 300 && (
++                <p className="text-xs text-muted-foreground">Con N &gt; 300 los puntos se amontonan; baja N para verlos.</p>
++              )}
++              <Button variant="outline" size="sm" className="w-full" onClick={() => { setNIdx(N_LIST.indexOf(20000)); setNumStates(5) }}>
++                Tu corrida real: N = 20000, h = 0.1
++              </Button>
++            </CardContent>
++          </Card>
++
++          <Card>
++            <CardContent className="p-4 text-xs space-y-1.5">
++              <div className="flex justify-between"><span className="text-muted-foreground">E₀ (Hartree)</span><span className="tabular-nums font-medium">{sol.energies[0].toFixed(9)}</span></div>
++              <div className="flex justify-between"><span className="text-muted-foreground">E₀ (eV)</span><span className="tabular-nums font-medium">{(sol.energies[0] * HARTREE_TO_EV).toFixed(8)} eV</span></div>
++              <div className="flex justify-between"><span className="text-muted-foreground">‖E₀ − E₀(ref N=128000)‖</span><span className="tabular-nums font-medium">{errE0.toExponential(2)} Ha</span></div>
++              <p className="pt-1 text-muted-foreground">
++                Esto lo acaba de calcular <strong>tu navegador</strong> en milisegundos: misma matriz que tu Python resolvió en ~5 min
++                (aquí se explota que H es tridiagonal: bisección de Sturm + iteración inversa, <M>{`O(Nk)`}</M> en vez de <M>{`O(N^3)`}</M>).
++              </p>
++            </CardContent>
++          </Card>
++        </div>
++      </div>
++    </div>
++  )
++}
++
++// ============================================================
++// DEMO 2: La matriz H (estructura tridiagonal)
++// ============================================================
++export function MatrizH() {
++  const [nMat, setNMat] = useState(14)
++  const [periodic, setPeriodic] = useState(false)
++  const [row, setRow] = useState(7)
++  const [showNums, setShowNums] = useState(true)
++
++  const Lm = 10 // caja chica: la ψ SÍ toca los bordes (para que las esquinas se note en E₀)
++  const hm = Lm / nMat
++  const diag = Array.from({ length: nMat }, (_, i) => 1 / (hm * hm) + softCoulomb(-Lm / 2 + hm * i))
++  const off = -0.5 / (hm * hm)
++
++  // E₀ con y sin esquinas (Jacobi denso, N pequeño → instantáneo)
++  const e0Pair = (() => {
++    const build = (per: boolean) => {
++      const A = Array.from({ length: nMat }, () => new Array<number>(nMat).fill(0))
++      for (let i = 0; i < nMat; i++) {
++        A[i][i] = diag[i]
++        if (i > 0) A[i][i - 1] = off
++        if (i < nMat - 1) A[i][i + 1] = off
++      }
++      if (per) {
++        A[0][nMat - 1] = off
++        A[nMat - 1][0] = off
++      }
++      return jacobiEigen(A, 1)[0].value
++    }
++    return { np0: build(false), p0: build(true) }
++  })()
++
++  const cell = 30
++  const size = nMat * cell
++  const filled = 3 * nMat - 2 + (periodic ? 2 : 0)
++
++  return (
++    <div className="grid gap-4 lg:grid-cols-[auto_1fr]">
++      <Card>
++        <CardContent className="p-4">
++          <svg viewBox={`-6 -6 ${size + 12} ${size + 12}`} className="w-full max-w-[380px]" role="img" aria-label="Estructura de la matriz H">
++            {Array.from({ length: nMat }, (_, i) =>
++              Array.from({ length: nMat }, (_, j) => {
++                const isDiag = i === j
++                const isOff = Math.abs(i - j) === 1
++                const isCorner = periodic && ((i === 0 && j === nMat - 1) || (i === nMat - 1 && j === 0))
++                const fill = isCorner ? '#e11d48' : isDiag ? '#0d9488' : isOff ? '#f59e0b' : 'transparent'
++                const inRow = i === row || j === row
++                return (
++                  <rect
++                    key={`${i}-${j}`}
++                    x={j * cell}
++                    y={i * cell}
++                    width={cell - 2}
++                    height={cell - 2}
++                    rx={3}
++                    fill={fill}
++                    opacity={fill === 'transparent' ? 0 : inRow ? 1 : 0.85}
++                    stroke={fill === 'transparent' ? 'currentColor' : undefined}
++                    className={fill === 'transparent' ? 'stroke-border/40' : undefined}
++                    strokeOpacity={fill === 'transparent' ? 0.35 : undefined}
++                    onClick={() => setRow(i)}
++                    style={{ cursor: 'pointer' }}
++                  />
++                )
++              })
++            )}
++            {showNums && nMat <= 12 && Array.from({ length: nMat }, (_, i) =>
++              Array.from({ length: nMat }, (_, j) => {
++                const v = Math.abs(i - j) === 1 ? off : i === j ? diag[i] : (periodic && ((i === 0 && j === nMat - 1) || (i === nMat - 1 && j === 0))) ? off : null
++                if (v === null) return null
++                return (
++                  <text key={`t${i}-${j}`} x={j * cell + (cell - 2) / 2} y={i * cell + (cell - 2) / 2 + 3} textAnchor="middle" fontSize={7.5} fill="#fff" pointerEvents="none">
++                    {v.toFixed(1)}
++                  </text>
++                )
++              })
++            )}
++            {periodic && (
++              <>
++                <rect x={(nMat - 1) * cell} y={0} width={cell - 2} height={cell - 2} rx={3} fill="none" stroke="#e11d48" strokeWidth={2.5} />
++                <rect x={0} y={(nMat - 1) * cell} width={cell - 2} height={cell - 2} rx={3} fill="none" stroke="#e11d48" strokeWidth={2.5} />
++              </>
++            )}
++          </svg>
++          <p className="mt-2 text-xs text-muted-foreground">Clic en cualquier celda para seleccionar su fila.</p>
++        </CardContent>
++      </Card>
++
++      <div className="space-y-4">
++        <Card>
++          <CardContent className="space-y-4 p-4">
++            <div>
++              <div className="mb-1 flex items-center justify-between text-sm">
++                <span className="font-medium">Tamaño de la matriz (N)</span>
++                <Badge variant="secondary" className="tabular-nums">{nMat}×{nMat}</Badge>
++              </div>
++              <Slider value={[nMat]} min={8} max={26} step={1} onValueChange={(v) => setNMat(v[0])} />
++            </div>
++            <div className="flex items-center justify-between">
++              <div>
++                <Label className="text-sm">Modo periódico (esquinas)</Label>
++                <p className="text-xs text-muted-foreground">H[0,N−1] = H[N−1,0] = −1/(2h²)</p>
++              </div>
++              <Switch checked={periodic} onCheckedChange={setPeriodic} />
++            </div>
++            <div className="flex items-center justify-between">
++              <Label className="text-sm">Mostrar números (N ≤ 12)</Label>
++              <Switch checked={showNums} onCheckedChange={setShowNums} />
++            </div>
++            <div className="flex flex-wrap gap-3 text-xs">
++              <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded" style={{ background: '#0d9488' }} /> diagonal: 1/h² + Vₙ</span>
++              <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded" style={{ background: '#f59e0b' }} /> vecinos: −1/(2h²)</span>
++              <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded" style={{ background: '#e11d48' }} /> esquinas (periódico)</span>
++            </div>
++            <p className="text-xs text-muted-foreground">
++              De N² celdas, solo <strong>{filled}</strong> tienen un número (≈3N): el resto es cero. Esa dispersión es la huella
++              dactilar del stencil de 3 puntos.
++            </p>
++          </CardContent>
++        </Card>
++
++        <Card>
++          <CardContent className="p-4 space-y-2">
++            <div className="text-sm font-medium">La fila {row} es una ecuación (el stencil en el punto x₍{row}₎):</div>
++            <div className="rounded-md bg-muted/50 p-3 text-sm overflow-x-auto">
++              ({off.toFixed(2)})·ψ₍{row - 1}₎ + ({diag[row].toFixed(2)})·ψ₍{row}₎{row + 1 <= nMat - 1 ? ` + (${off.toFixed(2)})·ψ₍${row + 1}₎` : ''} = E·ψ₍{row}₎
++            </div>
++            <p className="text-xs text-muted-foreground">
++              Los números laterales son el acoplamiento con los vecinos (−1/2h²); el central es 1/h² + V₍{row}₎ (aquí la
++              cinética {Math.abs(off * 2).toFixed(2)} más el potencial {diag[row].toFixed(2)}). N ecuaciones así, una por punto
++              de la malla, son el sistema H·ψ = E·ψ.
++            </p>
++            <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
++              <div className="rounded-md border border-border p-2">
++                <div className="text-muted-foreground">E₀ sin esquinas</div>
++                <div className="font-medium tabular-nums">{e0Pair.np0.toFixed(6)} Ha</div>
++              </div>
++              <div className="rounded-md border border-border p-2">
++                <div className="text-muted-foreground">E₀ con esquinas (periódico)</div>
++                <div className="font-medium tabular-nums">{e0Pair.p0.toFixed(6)} Ha</div>
++              </div>
++            </div>
++            <p className="text-xs text-muted-foreground">
++              Con esta caja chica (L=10 Bohr) la ψ SÍ toca los bordes: por eso las esquinas cambian E₀. En tu caja real
++              (L=2000 Bohr) la diferencia es 10⁻¹⁵: la ψ decae antes de llegar.
++            </p>
++          </CardContent>
++        </Card>
++      </div>
++    </div>
++  )
++}
++
++// ============================================================
++// DEMO 3: Convergencia O(h²)
++// ============================================================
++export function ConvergenciaLab() {
++  const [rows, setRows] = useState<{ N: number; h: number; E0: number; err: number; ratio: number | null }[]>([])
++  const [ran, setRan] = useState(false)
++
++  const run = () => {
++    const ref = referenceE0()
++    const Ns = [500, 1000, 2000, 4000, 8000, 16000]
++    const data: { N: number; h: number; E0: number; err: number; ratio: number | null }[] = []
++    let prevErr: number | null = null
++    for (const Nn of Ns) {
++      const { d, e, h } = buildTridiag(Nn)
++      const E0 = tridiagEigenvalue(d, e, 0)
++      const err = Math.abs(E0 - ref)
++      const ratio = prevErr === null ? null : prevErr / err
++      data.push({ N: Nn, h, E0, err, ratio })
++      prevErr = err
++    }
++    setRows(data)
++    setRan(true)
++  }
++
++  // Gráfico log-log del error
++  const W = 560, H2 = 260
++  const pad = { l: 52, r: 14, t: 12, b: 32 }
++  const vw = W - pad.l - pad.r, vh = H2 - pad.t - pad.b
++  const pts = rows.map((r) => ({ x: Math.log10(r.h), y: Math.log10(r.err) }))
++  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
++  const xMin = Math.min(...xs, 0.02), xMax = Math.max(...xs)
++  const yMin = Math.min(...ys, -5.2), yMax = Math.max(...ys)
++  const sx = (x: number) => pad.l + ((x - xMin) / (xMax - xMin)) * vw
++  const sy = (y: number) => pad.t + vh - ((y - yMin) / (yMax - yMin)) * vh
++  // recta guía de pendiente +2 (error ∝ h²) anclada en el último punto
++  const last = pts[pts.length - 1]
++  const guide = last
++    ? [
++        [xMin, last.y + 2 * (xMin - last.x)] as [number, number],
++        [xMax, last.y + 2 * (xMax - last.x)] as [number, number],
++      ]
++    : []
++
++  return (
++    <div className="space-y-4">
++      <div className="flex flex-wrap items-center gap-3">
++        <Button onClick={run} disabled={ran}>
++          {ran ? 'Volver a correr el barrido' : 'Correr barrido de convergencia'}
++        </Button>
++        <span className="text-xs text-muted-foreground">
++          Calcula E₀ para N = 500…16000 + referencia N=128000 — en tu navegador, en menos de 0.1 s.
++        </span>
++      </div>
++
++      {ran && rows.length > 0 && (
++        <div className="grid gap-4">
++          <div className="overflow-x-auto rounded-lg border border-border">
++            <table className="w-full min-w-[520px] text-xs">
++              <thead>
++                <tr className="border-b border-border bg-muted/40 text-left">
++                  <th className="px-3 py-2 font-medium">N</th>
++                  <th className="px-3 py-2 font-medium">h (Bohr)</th>
++                  <th className="px-3 py-2 font-medium">E₀ (eV)</th>
++                  <th className="px-3 py-2 font-medium">|E₀ − E₀ref| (eV)</th>
++                  <th className="px-3 py-2 font-medium">ΔE anterior / ΔE</th>
++                </tr>
++              </thead>
++              <tbody className="tabular-nums">
++                {rows.map((r, i) => (
++                  <tr key={r.N} className="border-b border-border/60 last:border-0">
++                    <td className="px-3 py-1.5 font-medium">{r.N}</td>
++                    <td className="px-3 py-1.5">{r.h.toFixed(3)}</td>
++                    <td className="px-3 py-1.5">{(r.E0 * HARTREE_TO_EV).toFixed(6)}</td>
++                    <td className="px-3 py-1.5">{(r.err * HARTREE_TO_EV).toExponential(2)}</td>
++                    <td className="px-3 py-1.5">
++                      {r.ratio !== null ? (
++                        <Badge variant={r.ratio > 3.3 ? 'default' : 'secondary'} className="tabular-nums">
++                          ×{r.ratio.toFixed(2)} {r.ratio > 3.3 ? '≈ 4 ✓' : '(aún no asintótico)'}
++                        </Badge>
++                      ) : (
++                        <span className="text-muted-foreground">—</span>
++                      )}
++                    </td>
++                  </tr>
++                ))}
++              </tbody>
++            </table>
++          </div>
++
++          <Card>
++            <CardContent className="p-4">
++              <svg viewBox={`0 0 ${W} ${H2}`} className="w-full max-w-[560px]" role="img" aria-label="Error vs paso de malla">
++                <rect x={pad.l} y={pad.t} width={vw} height={vh} fill="none" className="stroke-border" strokeWidth={1} />
++                {guide.length === 2 && (
++                  <line x1={sx(guide[0][0])} y1={sy(guide[0][1])} x2={sx(guide[1][0])} y2={sy(guide[1][1])} className="stroke-muted-foreground" strokeDasharray="6 4" strokeWidth={1.2} />
++                )}
++                {pts.map((p, i) => (
++                  <circle key={i} cx={sx(p.x)} cy={sy(p.y)} r={4} fill={TAB10[i % TAB10.length]} />
++                ))}
++                <text x={pad.l + vw / 2} y={H2 - 8} textAnchor="middle" fontSize={11} className="fill-muted-foreground">log₁₀(h) →</text>
++                <text x={13} y={pad.t + vh / 2} textAnchor="middle" fontSize={11} className="fill-muted-foreground" transform={`rotate(-90 13 ${pad.t + vh / 2})`}>log₁₀(error)</text>
++                {guide.length === 2 && (
++                  <text x={sx(xMin + 0.12 * (xMax - xMin))} y={sy(last.y + 2 * (xMin + 0.12 * (xMax - xMin) - last.x)) - 10} fontSize={10} className="fill-muted-foreground">pendiente 2 ⇒ error ∝ h²</text>
++                )}
++              </svg>
++              <p className="mt-1 text-xs text-muted-foreground">
++                En la zona asintótica los puntos caen sobre la recta de pendiente 2 (error ∝ h²): duplicar N divide el error entre 4.
++                A la derecha (malla gruesa, h ≫ ancho del pozo ≈ 1 Bohr) la malla ni “ve” el pozo: regla práctica, h ≪ escala del potencial.
++              </p>
++            </CardContent>
++          </Card>
++        </div>
++      )}
++
++      {!ran && (
++        <p className="text-sm text-muted-foreground">
++          Esta demo reproduce numéricamente lo que verificaste con tus dos corridas (h=0.05 vs h=0.1 → diferencia ≈ 0.002 eV, cociente ×4 del error).
++        </p>
++      )}
++    </div>
++  )
++}
++
++// ============================================================
++// DEMO 4: Unidades
++// ============================================================
++type Unit = 'Hartree' | 'eV' | 'Bohr' | 'Angstrom'
++
++export function UnidadesLab() {
++  const [val, setVal] = useState('1')
++  const [from, setFrom] = useState<Unit>('Hartree')
++  const [to, setTo] = useState<Unit>('eV')
++
++  const converted = useMemo(() => {
++    const v = parseFloat(val)
++    if (!isFinite(v)) return null
++    const energyU: Unit[] = ['Hartree', 'eV']
++    const isEnergy = energyU.includes(from) && energyU.includes(to)
++    const isLength = !energyU.includes(from) && !energyU.includes(to)
++    if (!isEnergy && !isLength) return null
++    if (isEnergy) {
++      const hartree = from === 'Hartree' ? v : v / HARTREE_TO_EV
++      return to === 'Hartree' ? hartree : hartree * HARTREE_TO_EV
++    }
++    const bohr = from === 'Bohr' ? v : v / BOHR_TO_ANGSTROM
++    return to === 'Bohr' ? bohr : bohr * BOHR_TO_ANGSTROM
++  }, [val, from, to])
++
++  const wrongEV = [-0.41649984, -0.06080495, -0.03226613, -0.01580931, -0.01113157]
++  const rightEV = [-18.22780701, -7.48265358, -4.12300337, -2.52300587, -1.72934454]
++
++  // mini gráficas: el MISMO archivo interpretado de dos formas
++  const mini = (depthEv: number, title: string, bad: boolean) => {
++    const w = 300, hh = 190
++    const p = { l: 40, r: 10, t: 22, b: 26 }
++    const vw2 = w - p.l - p.r, vh2 = hh - p.t - p.b
++    const pts: string[] = []
++    for (let i = 0; i <= 200; i++) {
++      const x = -6 + (12 * i) / 200
++      const vEv = (-1 / Math.sqrt(x * x + 1)) * depthEv // profundidad en la unidad que sea
++      pts.push(`${(p.l + ((x + 6) / 12) * vw2).toFixed(1)},${(p.t + vh2 - ((vEv + depthEv) / (2 * depthEv)) * vh2).toFixed(1)}`)
++    }
++    return (
++      <div className={cn('rounded-lg border p-3', bad ? 'border-rose-500/50 bg-rose-500/5' : 'border-emerald-500/50 bg-emerald-500/5')}>
++        <div className={cn('mb-1 text-xs font-semibold', bad ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400')}>{title}</div>
++        <svg viewBox={`0 0 ${w} ${hh}`} className="w-full" role="img" aria-label={title}>
++          <rect x={p.l} y={p.t} width={vw2} height={vh2} fill="none" className="stroke-border" strokeWidth={1} />
++          <line x1={p.l} y1={p.t + vh2 / 2} x2={p.l + vw2} y2={p.t + vh2 / 2} className="stroke-muted-foreground/40" strokeDasharray="3 3" />
++          <polyline points={pts.join(' ')} fill="none" stroke="currentColor" className="text-foreground" strokeWidth={1.5} />
++          <text x={p.l + vw2 / 2} y={hh - 8} textAnchor="middle" fontSize={9} className="fill-muted-foreground">x</text>
++          <text x={11} y={p.t + vh2 / 2} textAnchor="middle" fontSize={9} className="fill-muted-foreground" transform={`rotate(-90 11 ${p.t + vh2 / 2})`}>V</text>
++          <text x={p.l + 4} y={p.t + 12} fontSize={9} className="fill-muted-foreground">fondo: −{depthEv === HARTREE_TO_EV ? '27.2' : '1.0'} en el eje…</text>
++        </svg>
++      </div>
++    )
++  }
++
++  return (
++    <div className="space-y-6">
++      <Card>
++        <CardContent className="p-4">
++          <div className="mb-3 text-sm font-medium">Convertidor Bohr ↔ Å y Hartree ↔ eV</div>
++          <div className="flex flex-wrap items-end gap-2">
++            <div className="w-28">
++              <Label className="text-xs text-muted-foreground">Valor</Label>
++              <Input value={val} onChange={(e) => setVal(e.target.value)} inputMode="decimal" className="tabular-nums" />
++            </div>
++            <div className="w-28">
++              <Label className="text-xs text-muted-foreground">Desde</Label>
++              <select value={from} onChange={(e) => setFrom(e.target.value as Unit)} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
++                <option>Hartree</option><option>eV</option><option>Bohr</option><option>Angstrom</option>
++              </select>
++            </div>
++            <div className="w-28">
++              <Label className="text-xs text-muted-foreground">Hacia</Label>
++              <select value={to} onChange={(e) => setTo(e.target.value as Unit)} className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm">
++                <option>eV</option><option>Hartree</option><option>Angstrom</option><option>Bohr</option>
++              </select>
++            </div>
++            <div className="min-w-32 flex-1 rounded-md bg-muted/50 px-3 py-2 text-sm tabular-nums">
++              {converted === null ? (
++                <span className="text-muted-foreground">mezcla energía con longitud…</span>
++              ) : (
++                <strong>{converted.toPrecision(10).replace(/\.?0+$/, '')}</strong>
++              )}
++            </div>
++          </div>
++          <p className="mt-2 text-xs text-muted-foreground">
++            Prueba: 1 Hartree → eV = 27.2114 · 529 Å → Bohr = 1000 · −18.2278 eV → Hartree = −0.66986 (la E₀ de tu corrida).
++          </p>
++        </CardContent>
++      </Card>
++
++      <div>
++        <div className="mb-3 text-sm font-medium">Simulador del bug: el MISMO archivo, dos interpretaciones</div>
++        <div className="grid gap-4 md:grid-cols-2">
++          {mini(1.0, '❌ Cargado con defaults (Å/eV): el −1.0 se lee como −1 eV', true)}
++          {mini(HARTREE_TO_EV, '✅ Cargado con unit_v=\'Hartree\': el −1.0 son −27.2 eV', false)}
++        </div>
++        <div className="mt-4 grid gap-4 md:grid-cols-2">
++          <Card>
++            <CardContent className="p-3">
++              <div className="text-xs font-semibold text-rose-600 dark:text-rose-400">Energías con el bug (tu primera corrida)</div>
++              <ul className="mt-1.5 space-y-0.5 text-xs tabular-nums text-muted-foreground">
++                {wrongEV.map((E, i) => <li key={i}>n={i}: {E} eV</li>)}
++              </ul>
++            </CardContent>
++          </Card>
++          <Card>
++            <CardContent className="p-3">
++              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Energías correctas (unit_x=&apos;Bohr&apos;, unit_v=&apos;Hartree&apos;)</div>
++              <ul className="mt-1.5 space-y-0.5 text-xs tabular-nums text-muted-foreground">
++                {rightEV.map((E, i) => <li key={i}>n={i}: {E} eV</li>)}
++              </ul>
++            </CardContent>
++          </Card>
++        </div>
++        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4 text-sm">
++          <div className="font-medium">Las 3 pistas que delataban el bug (antes de calcular nada):</div>
++          <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
++            <li>La gráfica mostraba fondo −1.0 sobre un eje rotulado “eV”: si de verdad fuera eV, debería verse −27.2.</li>
++            <li>El pozo aparecía centrado en x = 1000 “Å”: pero 1000 eran Bohr → 529 Å. ¡Posición imposible para tu archivo!</li>
++            <li>El espectro era demasiado “alto”: un pozo de −1 eV apenas atrapa 1-2 estados; el real tiene 5 ligados cómodos.</li>
++          </ol>
++        </div>
++      </div>
++    </div>
++  )
++}
+diff --git a/src/components/tise-solver-view.tsx b/src/components/tise-solver-view.tsx
+new file mode 100644
+index 0000000..9448efb
+--- /dev/null
++++ b/src/components/tise-solver-view.tsx
+@@ -0,0 +1,807 @@
++'use client'
++
++// Vista de estudio: "tise_solver — del papel al píxel".
++// Explica la física (TISE + diferencias finitas), el puente a lo computacional
++// (clases, paquete, eigh), el código línea por línea y un laboratorio interactivo.
++
++import { useState } from 'react'
++import { Card, CardContent } from '@/components/ui/card'
++import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
++import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
++import { Badge } from '@/components/ui/badge'
++import { Button } from '@/components/ui/button'
++import { M, MB } from '@/components/math'
++import { cn } from '@/lib/utils'
++import { TISE_FILES, QUIZ, CHEAT, type CodeFile } from '@/data/tise-notes'
++import { PozoExplorer, MatrizH, ConvergenciaLab, UnidadesLab } from '@/components/tise-lab'
++import {
++  Atom, BookOpen, Cpu, Code2, FlaskConical, History, GraduationCap, Star,
++  AlertTriangle, CheckCircle2, Timer, HardDrive, ArrowRight, Printer,
++  ListChecks, MousePointerClick, Waves,
++} from 'lucide-react'
++
++const SECTIONS = [
++  { id: 'panorama', label: 'Panorama', icon: Waves },
++  { id: 'fisica', label: 'La física', icon: Atom },
++  { id: 'computador', label: 'Al computador', icon: Cpu },
++  { id: 'codigo', label: 'Código línea a línea', icon: Code2 },
++  { id: 'laboratorio', label: 'Laboratorio', icon: FlaskConical },
++  { id: 'corrida', label: 'Tu corrida', icon: History },
++  { id: 'prep', label: 'Prepárate', icon: GraduationCap },
++]
++
++function go(id: string) {
++  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
++}
++
++function SectionTitle({ icon: Icon, kicker, title }: { icon: any; kicker: string; title: string }) {
++  return (
++    <div className="mb-4 flex items-start gap-3">
++      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-sm">
++        <Icon className="h-4.5 w-4.5" />
++      </div>
++      <div>
++        <div className="text-[11px] font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">{kicker}</div>
++        <h2 className="text-xl font-bold sm:text-2xl">{title}</h2>
++      </div>
++    </div>
++  )
++}
++
++function Note({ children }: { children: React.ReactNode }) {
++  return (
++    <div className="rounded-lg border-l-4 border-teal-500/60 bg-teal-500/5 px-4 py-3 text-sm">
++      {children}
++    </div>
++  )
++}
++
++// ============================================================
++// VISTA PRINCIPAL
++// ============================================================
++export function TiseSolverView() {
++  return (
++    <div className="space-y-10">
++      {/* Navegación de secciones */}
++      <nav aria-label="Secciones" className="sticky top-14 z-10 -mx-2 flex gap-1.5 overflow-x-auto rounded-lg border border-border bg-background/95 px-2 py-2 backdrop-blur">
++        {SECTIONS.map((s) => (
++          <button
++            key={s.id}
++            type="button"
++            onClick={() => go(s.id)}
++            className="flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
++          >
++            <s.icon className="h-3.5 w-3.5" />
++            {s.label}
++          </button>
++        ))}
++      </nav>
++
++      <Panorama />
++      <Fisica />
++      <AlComputador />
++      <CodigoLineaALinea />
++      <Laboratorio />
++      <TuCorrida />
++      <Preparate />
++    </div>
++  )
++}
++
++// ============================================================
++// S1 · PANORAMA
++// ============================================================
++function Panorama() {
++  const steps = [
++    { n: 1, t: 'Leer el pozo', f: 'potential.py', d: 'El archivo Vsoft.pickle trae [h, V] en Bohr/Hartree; el loader lo convierte en un objeto Potential con unidades garantizadas.' },
++    { n: 2, t: 'Construir H', f: 'solver.py · build_hamiltonian', d: 'La ecuación de Schrödinger se vuelve una matriz N×N: diagonal 1/h² + Vₙ, vecinos −1/(2h²).' },
++    { n: 3, t: 'Diagonalizar', f: 'solver.py · solve', d: 'eigh (LAPACK) extrae los autovalores más bajos: son las energías Eₙ. Sus autovectores: las ψₙ(x).' },
++    { n: 4, t: 'Dibujar', f: 'visualizer.py', d: 'Cada ψ se dibuja sobre su nivel de energía, re-escalada para que quepa: tu Figure_1.png.' },
++  ]
++  return (
++    <section id="panorama" className="scroll-mt-28">
++      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
++        <div>
++          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">
++            <Waves className="h-3.5 w-3.5" /> Material de estudio · paquete tise_solver
++          </div>
++          <h1 className="text-2xl font-bold sm:text-3xl">tise_solver: del papel al píxel</h1>
++          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
++            La historia completa de tu paquete: la física de la ecuación de Schrödinger independiente del tiempo (TISE),
++            cómo se convierte en una matriz de diferencias finitas, qué hace cada línea de tus 4 archivos, y por qué las
++            unidades casi te arruinan la presentación. Con laboratorio interactivo incluido: tu navegador resuelve el
++            mismo problema que tu Python resolvió en 5 minutos.
++          </p>
++        </div>
++        <Button variant="outline" size="sm" onClick={() => window.print()} className="shrink-0">
++          <Printer className="mr-1.5 h-3.5 w-3.5" /> Imprimir / PDF
++        </Button>
++      </div>
++
++      <div className="mb-4 flex flex-wrap gap-2 text-xs">
++        {[
++          ['N = 20000 puntos', 'tu malla final'],
++          ['3.2 GB', 'tamaño de la matriz'],
++          ['~5 min', 'tu corrida con eigh'],
++          ['O(h²)', 'error de las diferencias finitas'],
++          ['51 ms', 'el mismo problema, aquí en tu navegador'],
++        ].map(([a, b]) => (
++          <Badge key={a} variant="secondary" className="gap-1.5 px-2.5 py-1">
++            <span className="font-semibold">{a}</span>
++            <span className="text-muted-foreground">{b}</span>
++          </Badge>
++        ))}
++      </div>
++
++      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
++        {steps.map((s) => (
++          <Card key={s.n} className="overflow-hidden">
++            <CardContent className="p-4">
++              <div className="mb-2 flex items-center gap-2">
++                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal-600 text-xs font-bold text-white">{s.n}</span>
++                <span className="text-sm font-semibold">{s.t}</span>
++              </div>
++              <p className="text-xs text-muted-foreground">{s.d}</p>
++              <Badge variant="outline" className="mt-2 font-mono text-[10px]">{s.f}</Badge>
++            </CardContent>
++          </Card>
++        ))}
++      </div>
++
++      <Note>
++        <strong>Cómo usar esta página:</strong> léela en orden la primera vez (la historia es acumulativa), juega con las
++        demos del laboratorio cuando aparezcan, y la víspera de la presentación repasa solo “Tu corrida” y “Prepárate”
++        (quiz + chuleta de posibles preguntas del profesor).
++      </Note>
++    </section>
++  )
++}
++
++// ============================================================
++// S2 · LA FÍSICA
++// ============================================================
++function Fisica() {
++  return (
++    <section id="fisica" className="scroll-mt-28 space-y-5">
++      <SectionTitle icon={Atom} kicker="Parte 1" title="La física: qué estamos resolviendo" />
++
++      <Card>
++        <CardContent className="p-5 space-y-3">
++          <h3 className="font-semibold">La ecuación y qué significa “resolverla”</h3>
++          <p className="text-sm text-muted-foreground">
++            La ecuación de Schrödinger <em>independiente del tiempo</em> (TISE) describe los estados estacionarios de una
++            partícula: ondas que no cambian de forma con el tiempo, solo con una fase. Para un potencial dado <M>{`V(x)`}</M>:
++          </p>
++          <MB>{`-\\frac{\\hbar^2}{2m}\\,\\frac{d^2\\psi}{dx^2} + V(x)\\,\\psi(x) = E\\,\\psi(x)`}</MB>
++          <ul className="list-disc space-y-1.5 pl-5 text-sm text-muted-foreground">
++            <li><strong className="text-foreground">ψ(x)</strong> es la amplitud de probabilidad; <M>{`|\\psi(x)|^2`}</M> es la densidad de probabilidad de encontrar la partícula en x, y debe cumplir <M>{`\\int|\\psi|^2 dx = 1`}</M>.</li>
++            <li><strong className="text-foreground">E</strong> es la energía del estado. El TISE es una <em>ecuación de autovalores</em>: no cualquier E sirve, solo unas cuantas “permitidas”.</li>
++            <li><strong className="text-foreground">Resolver</strong> = dado V(x), hallar todas las parejas (E, ψ) válidas. Con potencial arbitrario (como tu pozo) no hay fórmula cerrada: toca numérico.</li>
++          </ul>
++          <Note>
++            <strong>¿Por qué la energía se cuantiza?</strong> Misma razón por la que una cuerda de guitarra solo suena en
++            ciertas notas: los extremos fijos obligan a que solo ciertas ondas “quepan”. Aquí, para un estado ligado la ψ
++            debe decaer a cero en el infinito (o en los bordes de la caja): esa condición de frontera solo la satisfacen
++            ciertas E. La cuantización no la impone el método numérico: la impone la frontera, y las diferencias finitas
++            la heredan.
++          </Note>
++        </CardContent>
++      </Card>
++
++      <Card>
++        <CardContent className="p-5 space-y-3">
++          <h3 className="font-semibold">Diferencias finitas: de derivadas a aritmética</h3>
++          <p className="text-sm text-muted-foreground">
++            El computador no sabe derivar: sabe sumar, multiplicar y guardar números. La idea es reemplazar el dominio
++            continuo por una <strong className="text-foreground">malla</strong> de N puntos separados un paso <M>{`h`}</M>, y
++            aproximar la derivada segunda con valores vecinos. Paso a paso:
++          </p>
++          <ol className="list-decimal space-y-3 pl-5 text-sm">
++            <li>
++              <strong>La malla.</strong> <M>{`x_n = x_0 + n\\,h,\\quad n=0,1,\\dots,N-1`}</M>. La ψ deja de ser una función y pasa a
++              ser una lista de N números <M>{`\\psi_n \\approx \\psi(x_n)`}</M>.
++            </li>
++            <li>
++              <strong>Taylor a ambos lados.</strong> Expandimos ψ en los vecinos del punto n:
++              <MB>{`\\psi(x_n \\pm h) = \\psi_n \\pm h\\,\\psi'_n + \\frac{h^2}{2}\\psi''_n \\pm \\frac{h^3}{6}\\psi'''_n + \\cdots`}</MB>
++            </li>
++            <li>
++              <strong>Sumar las dos cancela lo impar.</strong> Al sumar <M>{`\\psi(x_n+h) + \\psi(x_n-h)`}</M> los términos con
++              signo ± se eliminan entre sí; despejando:
++              <MB>{`\\psi''(x_n) \\approx \\frac{\\psi_{n+1} - 2\\psi_n + \\psi_{n-1}}{h^2}`}</MB>
++              El primer término que descartamos es de orden <M>{`h^2`}</M>: por eso el método tiene error <M>{`O(h^2)`}</M> (lo
++              verificas con números en el laboratorio).
++            </li>
++            <li>
++              <strong>Sustituir en el TISE (con unidades atómicas, ver abajo).</strong> Cada punto de la malla produce UNA
++              ecuación que solo acopla a sus vecinos:
++              <MB>{`-\\frac{1}{2h^2}\\psi_{n-1} + \\left(\\frac{1}{h^2} + V_n\\right)\\psi_n - \\frac{1}{2h^2}\\psi_{n+1} = E\\,\\psi_n`}</MB>
++              Mira los coeficientes: <M>{`1/h^2`}</M> en la diagonal y <M>{`-1/(2h^2)`}</M> en los vecinos. Esos números son
++              exactamente los de <code className="rounded bg-muted px-1.5 py-0.5 text-xs">build_hamiltonian()</code>.
++            </li>
++            <li>
++              <strong>La forma matricial.</strong> N ecuaciones, N incógnitas <M>{`(\\psi_0,\\dots,\\psi_{N-1})`}</M>: un sistema
++              lineal disfrazado de problema de autovalores <M>{`H\\psi = E\\psi`}</M>. Para N=5 se ve así:
++              <MB>{`H = \\begin{pmatrix} \\tfrac{1}{h^2}+V_0 & -\\tfrac{1}{2h^2} & 0 & 0 & 0 \\\\ -\\tfrac{1}{2h^2} & \\tfrac{1}{h^2}+V_1 & -\\tfrac{1}{2h^2} & 0 & 0 \\\\ 0 & -\\tfrac{1}{2h^2} & \\tfrac{1}{h^2}+V_2 & -\\tfrac{1}{2h^2} & 0 \\\\ 0 & 0 & -\\tfrac{1}{2h^2} & \\tfrac{1}{h^2}+V_3 & -\\tfrac{1}{2h^2} \\\\ 0 & 0 & 0 & -\\tfrac{1}{2h^2} & \\tfrac{1}{h^2}+V_4 \\end{pmatrix}`}</MB>
++              Tridiagonal + el potencial pintado en la diagonal. Nada más: toda la física del proyecto cabe en esa matriz.
++            </li>
++          </ol>
++          <Note>
++            <strong>Condiciones de frontera.</strong> <em>Non-periodic</em>: ψ=0 en los bordes (caja lejana: tu caso, la ψ
++            decae exponencialmente antes de llegar). <em>Periodic</em>: el punto N−1 conecta con el 0 (la caja es un anillo)
++            y la matriz gana dos esquinas con valor −1/(2h²). Con tu caja de L=2000 Bohr ambas opciones coinciden a 10⁻¹⁵:
++            la frontera está demasiado lejos para importar. En el laboratorio verás un caso de caja chica donde SÍ importa.
++          </Note>
++        </CardContent>
++      </Card>
++
++      <Card>
++        <CardContent className="p-5 space-y-3">
++          <h3 className="font-semibold">Las unidades: atómicas por dentro, de laboratorio por fuera</h3>
++          <p className="text-sm text-muted-foreground">
++            El paquete trabaja internamente en <strong className="text-foreground">unidades atómicas</strong>: se elige el
++            sistema de unidades donde <M>{`\\hbar = m_e = e = 1`}</M>. Ventajas: la ecuación queda limpia{' '}
++            <M>{`-\\tfrac{1}{2}\\psi'' + V\\psi = E\\psi`}</M> (sin arrastrar constantes) y los números tienen tamaño humano
++            (el fondo de tu pozo es −1.0, no −4.36×10⁻¹⁸ joules).
++          </p>
++          <div className="overflow-x-auto rounded-lg border border-border">
++            <table className="w-full min-w-[480px] text-sm">
++              <thead>
++                <tr className="border-b border-border bg-muted/40 text-left text-xs">
++                  <th className="px-3 py-2 font-medium">Magnitud</th>
++                  <th className="px-3 py-2 font-medium">Unidad atómica</th>
++                  <th className="px-3 py-2 font-medium">En unidades de laboratorio</th>
++                  <th className="px-3 py-2 font-medium">En tu corrida</th>
++                </tr>
++              </thead>
++              <tbody className="tabular-nums">
++                <tr className="border-b border-border/60">
++                  <td className="px-3 py-2">Longitud</td><td className="px-3 py-2">Bohr (a₀)</td>
++                  <td className="px-3 py-2">1 a₀ = 0.529177 Å</td>
++                  <td className="px-3 py-2">pozo en 1000 a₀ = 529 Å</td>
++                </tr>
++                <tr className="border-b border-border/60">
++                  <td className="px-3 py-2">Energía</td><td className="px-3 py-2">Hartree (Eₕ)</td>
++                  <td className="px-3 py-2">1 Eₕ = 27.2114 eV</td>
++                  <td className="px-3 py-2">fondo −1 Eₕ = −27.2 eV</td>
++                </tr>
++                <tr>
++                  <td className="px-3 py-2">Función de onda</td><td className="px-3 py-2">a₀⁻¹ᐟ²</td>
++                  <td className="px-3 py-2">se divide entre √0.529177</td>
++                  <td className="px-3 py-2">ψ no se “ve” en unidades: se escala al graficar</td>
++                </tr>
++              </tbody>
++            </table>
++          </div>
++          <Note>
++            <strong>El contrato de unidades del paquete.</strong> Un .pickle guarda NÚMEROS, no unidades. Por eso el loader
++            te obliga a declararlas: <code className="rounded bg-muted px-1.5 py-0.5 text-xs">load(file, unit_x='Bohr', unit_v='Hartree')</code>.
++            A partir de ahí, Potential convierte todo a atómicas y el resto del paquete nunca más piensa en unidades…
++            hasta el momento de reportar, donde TISEResult fabrica las gemelas en eV/Å. Olvidar la declaración = tu bug
++            de 27.2× (sección “Tu corrida”).
++          </Note>
++        </CardContent>
++      </Card>
++    </section>
++  )
++}
++
++// ============================================================
++// S3 · DE LA FÍSICA AL COMPUTADOR
++// ============================================================
++function AlComputador() {
++  const chain = [
++    { t: 'PicklePotentialLoader', f: 'potential.py', d: 'Lee Vsoft.pickle → lista [h, V] → malla reconstruida' },
++    { t: 'Potential', f: 'potential.py', d: 'Guarda x, V, h, L — SIEMPRE en Bohr/Hartree' },
++    { t: 'TISESolver', f: 'solver.py', d: 'build_hamiltonian() fabrica la matriz; solve() diagonaliza' },
++    { t: 'TISEResult', f: 'solver.py', d: 'Empaqueta energías + ψ, con gemelas atómicas y eV/Å' },
++    { t: 'TISEVisualizer', f: 'visualizer.py', d: 'Convierte el paquete en la figura (fig, ax)' },
++  ]
++  return (
++    <section id="computador" className="scroll-mt-28 space-y-5">
++      <SectionTitle icon={Cpu} kicker="Parte 2" title="De la física al computador: qué pasa tras bastidores" />
++
++      <div className="grid gap-4 md:grid-cols-2">
++        <Card>
++          <CardContent className="p-5 space-y-2">
++            <h3 className="font-semibold">¿Qué es una clase? (tu primer contacto)</h3>
++            <p className="text-sm text-muted-foreground">
++              Una clase es un <strong className="text-foreground">molde</strong> que agrupa datos y funciones en una sola
++              caja. Al “rellenar” el molde se crea un <strong className="text-foreground">objeto</strong>. Los datos de
++              dentro se llaman <em>atributos</em>; las funciones, <em>métodos</em>. La palabra <code className="rounded bg-muted px-1 text-xs">self</code> significa
++              “este objeto concreto”: <code className="rounded bg-muted px-1 text-xs">self.h</code> es “el h de ESTE potencial”.
++            </p>
++            <p className="text-sm text-muted-foreground">
++              En intro viste funciones que reciben datos y devuelven resultados. Una clase es el siguiente nivel: los datos
++              viven DENTRO del objeto y los métodos los usan sin que tengas que pasarlos uno por uno. Tu potential tiene
++              40000 valores de V: en vez de arrastrar esa lista por todas tus funciones, vive dentro del objeto y cualquier
++              método accede con <code className="rounded bg-muted px-1 text-xs">self.v</code>.
++            </p>
++          </CardContent>
++        </Card>
++        <Card>
++          <CardContent className="p-5 space-y-2">
++            <h3 className="font-semibold">¿Por qué 5 clases y no un solo script?</h3>
++            <p className="text-sm text-muted-foreground">
++              Porque cada clase tiene UN trabajo y se puede probar/cambiar sin tocar las demás: leer archivos (Loader),
++              guardar el pozo (Potential), hacer física (Solver), empaquetar resultados (Result), dibujar (Visualizer).
++              Cuando cambió el formato del pickle, solo tocaste el Loader. Cuando quieras otra gráfica, solo el
++              Visualizer. Eso es “arquitectura”: separar responsabilidades.
++            </p>
++            <p className="text-sm text-muted-foreground">
++              Y el <strong className="text-foreground">paquete</strong> (carpeta con <code className="rounded bg-muted px-1 text-xs">__init__.py</code>)
++              existe para que el uso sea limpio: <code className="rounded bg-muted px-1 text-xs">from tise_solver import TISESolver</code> en
++              vez de rutas de archivo. El <code className="rounded bg-muted px-1 text-xs">__init__.py</code> es el “vestíbulo” que
++              decide qué se exporta.
++            </p>
++          </CardContent>
++        </Card>
++      </div>
++
++      <Card>
++        <CardContent className="p-5">
++          <h3 className="mb-3 font-semibold">La cadena de objetos (así fluye tu corrida)</h3>
++          <div className="flex flex-col items-stretch gap-1.5 lg:flex-row lg:items-center">
++            {chain.map((c, i) => (
++              <div key={c.t} className="flex flex-1 flex-col items-stretch gap-1.5 lg:flex-row lg:items-center">
++                <div className="flex-1 rounded-lg border border-border bg-muted/30 px-3 py-2">
++                  <div className="text-sm font-semibold">{c.t}</div>
++                  <Badge variant="outline" className="mt-0.5 font-mono text-[10px]">{c.f}</Badge>
++                  <p className="mt-1 text-xs text-muted-foreground">{c.d}</p>
++                </div>
++                {i < chain.length - 1 && <ArrowRight className="mx-auto h-4 w-4 shrink-0 rotate-90 text-muted-foreground lg:rotate-0" />}
++              </div>
++            ))}
++          </div>
++          <p className="mt-3 text-xs text-muted-foreground">
++            Detalle que te costó 5 minutos: <code className="rounded bg-muted px-1">solve()</code> <strong>devuelve</strong> el
++            TISEResult, no lo guarda en el solver. Si no escribes <code className="rounded bg-muted px-1">result = solver.solve(...)</code>,
++            el objeto se pierde (y vars(solver) solo muestra {'{potential, mode}'}).
++          </p>
++        </CardContent>
++      </Card>
++
++      <Card>
++        <CardContent className="p-5 space-y-3">
++          <h3 className="font-semibold">¿Qué hace <code className="rounded bg-muted px-1.5 py-0.5 text-sm">eigh</code> por dentro, y por qué tarda?</h3>
++          <p className="text-sm text-muted-foreground">
++            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">eigh</code> es el diagonalizador de matrices simétricas de
++            scipy; por dentro llama a <strong className="text-foreground">LAPACK</strong>, una librería en Fortran con 50 años
++            de optimización (¡ni tú ni nadie escribiría eso a mano!). Su estrategia: (1) reducir H a forma tridiagonal con
++            reflexiones de Householder (~4/3·N³ operaciones, inevitable) y (2) extraer autovalores/autovectores. Con{' '}
++            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">subset_by_index=[0, 4]</code> usa el driver{' '}
++            <strong className="text-foreground">dsyevr</strong>, que calcula SOLO los 5 más bajos: 3-4× menos trabajo que el
++            eigh completo. Coste total <M>{`O(N^3)`}</M>, y eso lo mediste:
++          </p>
++          <div className="grid grid-cols-3 gap-2 text-center text-xs">
++            {[
++              ['N=2000', '0.52 s', ''],
++              ['N=4000', '4.14 s', '×8'],
++              ['N=8000', '32.0 s', '×8'],
++            ].map(([n, t, r]) => (
++              <div key={n} className="rounded-lg border border-border p-3">
++                <div className="text-muted-foreground">{n}</div>
++                <div className="text-lg font-bold tabular-nums">{t}</div>
++                {r && <Badge variant="secondary" className="mt-0.5">{r} por duplicar N (2³=8)</Badge>}
++              </div>
++            ))}
++          </div>
++          <p className="text-sm text-muted-foreground">
++            La RAM: H es N×N números de 8 bytes → <strong className="text-foreground">N²·8 bytes</strong>. N=20000 → 3.2 GB;
++            como eigh copia la matriz, el pico ronda el doble (~6.5 GB): por eso tu 16 GB aguantaron N=20000 pero N=40000
++            (12.8 GB → pico ~25 GB) habría entrado en swapping (RAM llena → el SO usa el disco → todo se congela).
++          </p>
++          <Note>
++            <strong>Dato de nivel (por si el profesor pregunta):</strong> como nuestra H es tridiagonal, existen algoritmos
++            especializados en O(N) (bisección de Sturm + iteración inversa) — son los que usa el laboratorio de esta página
++            para resolver N=20000 en milisegundos. eigh es más lento, pero sirve para CUALQUIER matriz simétrica: el
++            compromiso generalidad vs velocidad. scipy incluso trae <code className="rounded bg-muted px-1 text-xs">eigh_tridiagonal</code> para
++            el caso especializado.
++          </Note>
++        </CardContent>
++      </Card>
++    </section>
++  )
++}
++
++// ============================================================
++// S4 · CÓDIGO LÍNEA POR LÍNEA
++// ============================================================
++function CodeViewer({ file }: { file: CodeFile }) {
++  const [sel, setSel] = useState<number | null>(null)
++  const [block, setBlock] = useState<number | null>(null)
++
++  const KW = /^(import|from|class|def|return|for|if|else|elif|with|raise)\b/
++  const inBlock = (i: number) => block !== null && i >= file.blocks[block].from && i <= file.blocks[block].to
++  const noteLine = sel !== null ? file.lines[sel - 1] : null
++
++  const renderCode = (text: string) => {
++    if (!text) return null
++    const trimmed = text.trimStart()
++    if (trimmed.startsWith('#')) {
++      return <span className="text-emerald-600 dark:text-emerald-400">{text}</span>
++    }
++    const m = text.match(/^(\s*)([A-Za-z_@][\w.]*)/)
++    if (m && (KW.test(text.trimStart()) || m[2] === '@classmethod' || m[2] === '__all__')) {
++      return (
++        <>
++          <span>{m[1]}</span>
++          <span className="font-semibold text-violet-600 dark:text-violet-400">{m[2]}</span>
++          <span>{text.slice(m[0].length)}</span>
++        </>
++      )
++    }
++    return <span>{text}</span>
++  }
++
++  return (
++    <div className="space-y-3">
++      <p className="text-sm text-muted-foreground">{file.intro}</p>
++
++      <div className="flex flex-wrap gap-1.5">
++        <span className="mr-1 self-center text-xs font-medium text-muted-foreground">Bloques:</span>
++        {file.blocks.map((b, i) => (
++          <button
++            key={i}
++            type="button"
++            onClick={() => { setBlock(block === i ? null : i); setSel(null) }}
++            className={cn(
++              'rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
++              block === i
++                ? 'border-teal-500 bg-teal-500/10 text-teal-700 dark:text-teal-300'
++                : 'border-border text-muted-foreground hover:bg-muted hover:text-foreground'
++            )}
++          >
++            {b.label}
++          </button>
++        ))}
++      </div>
++
++      <div className="grid gap-3 xl:grid-cols-[1fr_320px]">
++        <div className="overflow-hidden rounded-lg border border-border bg-muted/30">
++          <div className="max-h-[560px] overflow-y-auto">
++            <table className="w-full border-collapse font-mono text-[12.5px] leading-6">
++              <tbody>
++                {file.lines.map((ln, idx) => {
++                  const n1 = idx + 1
++                  const active = sel === n1 || inBlock(n1)
++                  return (
++                    <tr
++                      key={idx}
++                      id={`code-line-${file.id}-${n1}`}
++                      onClick={() => {
++                        if (!ln.n) return
++                        setSel(sel === n1 ? null : n1)
++                        requestAnimationFrame(() => document.getElementById(`code-line-${file.id}-${n1}`)?.scrollIntoView({ block: 'nearest' }))
++                      }}
++                      className={cn(
++                        'cursor-default border-b border-border/30 last:border-0',
++                        ln.n && 'cursor-pointer hover:bg-muted/60',
++                        active && 'bg-teal-500/10',
++                        ln.k && !active && 'bg-amber-500/[0.06]'
++                      )}
++                    >
++                      <td className="w-10 select-none border-r border-border/40 px-2 text-right align-top text-[11px] text-muted-foreground/70 tabular-nums">
++                        {n1}
++                      </td>
++                      <td className="px-3 whitespace-pre align-top">
++                        {renderCode(ln.c)}
++                        {ln.k && <Star className="mb-0.5 ml-1.5 inline h-3 w-3 fill-amber-400 text-amber-400" aria-label="línea clave" />}
++                      </td>
++                    </tr>
++                  )
++                })}
++              </tbody>
++            </table>
++          </div>
++          <div className="flex items-center gap-3 border-t border-border bg-background/60 px-3 py-1.5 text-[11px] text-muted-foreground">
++            <span className="flex items-center gap-1"><Star className="h-3 w-3 fill-amber-400 text-amber-400" /> línea clave</span>
++            <span className="flex items-center gap-1"><MousePointerClick className="h-3 w-3" /> clic en una línea para ver su explicación</span>
++          </div>
++        </div>
++
++        <div className="xl:sticky xl:top-32 xl:self-start">
++          <Card className="min-h-[180px]">
++            <CardContent className="p-4">
++              {block !== null && !sel && (
++                <div>
++                  <Badge className="mb-2">Bloque: {file.blocks[block].label}</Badge>
++                  <p className="text-sm text-muted-foreground">{file.blocks[block].note}</p>
++                </div>
++              )}
++              {sel !== null && noteLine?.n && (
++                <div>
++                  <div className="mb-2 flex items-center gap-2">
++                    <Badge>Línea {sel}</Badge>
++                    {noteLine.k && <Badge variant="outline" className="border-amber-400/60 text-amber-600 dark:text-amber-400">clave</Badge>}
++                  </div>
++                  <pre className="mb-2 overflow-x-auto rounded bg-muted/60 p-2 font-mono text-[11.5px]">{noteLine.c || '(línea en blanco)'}</pre>
++                  <p className="text-sm text-muted-foreground">{noteLine.n}</p>
++                </div>
++              )}
++              {sel === null && block === null && (
++                <div className="flex h-full min-h-[140px] flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
++                  <MousePointerClick className="h-5 w-5" />
++                  Clic en cualquier línea del código (o en un bloque) y su explicación aparece aquí.
++                </div>
++              )}
++            </CardContent>
++          </Card>
++        </div>
++      </div>
++    </div>
++  )
++}
++
++function CodigoLineaALinea() {
++  return (
++    <section id="codigo" className="scroll-mt-28 space-y-5">
++      <SectionTitle icon={Code2} kicker="Parte 3" title="El código, línea por línea" />
++      <p className="max-w-3xl text-sm text-muted-foreground">
++        Aquí está tu paquete EXACTO (los mismos bytes que hay en el repo), con una explicación por línea. Las líneas con
++        ★ son las que sostienen todo: si dominas esas 15, dominas el proyecto. Empieza por <strong>solver.py</strong> si
++        vas justo de tiempo: es donde vive la física.
++      </p>
++      <Tabs defaultValue="solver">
++        <TabsList className="flex flex-wrap">
++          {TISE_FILES.map((f) => (
++            <TabsTrigger key={f.id} value={f.id} className="font-mono text-xs">
++              {f.path.split('/').pop()}
++              <span className="ml-1.5 text-[10px] text-muted-foreground">{f.lines.filter((l) => l.n).length} notas</span>
++            </TabsTrigger>
++          ))}
++        </TabsList>
++        {TISE_FILES.map((f) => (
++          <TabsContent key={f.id} value={f.id}>
++            <CodeViewer file={f} />
++          </TabsContent>
++        ))}
++      </Tabs>
++    </section>
++  )
++}
++
++// ============================================================
++// S5 · LABORATORIO
++// ============================================================
++function Laboratorio() {
++  return (
++    <section id="laboratorio" className="scroll-mt-28 space-y-5">
++      <SectionTitle icon={FlaskConical} kicker="Parte 4" title="Laboratorio interactivo" />
++      <p className="max-w-3xl text-sm text-muted-foreground">
++        Estas demos ejecutan en tu navegador el MISMO método que tu paquete (construir la matriz de diferencias finitas y
++        resolverla), usando un algoritmo especializado para matrices tridiagonales. El potencial es el tuyo:{' '}
++        <M>{`V(x) = -1/\\sqrt{(x-x_0)^2 + 1}`}</M> — verificamos que tu Vsoft.pickle es exactamente esa Coulomb suavizada,
++        solo que centrada en x₀=1000 Bohr; aquí está centrada en 0 (invariancia traslacional: mismas energías).
++      </p>
++
++      <Card>
++        <CardContent className="p-5">
++          <h3 className="mb-1 font-semibold">① Explorador del pozo — las ψ calculadas en vivo</h3>
++          <p className="mb-4 text-xs text-muted-foreground">
++            Mueve N y mira cómo se refinan las ψ y cómo baja el error de E₀. Con N=20000 estás reproduciendo tu corrida real.
++          </p>
++          <PozoExplorer />
++        </CardContent>
++      </Card>
++
++      <Card>
++        <CardContent className="p-5">
++          <h3 className="mb-1 font-semibold">② Anatomía de la matriz H</h3>
++          <p className="mb-4 text-xs text-muted-foreground">
++            La estructura que construye build_hamiltonian(): diagonal, vecinos y (si activas el modo periódico) esquinas.
++          </p>
++          <MatrizH />
++        </CardContent>
++      </Card>
++
++      <Card>
++        <CardContent className="p-5">
++          <h3 className="mb-1 font-semibold">③ Convergencia: el error O(h²), medido</h3>
++          <p className="mb-4 text-xs text-muted-foreground">
++            Duplicar N divide el error entre 4. La tabla lo muestra con números; el gráfico log-log muestra la pendiente 2 (error ∝ h²).
++          </p>
++          <ConvergenciaLab />
++        </CardContent>
++      </Card>
++
++      <Card>
++        <CardContent className="p-5">
++          <h3 className="mb-1 font-semibold">④ Unidades: convertidor + el simulador del bug</h3>
++          <p className="mb-4 text-xs text-muted-foreground">
++            El mismo archivo interpretado de dos formas, con tus energías reales de ambas corridas.
++          </p>
++          <UnidadesLab />
++        </CardContent>
++      </Card>
++    </section>
++  )
++}
++
++// ============================================================
++// S6 · TU CORRIDA REAL
++// ============================================================
++function TuCorrida() {
++  const timeline = [
++    {
++      icon: AlertTriangle,
++      tone: 'rose' as const,
++      t: '1 · La carga silenciosa (el bug)',
++      d: "load('Vsoft.pickle') sin declarar unidades → defaults Angstrom/eV. El programa NO se quejó: convirtió números que ya estaban en Bohr/Hartree como si fueran Å/eV. Resultado: pozo 27.2× menos profundo, espectro [−0.4165, −0.0608, −0.0323, −0.0158, −0.0111] eV. Cero errores en pantalla: ese es el peligro de los bugs de unidades.",
++    },
++    {
++      icon: BookOpen,
++      tone: 'amber' as const,
++      t: '2 · Las pistas (diagnóstico sin tocar código)',
++      d: 'La gráfica delataba: fondo −1.0 sobre un eje rotulado “eV” (imposible: debería verse −27.2), pozo centrado en x=1000 “Å” (eran Bohr → 529 Å), y un espectro demasiado alto para un pozo tan profundo.',
++    },
++    {
++      icon: CheckCircle2,
++      tone: 'emerald' as const,
++      t: "3 · La corrección (5 segundos)",
++      d: "load(..., unit_x='Bohr', unit_v='Hartree') y verificación con vars(potential): x llega a 2000 Bohr ✓, v mínima −1.0 Hartree ✓. Chequear unidades ANTES de resolver cuesta 5 segundos y ahorra corridas de 5 minutos.",
++    },
++    {
++      icon: HardDrive,
++      tone: 'teal' as const,
++      t: '4 · La decisión de memoria',
++      d: 'N=40000 → matriz de 12.8 GB (N²·8 bytes): justo al límite de tus 16 GB con eigh copiando. interpolate(new_h=0.1) re-muestrea a N=20000 → 3.2 GB, pico ~6.5 GB: cómodo. Coste consciente: error O(h²) algo mayor (~0.002 eV).',
++    },
++    {
++      icon: Timer,
++      tone: 'teal' as const,
++      t: '5 · La espera y sus sustos',
++      d: "mode='non.periodic' → ValueError inmediato (¡tu validación funcionó!). solve() sin asignar → resultado perdido y re-corrida. TISEVisualizer(solver) → AttributeError: le faltaba el result. Tres errores clásicos, cada uno con su lección.",
++    },
++    {
++      icon: CheckCircle2,
++      tone: 'emerald' as const,
++      t: '6 · El resultado final (verificado)',
++      d: 'Energías [−18.22780701, −7.48265358, −4.12300337, −2.52300587, −1.72934454] eV: coinciden decimal por decimal con una predicción independiente hecha antes de tu corrida. Figure_1.png: pozo en 529 Å, fondo −27.2 eV, 5 estados ligados con 0..4 nodos.',
++    },
++  ]
++  const tones = {
++    rose: 'border-rose-500/40 bg-rose-500/5 text-rose-600 dark:text-rose-400',
++    amber: 'border-amber-500/40 bg-amber-500/5 text-amber-600 dark:text-amber-400',
++    emerald: 'border-emerald-500/40 bg-emerald-500/5 text-emerald-600 dark:text-emerald-400',
++    teal: 'border-teal-500/40 bg-teal-500/5 text-teal-600 dark:text-teal-400',
++  }
++  return (
++    <section id="corrida" className="scroll-mt-28 space-y-5">
++      <SectionTitle icon={History} kicker="Parte 5" title="Tu corrida real: la historia completa" />
++      <div className="space-y-3">
++        {timeline.map((s) => (
++          <Card key={s.t}>
++            <CardContent className="flex gap-3 p-4">
++              <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border', tones[s.tone])}>
++                <s.icon className="h-4.5 w-4.5" />
++              </div>
++              <div>
++                <div className="text-sm font-semibold">{s.t}</div>
++                <p className="mt-1 text-sm text-muted-foreground">{s.d}</p>
++              </div>
++            </CardContent>
++          </Card>
++        ))}
++      </div>
++    </section>
++  )
++}
++
++// ============================================================
++// S7 · PREPÁRATE (quiz + chuleta)
++// ============================================================
++function Quiz() {
++  const [answers, setAnswers] = useState<Record<number, number>>({})
++  const answered = Object.keys(answers).length
++  const score = QUIZ.reduce((acc, q, i) => acc + (answers[i] === q.correct ? 1 : 0), 0)
++
++  return (
++    <Card>
++      <CardContent className="p-5">
++        <div className="mb-3 flex items-center justify-between">
++          <h3 className="font-semibold">Autoevaluación (8 preguntas)</h3>
++          <Badge variant={answered === QUIZ.length ? 'default' : 'secondary'} className="tabular-nums">
++            {score}/{QUIZ.length} · {answered}/{QUIZ.length} respondidas
++          </Badge>
++        </div>
++        <div className="space-y-4">
++          {QUIZ.map((q, qi) => {
++            const picked = answers[qi]
++            const done = picked !== undefined
++            return (
++              <div key={qi} className="rounded-lg border border-border p-3">
++                <div className="text-sm font-medium">{qi + 1}. {q.q}</div>
++                <div className="mt-2 grid gap-1.5">
++                  {q.options.map((opt, oi) => {
++                    const isPicked = done && picked === oi
++                    const isCorrect = oi === q.correct
++                    return (
++                      <button
++                        key={oi}
++                        type="button"
++                        disabled={done}
++                        onClick={() => setAnswers((a) => ({ ...a, [qi]: oi }))}
++                        className={cn(
++                          'flex items-start gap-2 rounded-md border px-3 py-2 text-left text-sm transition-colors',
++                          !done && 'border-border hover:border-teal-500/50 hover:bg-teal-500/5',
++                          done && isCorrect && 'border-emerald-500/60 bg-emerald-500/10',
++                          done && isPicked && !isCorrect && 'border-rose-500/60 bg-rose-500/10',
++                          done && !isPicked && !isCorrect && 'border-border opacity-50'
++                        )}
++                      >
++                        <span className="mt-0.5">
++                          {done && isCorrect ? (
++                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
++                          ) : done && isPicked ? (
++                            <AlertTriangle className="h-4 w-4 text-rose-500" />
++                          ) : (
++                            <span className="block h-4 w-4 rounded-full border border-border" />
++                          )}
++                        </span>
++                        <span>{opt}</span>
++                      </button>
++                    )
++                  })}
++                </div>
++                {done && (
++                  <p className="mt-2 rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
++                    <strong className="text-foreground">{picked === q.correct ? '✓ Correcto. ' : '✗ Casi. '}</strong>
++                    {q.why}
++                  </p>
++                )}
++              </div>
++            )
++          })}
++        </div>
++        {answered === QUIZ.length && (
++          <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
++            <span className="text-sm font-medium">
++              {score === QUIZ.length ? '🏆 8/8: listo para el profesor Pro.' : `Resultado: ${score}/${QUIZ}. Repasa las notas de las preguntas falladas.`}
++            </span>
++            <Button variant="outline" size="sm" onClick={() => setAnswers({})}>Reintentar</Button>
++          </div>
++        )}
++      </CardContent>
++    </Card>
++  )
++}
++
++function Preparate() {
++  return (
++    <section id="prep" className="scroll-mt-28 space-y-5">
++      <SectionTitle icon={GraduationCap} kicker="Parte 6" title="Prepárate para la presentación" />
++
++      <Card>
++        <CardContent className="p-5">
++          <h3 className="mb-2 font-semibold">Guion de 60 segundos (por si te piden “cuéntame qué hace”)</h3>
++          <ol className="list-decimal space-y-1.5 pl-5 text-sm text-muted-foreground">
++            <li>“Resolví la ecuación de Schrödinger independiente del tiempo en 1D para un pozo sin solución analítica.”</li>
++            <li>“Discreticé el dominio en N=20000 puntos y aproximé ψ″ con diferencias finitas de 3 puntos, que da error O(h²).”</li>
++            <li>“Eso convierte el TISE en un sistema lineal H·ψ = E·ψ: H es tridiagonal con 1/h²+Vₙ en la diagonal y −1/(2h²) en los vecinos.”</li>
++            <li>“Trabajé en unidades atómicas (ħ=m=e=1): el código queda limpio y los números, de tamaño humano; reporto en eV y Å con factores 27.2114 y 0.529177.”</li>
++            <li>“Diagonalicé con eigh de LAPACK pidiendo solo los 5 autovalores más bajos: O(N³), por eso mis cálculos de RAM (N²·8 bytes = 3.2 GB) y de tiempo.”</li>
++            <li>“El paquete separa responsabilidades en 5 clases: leer, guardar el pozo, resolver, empaquetar y dibujar — y valida unidades y modos para fallar temprano.”</li>
++          </ol>
++        </CardContent>
++      </Card>
++
++      <Quiz />
++
++      <Card>
++        <CardContent className="p-5">
++          <h3 className="mb-1 flex items-center gap-2 font-semibold"><ListChecks className="h-4 w-4" /> Chuleta: posibles preguntas del profesor</h3>
++          <p className="mb-3 text-xs text-muted-foreground">Respuestas cortas, listas para decir. Cada una ya está desarrollada en las secciones de arriba.</p>
++          <Accordion type="single" collapsible>
++            {CHEAT.map((c, i) => (
++              <AccordionItem key={i} value={`c${i}`}>
++                <AccordionTrigger className="text-left text-sm">{c.q}</AccordionTrigger>
++                <AccordionContent className="text-sm text-muted-foreground">{c.a}</AccordionContent>
++              </AccordionItem>
++            ))}
++          </Accordion>
++        </CardContent>
++      </Card>
++    </section>
++  )
++}
+diff --git a/src/data/tise-notes.ts b/src/data/tise-notes.ts
+new file mode 100644
+index 0000000..2c6b188
+--- /dev/null
++++ b/src/data/tise-notes.ts
+@@ -0,0 +1,504 @@
++// Datos pedagógicos: código real de tise_solver (copia exacta del repo)
++// con una nota explicativa por línea + bloques, quiz y chuleta para la presentación.
++
++export type CodeLine = { c: string; n?: string; k?: boolean }
++export type CodeBlock = { label: string; from: number; to: number; note: string }
++export type CodeFile = {
++  id: string
++  path: string
++  intro: string
++  blocks: CodeBlock[]
++  lines: CodeLine[]
++}
++
++export const TISE_FILES: CodeFile[] = [
++  {
++    id: 'potential',
++    path: 'tise_solver/potential.py',
++    intro:
++      'Este archivo responde: ¿qué es un pozo de potencial para el programa? Un Potential es un objeto que guarda la malla de puntos x, el valor V en cada punto, el paso h y la longitud L. La regla de oro del archivo: DENTRO del programa todo vive en unidades atómicas (Bohr y Hartree); lo que venga en otras unidades se convierte justo al entrar. Así el solver nunca tiene que preocuparse por unidades.',
++    blocks: [
++      {
++        label: 'Imports y constantes',
++        from: 1,
++        to: 7,
++        note: 'Se cargan las herramientas (pickle para leer el archivo, numpy para arreglos, CubicSpline para re-muestrear) y se definen las DOS constantes de conversión que usa todo el paquete. Van aquí porque potential.py es el módulo "dueño" de las unidades: solver.py las reutiliza de aquí (from .potential import ...).',
++      },
++      {
++        label: 'Validación de entrada',
++        from: 10,
++        to: 18,
++        note: 'Antes de trabajar, el constructor revisa que lo que le pasaron tenga sentido: arreglos de una dimensión y de la misma longitud (cada x debe tener su V). Si algo está mal, lanza un ValueError con un mensaje claro. Esto es lo que te protegió cuando escribiste mode="non.periodic": los errores se detectan temprano y con mensaje, no con un resultado silenciosamente absurdo.',
++      },
++      {
++        label: 'Conversión a unidades atómicas',
++        from: 20,
++        to: 40,
++        note: 'El corazón de la gestión de unidades. El objeto recuerda en qué unidades le hablaron (unit_x, unit_v, solo como metadato) y CONVIERTE a atómicas al guardar: x siempre queda en Bohr y V siempre en Hartree, sin importar lo que dijiste al cargar. De aquí salen también h (el paso de malla, x[1]-x[0]) y L (la longitud de la caja, N·h). Como todo lo interno está en Bohr/Hartree, el solver puede usar las fórmulas limpias ħ=m=e=1.',
++      },
++      {
++        label: 'interpolate: re-muestrear la malla',
++        from: 42,
++        to: 58,
++        note: 'Construye una NUEVA malla con otro paso h sin tocar el original. Conecta los puntos viejos con una curva suave (spline cúbico: en cada tramo usa un polinomio de grado 3 cuyas pendientes empalman suavemente) y la evalúa en los puntos nuevos. Fíjate en el detalle: primero convierte new_h a unidades atómicas si hablaste en Å, y al final devuelve un Potential NUEVO ya etiquetado como Bohr/Hartree. Cuando llamaste potential.interpolate(new_h=0.1) sobre una malla de h=0.05, new_h fue MÁS GRANDE que el original: por eso el re-muestreo REDUJO los puntos de 40000 a 20000 (menos resolución, pero N=20000 sigue siendo excelente y bajaste de 12.8 GB a 3.2 GB de matriz).',
++      },
++      {
++        label: 'PicklePotentialLoader',
++        from: 60,
++        to: 75,
++        note: 'Lee el archivo .pickle y fabrica el Potential. pickle.load reconstruye el objeto Python que haya guardado. El puente de las líneas 65-66 existe porque Vsoft.pickle llegó a existir en dos formatos (diccionario y lista): si trae un dict {"h":..., "V":...} se convierte a lista [h, V]. Detalle CRÍTICO de las líneas 72-73: el pickle guarda h y los valores de V, pero NO las coordenadas x (serían 40000 números redundantes); el loader las reconstruye asumiendo que la malla empieza en 0: x_n = n·h. Y el detalle que te costó una corrida: si NO dices unit_x/unit_v, los defaults son Angstrom/eV... y tu archivo estaba en Bohr/Hartree.',
++      },
++    ],
++    lines: [
++      { c: 'import pickle', n: 'Trae el módulo estándar para leer/escribir archivos .pickle: objetos de Python "congelados" en disco. pickle.load los reconstruye tal cual eran.' },
++      { c: 'import numpy as np', n: 'numpy: la librería de arreglos numéricos. Un arreglo ocupa memoria continua y permite operaciones con TODOS sus elementos a la vez (x_grid / 0.529... divide el arreglo entero en una línea). El apodo np es convención universal.' },
++      { c: 'from scipy.interpolate import CubicSpline', n: 'De scipy (computo científico) importa solo la clase CubicSpline: una curva hecha de polinomios de grado 3 empalmados, que pasa EXACTAMENTE por tus puntos. La usaremos para re-muestrear V a otro paso de malla.' },
++      { c: '' },
++      { c: '# Factores de conversión a unidades atómicas (Bohr y Hartree)', n: 'Comentario de intención: estas dos constantes son el "diccionario" entre el mundo físico (Å, eV) y el mundo interno (Bohr, Hartree).', k: true },
++      { c: 'BOHR_TO_ANGSTROM = 0.52917721092', n: '¿Cuántos Å mide 1 Bohr? 0.5292 Å. El Bohr (a₀) es la unidad de longitud atómica: el radio de la órbita de Bohr del hidrógeno. El nombre en MAYÚSCULAS señala que es una constante que nadie debe reasignar.', k: true },
++      { c: 'HARTREE_TO_EV = 27.211386245988', n: '¿Cuántos eV hay en 1 Hartree? 27.2114 eV. El Hartree (Eₕ = mₑe⁴/ħ² ≈ 2 Ry) es la unidad de energía atómica. Recuerda estos dos números: son la razón exacta de tu bug de unidades (27.2× de profundidad).', k: true },
++      { c: '' },
++      { c: '' },
++      { c: 'class Potential:', n: 'Define la clase Potential. Una clase es un MOLDE que agrupa datos (atributos) y funciones (métodos) bajo un mismo nombre. Potential NO calcula nada: es el contenedor ordenado de "un pozo": su malla, sus valores, su h y su L.', k: true },
++      { c: "    def __init__(self, x_grid, v_values, unit_x='Angstrom', unit_v='eV'):", n: "El constructor: se ejecuta automáticamente al hacer Potential(x, v). self es el objeto que se está creando; x_grid y v_values son los datos; unit_x/unit_v tienen valores por defecto ('Angstrom', 'eV') = si no dices nada, ASUME esas unidades. Ese default bienintencionado fue la semilla de tu bug.", k: true },
++      { c: '        x_grid = np.asarray(x_grid, dtype=float)', n: 'Convierte lo que llegue (lista de Python, tupla, arreglo) a un arreglo numpy de floats. Así el resto del código puede confiar en el tipo.' },
++      { c: '        v_values = np.asarray(v_values, dtype=float)', n: 'Ídem para los valores del potencial.' },
++      { c: '' },
++      { c: '        if x_grid.ndim != 1 or v_values.ndim != 1:', n: 'Primera guardiana: ¿los arreglos son de UNA dimensión (una línea de puntos)? .ndim es el número de dimensiones.' },
++      { c: '            raise ValueError("x_grid y v_values deben ser arreglos 1D.")', n: 'Si no, se aborta con un error claro. Mejor fallar aquí con mensaje que producir basura silenciosa después.' },
++      { c: '        if len(x_grid) != len(v_values):', n: 'Segunda guardiana: ¿hay el mismo número de x que de V? Cada punto necesita su valor.' },
++      { c: '            raise ValueError("x_grid y v_values deben tener la misma longitud.")', n: 'Mensaje explícito del porqué. Tus dos guardianas: validación temprana + mensajes útiles.' },
++      { c: '' },
++      { c: '        self.unit_x = unit_x', n: 'Guarda en el objeto qué unidades DIJO el usuario. Nota: esto no transforma nada, solo es una etiqueta (metadato) que interpolate usará después.' },
++      { c: '        self.unit_v = unit_v', n: 'Ídem para la unidad del potencial.' },
++      { c: '' },
++      { c: '        # Conversión interna a unidades atómicas', n: 'A partir de aquí, la regla del archivo: hacia adentro todo se traduce a Bohr/Hartree.', k: true },
++      { c: "        if unit_x == 'Angstrom':", n: 'Si la malla vino en Å...' },
++      { c: '            self.x = x_grid / BOHR_TO_ANGSTROM', n: '...se convierte a Bohr DIVIDIENDO entre 0.529177 (dividir entre "cuántos Å hay por Bohr"). numpy divide TODO el arreglo en una sola operación (vectorización): 40000 divisiones sin un solo for.' },
++      { c: "        elif unit_x == 'Bohr':", n: 'Si ya vino en Bohr...' },
++      { c: '            self.x = x_grid.copy()', n: '...se copia tal cual. El .copy() evita que el objeto comparta memoria con el arreglo externo (si alguien lo modifica afuera, el Potential no se entera ni al revés).' },
++      { c: '        else:', n: 'Cualquier otra unidad...' },
++      { c: '            raise ValueError("Unidad de x no válida.")', n: '...se rechaza. El paquete no adivina unidades: o le dices Å o Bohr, o no juega. Esta exigencia explícita es la lección del bug.', k: true },
++      { c: '' },
++      { c: "        if unit_v == 'eV':", n: 'Misma historia para la energía...' },
++      { c: '            self.v = v_values / HARTREE_TO_EV', n: '...eV → Hartree dividiendo entre 27.2114. UNA división vectorizada sobre los 40000 valores.' },
++      { c: "        elif unit_v == 'Hartree':", n: 'Si ya es Hartree...' },
++      { c: '            self.v = v_values.copy()', n: '...se copia tal cual.' },
++      { c: '        else:', n: 'Otra unidad...' },
++      { c: '            raise ValueError("Unidad de V no válida.")', n: '...rechazo con mensaje. Inconsistencia imposible: dentro del objeto, V SIEMPRE es Hartree.', k: true },
++      { c: '' },
++      { c: '        # Paso de malla y longitud de celda en unidades atómicas', n: 'Dos cantidades derivadas que el solver necesita constantemente.' },
++      { c: '        self.h = self.x[1] - self.x[0] if len(self.x) > 1 else 1.0', n: 'El paso de malla h = distancia entre los dos primeros puntos (aquí 0.05 Bohr). Es un "if en una línea": si hay 2+ puntos, h = x[1]-x[0]; si hay uno solo, h=1.0 (valor falso pero evita dividir entre cero después).', k: true },
++      { c: '        self.L = len(self.x) * self.h', n: 'Longitud de la caja: L = N·h (40000 × 0.05 = 2000 Bohr). Con malla uniforme no hace falta guardar 40000 x: h y N bastan.' },
++      { c: '' },
++      { c: '    def interpolate(self, new_h, new_L=None):', n: 'Método para re-muestrear el potencial a OTRO paso de malla. new_h es el paso deseado; new_L opcional (otra longitud de caja). Devuelve un Potential NUEVO; el original queda intacto.', k: true },
++      { c: '        # Re-muestreo a malla fina usando spline cúbico', n: 'La herramienta: interpolar = estimar valores intermedios con una curva suave que respete los puntos que sí conocemos.' },
++      { c: "        if self.unit_x == 'Angstrom':", n: '¿El usuario habló en Å? (recordamos su unidad en self.unit_x)...' },
++      { c: '            new_h_au = new_h / BOHR_TO_ANGSTROM', n: '...entonces traducimos su new_h a Bohr antes de operar (_au = "atomic units"). Si habló en Bohr, se usa tal cual.' },
++      { c: '            new_L_au = None if new_L is None else new_L / BOHR_TO_ANGSTROM', n: 'Otro if en una línea: traduce new_L solo si lo dieron; si no, queda None (más adelante significará "usa la misma L").' },
++      { c: '        else:', n: 'Si el objeto estaba en Bohr...' },
++      { c: '            new_h_au = new_h', n: '...no hay nada que traducir.' },
++      { c: '            new_L_au = new_L', n: 'Ídem.' },
++      { c: '' },
++      { c: '        L_target = self.L if new_L_au is None else new_L_au', n: '¿La caja nueva? La que pediste, o si no, la MISMA del original (no queremos cambiar la física, solo la malla).' },
++      { c: '        n_points = int(round(L_target / new_h_au))', n: 'Cuántos puntos caben: N = L/h, redondeado a entero (una malla tiene puntos contables). En tu corrida: 2000/0.1 = 20000 puntos.', k: true },
++      { c: '' },
++      { c: '        x_new = self.x[0] + new_h_au * np.arange(n_points)', n: 'np.arange(n) = [0,1,2,...,n-1]; multiplicado por new_h y desplazado al inicio de la caja vieja: la malla nueva. Otra vez vectorizado: 20000 puntos sin for.' },
++      { c: '        cs = CubicSpline(self.x, self.v)', n: 'Construye el spline cúbico que pasa exactamente por todos los puntos (x, V) originales. Entre cada par de puntos consecutivos pone un polinomio de grado 3, elegidos para que la curva sea suave (pendiente y curvatura continuas).' },
++      { c: '        v_new = cs(x_new)', n: 'Evalúa la curva en la malla nueva: los valores V re-muestreados. Nota sutil: como aquí new_h (0.1) fue MAYOR que el h original (0.05), esto fue un "des-muestreo": menos puntos, error O(h²) un poco mayor, pero 4× menos memoria.' },
++      { c: '' },
++      { c: "        return Potential(x_new, v_new, unit_x='Bohr', unit_v='Hartree')", n: 'Fabrica y devuelve un Potential nuevo. Las unidades ya son atómicas de verdad (los números viven en Bohr/Hartree), así que se etiquetan como tales. El original no se tocó.', k: true },
++      { c: '' },
++      { c: 'class PicklePotentialLoader:', n: 'Segunda clase del archivo, especializada en UNA cosa: leer el archivo .pickle y devolver un Potential listo. Separar "leer archivos" de "ser un potencial" mantiene cada clase simple.', k: true },
++      { c: '    @classmethod', n: 'Decorador que marca el método como de CLASE: se llama sobre la clase, no sobre una instancia (PicklePotentialLoader.load(...) sin crear objeto antes). Para una fábrica de objetos es el patrón natural.' },
++      { c: "    def load(cls, file_path, unit_x='Angstrom', unit_v='eV'):", n: 'Recibe la ruta del archivo y las unidades en las que ESTÁ el archivo (no a las que quiere ir: eso lo hace Potential). Otra vez los defaults Angstrom/eV: si no los dices... ya sabes la historia.', k: true },
++      { c: "        with open(file_path, 'rb') as handle:", n: 'Abre el archivo en modo binario ("rb": read binary; pickle es un formato binario, no texto). El "with" garantiza que el archivo se cierre aunque algo falle: gestión de recursos automática.' },
++      { c: '            data = pickle.load(handle)', n: 'Des-pickle: reconstruye el objeto Python guardado. Aquí: una lista [h, V] donde h es un número y V tiene 40000 valores.' },
++      { c: '        if isinstance(data, dict):', n: 'PUENTE DE COMPATIBILIDAD: ¿el archivo trajo un diccionario? isinstance(objeto, Tipo) pregunta el tipo. Tu primera versión de Vsoft.pickle era un dict.', k: true },
++      { c: "            data = [data['h'], data['V']]", n: 'Si es dict, se normaliza a lista [h, V] extrayendo las claves. Dos líneas que hicieron que un archivo viejo siguiera funcionando: código defensivo barato.', k: true },
++      { c: '' },
++      { c: '        h = float(data[0])', n: 'Formato lista: posición 0 = el paso de malla h (0.05). float() asegura que sea número, no otra cosa.' },
++      { c: '        v_values = np.asarray(data[1], dtype=float)', n: 'Posición 1 = los 40000 valores de V, convertidos a arreglo numpy de floats.' },
++      { c: '' },
++      { c: '        # La malla empieza en 0 y L = N*h', n: 'El supuesto que salva espacio en el archivo...', k: true },
++      { c: '        n_points = len(v_values)', n: 'N = cuántos valores de V hay (40000).' },
++      { c: '        x_grid = h * np.arange(n_points)', n: 'Reconstrucción de la malla: x_n = n·h → 0, 0.05, 0.10, ..., 1999.95. El pickle NO guarda las x (serían números redundantes); se deducen de h y N. Por eso el pozo te apareció centrado en x=1000 Bohr = 529 Å.', k: true },
++      { c: '' },
++      { c: '        return Potential(x_grid, v_values, unit_x=unit_x, unit_v=unit_v)', n: 'Fabrica el Potential FINAL pasándole las unidades que TÚ declaraste. Potential hace la conversión a atómicas. Cadena completa: archivo → data → (h, V) → malla reconstruida → Potential en unidades atómicas.', k: true },
++    ],
++  },
++  {
++    id: 'solver',
++    path: 'tise_solver/solver.py',
++    intro:
++      'Aquí vive la FÍSICA. Dos clases: TISESolver (construye la matriz H por diferencias finitas y la diagonaliza) y TISEResult (el paquete ordenado de resultados, con gemelas en unidades atómicas y en eV/Å). La matriz que se construye es la traducción literal de −½ψ″ + Vψ = Eψ a números.',
++    blocks: [
++      {
++        label: 'TISEResult: el paquete de resultados',
++        from: 6,
++        to: 25,
++        note: 'Una clase "contenedor": recibe los resultados en unidades atómicas y los DUPLICA en unidades físicas con nombres claros (energies_hartree/energies_eV, x_bohr/x_angstrom...). El detalle fino es la línea 19: ψ tiene unidades de 1/√longitud (porque ∫|ψ|²dx = 1), así que para pasarla de Bohr⁻¹ᐟ² a Å⁻¹ᐟ² se divide entre √0.529177, no entre 0.529177. Result también guarda h y L del cálculo y cuántos estados se pidieron.',
++      },
++      {
++        label: 'TISESolver.__init__',
++        from: 28,
++        to: 33,
++        note: 'El constructor guarda el Potential y el modo, y valida el modo ANTES de hacer nada. Cuando escribiste mode="non.periodic", fue ESTA línea la que te lanzó ValueError — tu propio código rechazó el typo en vez de calcular algo raro: señal de diseño sano.',
++      },
++      {
++        label: 'build_hamiltonian: la física, en 8 líneas',
++        from: 35,
++        to: 52,
++        note: 'LA función clave del proyecto. Construye la matriz Hamiltoniano: diagonal = 1/h² + Vₙ (energía cinética discretizada + potencial en el punto), sub/superdiagonal = −1/(2h²) (el acoplamiento entre vecinos del stencil de 3 puntos). En modo periódico añade las dos esquinas que conectan el último punto con el primero. Todo lo demás del proyecto existe para alimentar o consumir esta matriz.',
++      },
++      {
++        label: 'solve: diagonalizar y normalizar',
++        from: 54,
++        to: 76,
++        note: 'Valida num_states, construye H, llama a eigh (el diagonalizador de LAPACK: pide solo los num_states autovalores más bajos con subset_by_index) y re-normaliza cada ψ para que Σ|ψ|²·h = 1 (la versión discreta de ∫|ψ|²dx = 1). Devuelve un TISEResult con TODO dentro. Nota: solve NO guarda el resultado en self — lo DEVUELVE. Si no lo asignas (result = solver.solve(...)), se pierde y hay que re-correr 5 minutos (te pasó).',
++      },
++    ],
++    lines: [
++      { c: 'import numpy as np', n: 'numpy para arreglos y para construir la matriz.' },
++      { c: 'from scipy.linalg import eigh', n: 'eigh = "Hermitian Eigensolver" de scipy: autovalores y autovectores de matrices simétricas/hermitianas. Por dentro es LAPACK (Fortran, 50 años de optimización): no vamos a escribir eso nosotros.', k: true },
++      { c: 'from .potential import BOHR_TO_ANGSTROM, HARTREE_TO_EV', n: 'Import RELATIVO (el punto): "del módulo potential de ESTE paquete". Reusamos las constantes de conversión en vez de redefinirlas: una sola fuente de verdad. Esto solo funciona porque es un paquete (hay __init__.py).' },
++      { c: '' },
++      { c: '' },
++      { c: 'class TISEResult:', n: 'La clase que EMPAQUETA resultados. No calcula nada: organiza. Tener gemelas (Hartree/eV) evita convertir a cada rato y evita confusiones de unidades.', k: true },
++      { c: "    def __init__(self, x_au, v_au, energies_au, wavefunctions_au, mode=''):", n: 'Recibe TODO en unidades atómicas (_au). El sufijo en el nombre del parámetro documenta la unidad: convención barata y clarísima.' },
++      { c: '        # Datos en unidades atómicas', n: 'Sección 1: guardar los datos crudos tal cual llegaron.' },
++      { c: '        self.x_bohr = x_au', n: 'La malla en Bohr, con nombre explícito: nadie tendrá que adivinar unidades al leer result.x_bohr.' },
++      { c: '        self.v_hartree = v_au', n: 'El potencial en Hartree.' },
++      { c: '        self.energies_hartree = energies_au', n: 'Las energías en Hartree: lo que eigh devolvió.' },
++      { c: '        self.wavefunctions_bohr = wavefunctions_au', n: 'Las ψ como columnas de una matriz N×num_states: wavefunctions_bohr[:, n] es el estado n.' },
++      { c: '        self.mode = mode', n: 'Recuerda con qué frontera se resolvió ("periodic"/"non-periodic"): el título de tu gráfica lo usa.' },
++      { c: '' },
++      { c: '        # Conversión a unidades físicas para reporte y gráfica', n: 'Sección 2: las gemelas en unidades del laboratorio.' },
++      { c: '        self.x_angstrom = x_au * BOHR_TO_ANGSTROM', n: 'Bohr → Å MULTIPLICANDO por 0.529177 (la operación inversa de la carga). Tu pozo: 1000 Bohr → 529 Å.', k: true },
++      { c: '        self.v_eV = v_au * HARTREE_TO_EV', n: 'Hartree → eV multiplicando por 27.2114: fondo del pozo −1 Eₕ → −27.2 eV.' },
++      { c: '        self.energies_eV = energies_au * HARTREE_TO_EV', n: 'Las energías que reportas: −0.66986 Eₕ → −18.2278 eV. Multiplicación vectorizada: toda la lista de golpe.' },
++      { c: '        self.wavefunctions_angstrom = wavefunctions_au / np.sqrt(BOHR_TO_ANGSTROM)', n: 'Detalle fino: ψ NO es una densidad, es 1/√longitud (porque ∫|ψ|²dx = 1 → [ψ] = L^(-1/2)). Para cambiar de unidad de longitud se divide entre √0.529177, NO entre 0.529177. Un clásico de examen.', k: true },
++      { c: '' },
++      { c: '        self.h_bohr = x_au[1] - x_au[0] if len(x_au) > 1 else 1.0', n: 'El paso de malla usado (0.1 Bohr en tu corrida final), recalculado de la malla para que no pueda contradecirla.' },
++      { c: '        self.L_bohr = len(x_au) * self.h_bohr', n: 'L = N·h de nuevo, ahora del resultado.' },
++      { c: '        self.h_angstrom = self.h_bohr * BOHR_TO_ANGSTROM', n: 'Y sus gemelas en Å (0.0529 Å).' },
++      { c: '        self.L_angstrom = self.L_bohr * BOHR_TO_ANGSTROM', n: '2000 Bohr → 1058 Å.' },
++      { c: '        self.num_states = len(energies_au)', n: 'Cuántos estados se pidieron (5): se deduce, no se confía.' },
++      { c: '' },
++      { c: '' },
++      { c: 'class TISESolver:', n: 'La clase protagonista: guarda un Potential y sabe convertirlo en soluciones del TISE. No hereda nada, no tiene estado oculto: potential + mode y listo.', k: true },
++      { c: "    def __init__(self, potential, mode='non-periodic'):", n: 'Constructor: qué pozo resolver y con qué frontera (por defecto, no periódica).' },
++      { c: "        if mode not in ('periodic', 'non-periodic'):", n: 'Validación inmediata del modo: solo se aceptan esas dos cadenas exactas.', k: true },
++      { c: "            raise ValueError(\"mode debe ser 'periodic' o 'non-periodic'.\")", n: 'Esta es la línea que te defendió: escribiste mode="non.periodic" (punto en vez de guion) y recibiste ESTE ValueError al instante. Tu código detectó tu error humano: para la presentación es un ejemplo perfecto de validación de entrada.', k: true },
++      { c: '        self.potential = potential', n: 'Guarda el objeto Potential (guarda la REFERENCIA al objeto, no una copia: apunta al mismo Potential de antes).' },
++      { c: '        self.mode = mode', n: 'Guarda el modo validado.' },
++      { c: '' },
++      { c: '    def build_hamiltonian(self):', n: 'Método separado del solve a propósito: construir H es un paso propio, observable y reutilizable (puedes inspeccionar H sin resolver).', k: true },
++      { c: '        v = self.potential.v', n: 'Los valores V del pozo (ya en Hartree, gracias a Potential). Alias local para no escribir self.potential.v todo el tiempo.' },
++      { c: '        h = self.potential.h', n: 'El paso de malla.' },
++      { c: '        N = len(v)', n: 'Número de puntos de la malla = tamaño de la matriz (N×N). Con N=20000: 400 millones de celdas.' },
++      { c: '' },
++      { c: '        # Construcción tridiagonal por diferencias finitas', n: 'La traducción de −½ψ″+Vψ=Eψ. En unidades atómicas la segunda derivada discreta es (ψₙ₊₁−2ψₙ+ψₙ₋₁)/h², y −½·eso deja coeficientes 1/h² en la diagonal y −1/(2h²) en los vecinos.', k: true },
++      { c: '        diag = 1.0 / (h**2) + v', n: 'DIAGONAL = cinética local + potencial: (1/h²)ψₙ + Vₙψₙ. numpy suma el escalar 1/h² a TODO el arreglo. Con h=0.1: 1/h² = 100, y Vₙ va de −1 a ~0. La diagonal domina: ¡por eso los estados ligados existen!', k: true },
++      { c: '        off_diag = -0.5 / (h**2) * np.ones(N - 1)', n: 'SUB/SUPERDIAGONAL: el acoplamiento con cada vecino, −1/(2h²) (con h=0.1: −50). np.ones(N-1) fabrica el arreglo de N−1 elementos idénticos (una matriz N×N tiene N−1 parejas de vecinos).' },
++      { c: '' },
++      { c: '        H = np.diag(diag) + np.diag(off_diag, k=1) + np.diag(off_diag, k=-1)', n: 'np.diag(arreglo) construye una matriz con ese arreglo en su diagonal; con k=1 la pone UNA fila por encima (superdiagonal) y con k=−1 una por debajo (subdiagonal). Sumar las tres matrices = la tridiagonal completa. Línea elegante: 3 matrices dispersas sumadas en una expresión.', k: true },
++      { c: '' },
++      { c: '        # Acoplamiento de esquinas para celda periódica', n: 'Si la caja fuera un anillo (ψ en el punto N−1 continúa en el punto 0)...' },
++      { c: "        if self.mode == 'periodic':", n: 'Solo en modo periódico...' },
++      { c: '            corner_val = -0.5 / (h**2)', n: '...el vecino del último punto ES el primero, con el mismo coeficiente de siempre: −1/(2h²).' },
++      { c: '            H[0, N - 1] = corner_val', n: 'Conecta la fila 0 con la columna N−1: esquina superior derecha de la matriz.' },
++      { c: '            H[N - 1, 0] = corner_val', n: 'Y la simétrica: esquina inferior izquierda. La matriz deja de ser tridiagonal (por eso el truco rápido del navegador no aplica ahí, pero eigh ni se inmuta).', k: true },
++      { c: '' },
++      { c: '        return H', n: 'Devuelve la matriz lista para diagonalizar. Con N=20000 son 3.2 GB de doubles: la razón de tus cálculos de RAM (N²×8 bytes).' },
++      { c: '' },
++      { c: '    def solve(self, num_states=10):', n: 'El método que hace todo: construir H, diagonalizar, normalizar, empaquetar. Por defecto pide 10 estados; tú pediste 5.', k: true },
++      { c: '        n_points = len(self.potential.x)', n: 'Validación: no puedes pedir más estados que puntos tiene la malla.' },
++      { c: '        if not (1 <= num_states <= n_points):', n: 'Chequeo de rango: al menos 1 estado, a lo sumo N.' },
++      { c: '            raise ValueError(f"num_states fuera de rango: {num_states}")', n: 'El f-string mete el valor en el mensaje. Más validación defensiva: el paquete prefiere quejarse antes que sorprender.' },
++      { c: '' },
++      { c: '        H = self.build_hamiltonian()', n: 'Paso 1: la matriz. (Si quisieras inspeccionarla: solver.build_hamiltonian() es público para ti.)' },
++      { c: '' },
++      { c: '        # Diagonalización de matriz simétrica', n: 'Paso 2: resolver Ĥψ = Eψ como problema de autovalores.', k: true },
++      { c: '        energies, wavefunctions = eigh(H, subset_by_index=[0, num_states - 1])', n: 'eigh devuelve (autovalores, autovectores) ORDENADOS de menor a mayor. subset_by_index=[0, 4] pide SOLO los índices 0..4 (los 5 más bajos): el algoritmo (LAPACK dsyevr) no desperdicia tiempo en los otros 19995 → 3-4× más rápido y la mitad de memoria. Los autovectores vienen como COLUMNAS: wavefunctions[:, n] es el estado n.', k: true },
++      { c: '' },
++      { c: '        # Normalización discreta: sum(|psi|^2) * h = 1', n: 'Paso 3: física de la normalización. |ψ|² es densidad de probabilidad; su integral debe dar 1. En la malla la integral se vuelve suma: Σ|ψₙ|²·h = 1.', k: true },
++      { c: '        h = self.potential.h', n: 'El h para la suma (alias local).' },
++      { c: '        for n in range(num_states):', n: 'Bucle clásico sobre cada estado pedido: n = 0,1,2,3,4.' },
++      { c: '            norm = np.sum(np.abs(wavefunctions[:, n]) ** 2) * h', n: 'La "integral discreta" del estado n: suma de |ψₙ|² en los 20000 puntos, por el ancho h de cada pedacito. np.abs por si acaso (aquí ψ es real, pero abs lo hace robusto). eigh ya devuelve vectores normalizados a ‖ψ‖=1, que es casi lo mismo: ‖ψ‖²=1 ↔ Σψ²h = h, por eso este re-escalado es un ajuste fino de factor 1/√h.', k: true },
++      { c: '            wavefunctions[:, n] = wavefunctions[:, n] / np.sqrt(norm)', n: 'Divide la columna entera entre √norm: ahora Σ|ψₙ|²h = 1 EXACTO. Con las columnas de eigh, cada ψ tendrá máximos ligeramente distintos entre estados: por eso el visualizador re-escala al dibujar.', k: true },
++      { c: '' },
++      { c: '        return TISEResult(', n: 'Paso 4: empaquetar TODO en el resultado. Punto CRÍTICO: solve DEVUELVE el resultado; no lo guarda en self. Si en la consola escribiste solver.solve(num_states=5) sin result = ..., el objeto se imprimió y se perdió → tu corrida fantasma de 5 minutos.', k: true },
++      { c: '            x_au=self.potential.x.copy(),', n: 'La malla. .copy() otra vez: el resultado lleva SU copia, inmune a cambios posteriores del potential.' },
++      { c: '            v_au=self.potential.v.copy(),', n: 'El potencial, ídem (para dibujarlo junto a las ψ sin volver a cargar el archivo).' },
++      { c: '            energies_au=energies,', n: 'Los 5 autovalores (Hartree).' },
++      { c: '            wavefunctions_au=wavefunctions,', n: 'Las 5 columnas normalizadas.' },
++      { c: '            mode=self.mode', n: 'Y el modo, para el título de la gráfica.' },
++      { c: '        )', n: 'Cierre del constructor. Dentro de TISEResult se fabrican las gemelas eV/Å automáticamente: por eso result.energies_eV ya viene listo.' },
++    ],
++  },
++  {
++    id: 'visualizer',
++    path: 'tise_solver/visualizer.py',
++    intro:
++      'La única clase que toca matplotlib. Recibe un TISEResult y lo convierte en la figura: potencial en negro, cada estado con su color (paleta tab10, la misma por defecto de matplotlib), nivel de energía punteado y ψ dibujada ENCIMA de su nivel, re-escalada para que quepa (psi_scale). La física ya está hecha: esto es pura presentación.',
++    blocks: [
++      {
++        label: 'Preparación y ventana',
++        from: 6,
++        to: 26,
++        note: 'Extrae los datos en unidades físicas (eV/Å: la gráfica habla en unidades de laboratorio), calcula la ventana vertical que cubre desde el fondo del pozo hasta el estado más alto pedido, y define psi_scale: el factor que encoge las ψ para que la más grande ocupe ~25% de la ventana. Es un ESCALADO COSMÉTICO: dibujar ψ en unidades naturales (1/√Bohr ~ decenas) junto a energías en eV sería invisible; el re-escalo es la convención estándar de los libros (ψ sobre su nivel).',
++      },
++      {
++        label: 'Dibujo de V y de cada estado',
++        from: 32,
++        to: 49,
++        note: 'Primero V(x) en negro. Luego un for clásico: para cada estado n toma su color (tab10, ciclando con %10 si pidieras más de 10), dibuja su nivel de energía con hlines punteadas y su ψ desplazada: E_n + psi_scale·ψₙ — la suma desplaza la curva hasta la altura de SU nivel; el producto la escala. La etiqueta usa un f-string con 3 decimales: "n=0: E = -18.228 eV".',
++      },
++      {
++        label: 'Ajustes finales y devolución',
++        from: 51,
++        to: 65,
++        note: 'Rótulos de ejes con unidades (Å y eV), título con el modo, márgenes verticales calculados para que no se corte ninguna curva, cuadrícula suave, leyenda arriba a la derecha, tight_layout (que nada se salga de la hoja). show=True abre la ventana de matplotlib; SIEMPRE devuelve (fig, ax) — gracias a eso pudiste hacer zoom sin recalcular: ax.set_xlim(480, 580) sobre el ax devuelto.',
++      },
++    ],
++    lines: [
++      { c: 'import numpy as np', n: 'Para max/min/abs sobre arreglos al calcular escalas.' },
++      { c: 'import matplotlib.pyplot as plt', n: 'matplotlib es la librería de gráficas estándar de Python. El apodo plt es convención universal.' },
++      { c: '' },
++      { c: '' },
++      { c: 'class TISEVisualizer:', n: 'Clase que recibe un TISEResult y sabe dibujarlo. Separar visualización de cálculo permite cambiar la gráfica sin tocar la física.', k: true },
++      { c: '    def __init__(self, result):', n: 'Constructor mínimo: guarda el resultado.' },
++      { c: '        self.result = result', n: "OJO: espera un TISEResult, NO el solver. Cuando le pasaste TISEVisualizer(solver), Python explotó con AttributeError ('TISESolver' object has no attribute 'x_angstrom') — el mensaje exacto te decía qué le faltaba al objeto. La cadena correcta: solver → result = solver.solve(...) → TISEVisualizer(result).", k: true },
++      { c: '' },
++      { c: '    def plot(self, num_states=5, scale=1.0, show=True):', n: 'Dibuja num_states estados; scale multiplica psi_scale (por si quieres ψ más altas/bajas); show controla si se abre la ventana interactiva.' },
++      { c: '        result = self.result', n: 'Alias local: menos ruido en el resto del método.' },
++      { c: '        x = result.x_angstrom', n: 'La malla en Å (la gemela que fabricó TISEResult): la gráfica habla en unidades de laboratorio.' },
++      { c: '        v = result.v_eV', n: 'El potencial en eV: fondo −27.2.' },
++      { c: '        energies = result.energies_eV', n: 'Las energías en eV: −18.23, −7.48, −4.12, −2.52, −1.73.' },
++      { c: '        wavefunctions = result.wavefunctions_angstrom', n: 'Las ψ en 1/√Å. Su valor absoluto (~decenas) no significa nada visualmente: por eso viene el escalado.' },
++      { c: '' },
++      { c: '        n_plot = min(num_states, len(energies))', n: 'Defensa: no dibujar más estados de los que existen (si pediste 5 y hay 5, da igual; si el result tuviera 3, dibuja 3).' },
++      { c: '        fig, ax = plt.subplots(figsize=(9, 6))', n: 'Crea la figura: fig es "la hoja", ax son "los ejes" donde se dibuja. figsize en pulgadas. plt.subplots devuelve la pareja (figura, ejes) — por eso plot también devolverá una pareja.', k: true },
++      { c: '' },
++      { c: '        # Ventana vertical que cubre la gráfica', n: 'Cálculo del marco vertical para que TODO quepa: fondo del pozo + estado más alto + sus ψ.' },
++      { c: '        y_low = min(v.min(), energies[0])', n: 'El punto más bajo de la ventana: el fondo del pozo (−27.2) o la energía del estado 0 (−18.2), lo que sea menor. Aquí gana el pozo.' },
++      { c: '        y_high = energies[n_plot - 1]', n: 'El punto más alto: la energía del ÚLTIMO estado pedido (n_plot−1 porque los índices empiezan en 0).' },
++      { c: '        y_span = max(y_high - y_low, 1e-12)', n: 'La altura de la ventana. El max(..., 1e-12) evita dividir entre cero si el rango fuera 0 (defensa numérica típica).' },
++      { c: '' },
++      { c: '        # Escalado: la autofunción más alta ocupa ~25% de la ventana', n: 'LA decisión estética clave: ψ se dibuja en unidades propias, re-escalada.', k: true },
++      { c: '        max_psi = np.max(np.abs(wavefunctions[:, :n_plot]))', n: 'El pico global de TODAS las ψ dibujadas (columnas 0..n_plot-1; el slice :n_plot toma las primeras columnas). abs porque ψ tiene signo.' },
++      { c: '        psi_scale = 0.25 * y_span / max_psi * scale', n: 'El factor que convierte el pico más grande de ψ en exactamente 25% de la ventana. Así TODAS las ψ comparten escala relativa entre sí (¡no cada una la suya!): puedes comparar amplitudes entre estados. scale=1.0 por defecto.', k: true },
++      { c: '' },
++      { c: '' },
++      { c: '        colors = plt.cm.tab10.colors', n: 'La paleta tab10 de matplotlib: los 10 colores que matplotlib usa por defecto en CUALQUIER gráfica. Al usarla aquí, tus estados tienen los mismos colores que esperarías de cualquier plot: azul, naranja, verde, rojo, morado...', k: true },
++      { c: '' },
++      { c: '' },
++      { c: "        ax.plot(x, v, color='black', linewidth=1.8, label='V(x)')", n: 'Dibuja el potencial: línea negra continua con su etiqueta para la leyenda. Con 20000 puntos, matplotlib decide cómo rasterizar; queda suave.' },
++      { c: '' },
++      { c: '        for n in range(n_plot):', n: 'El bucle de los estados: para n = 0..4...' },
++      { c: '            color = colors[n % 10]', n: 'El color n de la paleta; el %10 cicla (si pidieras 12 estados, el 11º reusaría el primero).' },
++      { c: '            E_n = energies[n]', n: 'Su energía (eV).' },
++      { c: '            psi_n = wavefunctions[:, n]', n: 'Su ψ: la COLUMNA n de la matriz (sintaxis numpy de columnas).' },
++      { c: '' },
++      { c: '            # Nivel de energía con el color de su estado', n: 'Cada estado se identifica por color en DOS elementos: su nivel y su curva.' },
++      { c: '            ax.hlines(E_n, x[0], x[-1], colors=color,', n: 'hlines dibuja una línea horizontal en la altura E_n, de x[0] a x[-1]: el "piso" del estado.' },
++      { c: "                      linestyles='dashed', alpha=0.5)", n: 'Punteada y semi-transparente (alpha 0.5) para que no compita visualmente con la curva de ψ.' },
++      { c: '' },
++      { c: '            # Función de onda desplazada sobre su nivel', n: 'El truco de dibujo de los libros: ψ flotando sobre SU nivel de energía.', k: true },
++      { c: '            ax.plot(x, E_n + psi_scale * psi_n, color=color, linewidth=1.4,', n: 'E_n + psi_scale·ψₙ: la SUMA desplaza la curva a la altura del nivel; el PRODUCTO la escala. Dos operaciones distintas con papeles distintos: desplazar NO altera la forma, escalar tampoco: la física (cero, nodos, paridad) se conserva.', k: true },
++      { c: "                    label=f'n={n}: E = {E_n:.3f} eV')", n: 'f-string: inserta n y E con 3 decimales ({E_n:.3f}). Así la leyenda es también la tabla de resultados.' },
++      { c: '' },
++      { c: "        ax.set_xlabel('x (Å)')", n: 'Rótulo del eje horizontal con su unidad.' },
++      { c: "        ax.set_ylabel('Energía (eV)')", n: 'Rótulo del eje vertical.' },
++      { c: "        ax.set_title(f'Soluciones TISE 1D (Modo: {result.mode})')", n: 'Título con el modo insertado: por eso tu figura decía "non-periodic".' },
++      { c: '' },
++      { c: '        # Margen vertical para que no se corte ninguna curva', n: 'La ventana final: el peor caso entre "nivel más alto + margen" y "pico de ψ escalada + margen".' },
++      { c: '        top = max(y_high + 0.3 * y_span,', n: 'Opción A: 30% de aire sobre el último nivel...' },
++      { c: '                  np.max(energies[:n_plot]', n: 'Opción B: los niveles...' },
++      { c: '                         + psi_scale * np.abs(wavefunctions[:, :n_plot]))', n: '...más sus picos de ψ (la suma se propaga elemento a elemento: cada nivel más su pico). numpy evalúa esa suma vectorizada.' },
++      { c: '                  + 0.05 * y_span)', n: '...más 5% de aire. Gana la mayor de las dos opciones.' },
++      { c: '        ax.set_ylim(y_low - 0.08 * y_span, top)', n: 'Fija el eje vertical: 8% de aire abajo, el top calculado arriba.' },
++      { c: '' },
++      { c: '        ax.grid(True, alpha=0.3)', n: 'Cuadrícula suave (30% de opacidad): ayuda a leer energías sin estorbar.' },
++      { c: "        ax.legend(loc='upper right')", n: 'Leyenda arriba a la derecha: V(x) y los 5 estados con sus energías.' },
++      { c: '        fig.tight_layout()', n: 'Reacomoda márgenes para que rótulos y título no se salgan de la hoja.' },
++      { c: '' },
++      { c: '        if show:', n: '¿Abrir la ventana interactiva?...' },
++      { c: '            plt.show()', n: '...solo si show=True. En scripts largos conviene show=False para generar figuras sin bloquear.' },
++      { c: '' },
++      { c: '        return fig, ax', n: 'SIEMPRE devuelve la figura y los ejes, aunque no se muestren. Gracias a esto pudiste hacer ax.set_xlim(480, 580) para el zoom de nodos SIN re-correr los 5 minutos: la figura ya existía como objeto.', k: true },
++    ],
++  },
++  {
++    id: 'init',
++    path: 'tise_solver/__init__.py',
++    intro:
++      'El archivo más pequeño y el que convierte una carpeta en un PAQUETE importable. Al ejecutar from tise_solver import Potential, Python ejecuta ESTE archivo primero; sus imports suben las clases al nivel del paquete y __all__ documenta qué es público.',
++    blocks: [
++      {
++        label: 'Exports del paquete',
++        from: 1,
++        to: 12,
++        note: 'Los imports relativos (from .potential import ...) suben las 5 clases al "vestíbulo" del paquete: gracias a esto escribes from tise_solver import TISESolver en vez de from tise_solver.solver import TISESolver. __all__ lista los nombres públicos: es lo que exporta from tise_solver import * y, sobre todo, documentación ejecutable de la API.',
++      },
++    ],
++    lines: [
++      { c: 'from .potential import Potential, PicklePotentialLoader', n: 'El PUNTO inicial significa "de este mismo paquete": carga el módulo potential y sube sus dos clases al nivel del paquete. Esto es lo que hace que from tise_solver import Potential funcione sin mencionar el archivo.', k: true },
++      { c: 'from .solver import TISEResult, TISESolver', n: 'Ídem con las dos clases del solver. Efecto secundario útil: al importar el paquete se ejecutan potential.py y solver.py, así que sus constantes ya existen.' },
++      { c: 'from .visualizer import TISEVisualizer', n: 'Ídem el visualizador. Las tres clases clave quedan accesibles desde el nivel superior.' },
++      { c: '' },
++      { c: '__all__ = [', n: 'La lista pública del paquete: define qué entrega from tise_solver import *. También es la "firma" de la API: lo que el autor promete que existe.', k: true },
++      { c: "    'Potential',", n: 'El contenedor del pozo.' },
++      { c: "    'PicklePotentialLoader',", n: 'El lector de archivos.' },
++      { c: "    'TISEResult',", n: 'El paquete de resultados.' },
++      { c: "    'TISESolver',", n: 'El resolutor (construye H y diagonaliza).' },
++      { c: "    'TISEVisualizer',", n: 'El dibujante.' },
++      { c: ']', n: 'Cinco nombres, una cadena de trabajo clara: Loader → Potential → Solver → Result → Visualizer.' },
++    ],
++  },
++]
++
++// ============ Quiz ============
++export type QuizItem = { q: string; options: string[]; correct: number; why: string }
++
++export const QUIZ: QuizItem[] = [
++  {
++    q: 'En build_hamiltonian, ¿por qué la diagonal es 1/h² + Vₙ y no solo Vₙ?',
++    options: [
++      'Porque 1/h² corrige el error de redondeo',
++      'Porque el término cinético −½ψ″ discretizado aporta 1/h² en la diagonal y −1/(2h²) a los vecinos',
++      'Porque el potencial siempre vale 1/h²',
++      'Es un error: debería ser solo Vₙ',
++    ],
++    correct: 1,
++    why: 'Al sustituir ψ″ ≈ (ψₙ₊₁−2ψₙ+ψₙ₋₁)/h² en −½ψ″, el −2ψₙ de en medio deja −½·(−2)/h² = +1/h² en la diagonal, y los vecinos quedan con −1/(2h²). La diagonal acumula cinética + potencial.',
++  },
++  {
++    q: 'Si duplicas N (h → h/2) manteniendo L, ¿qué pasa con el ERROR de las energías y con el TIEMPO de eigh?',
++    options: [
++      'Error ÷2, tiempo ×2',
++      'Error ÷4 (O(h²)), tiempo ×8 (O(N³))',
++      'Error igual, tiempo ×4',
++      'Error ÷4, tiempo ×4',
++    ],
++    correct: 1,
++    why: 'El error de las diferencias finitas es O(h²): con h a la mitad, el error cae ×4 (lo mediste: 0.002 eV entre h=0.05 y h=0.1). Pero eigh escala como N³ con N duplicado: 2³ = 8. Medido: 0.52 s → 4.14 s → 32 s.',
++  },
++  {
++    q: '¿Por qué eigh va con subset_by_index=[0, num_states-1]?',
++    options: [
++      'Para que la matriz sea más pequeña',
++      'Para evitar autovalores negativos',
++      'Para calcular solo los num_states autovalores más bajos (y sus vectores), ahorrando 3-4× tiempo',
++      'Para ordenar los autovalores',
++    ],
++    correct: 2,
++    why: 'eigh completo calcula TODOS los autovalores (20000). subset_by_index usa el driver dsyevr que calcula únicamente los índices pedidos: los 5 más bajos. La matriz es igual; el trabajo, no.',
++  },
++  {
++    q: 'Tu archivo Vsoft.pickle estaba en Bohr/Hartree, pero lo cargaste con los defaults. ¿Qué pasó?',
++    options: [
++      'Python lanzó un error de unidades',
++      'El programa corrió bien pero interpretó los números como Å/eV: pozo 27.2× menos profundo y espectro muchísimo menos negativo',
++      'Nada: pickle guarda las unidades',
++      'Las energías salieron 27.2× más grandes',
++    ],
++    correct: 1,
++    why: "Pickle guarda NÚMEROS, no unidades. Los defaults son unit_x='Angstrom', unit_v='eV'. El fondo −1.0 se leyó como −1.0 eV (−0.0367 Hartree) en vez de −1 Hartree (−27.2 eV): de ahí tu espectro [−0.4165, ...] en vez de [−18.2278, ...]. Las pistas estaban en la gráfica: fondo −1.0 en un eje rotulado eV.",
++  },
++  {
++    q: '¿Por qué el loader no guarda las coordenadas x en el pickle?',
++    options: [
++      'Porque numpy no permite guardar x',
++      'Porque son redundantes: con h y N la malla se reconstruye como x_n = n·h (empezando en 0)',
++      'Porque las x son secretas',
++      'Porque ocupan menos espacio en Bohr',
++    ],
++    correct: 1,
++    why: 'Una malla uniforme queda definida por (inicio, h, N). El archivo guarda h y los valores V; las x se deducen: x_n = n·h. Por eso tu pozo apareció centrado en x = 1000 Bohr = 529 Å.',
++  },
++  {
++    q: 'En la normalización, ¿por qué Σ|ψₙ|²·h = 1 y no ∫|ψ|²dx = 1?',
++    options: [
++      'Son cosas distintas sin relación',
++      'Porque en la malla la integral SE VUELVE suma: dx ≈ h y la integral se approxima por Σ|ψₙ|²h',
++      'Porque las ψ de eigh vienen mal normalizadas',
++      'Porque |ψ|² puede ser negativo',
++    ],
++    correct: 1,
++    why: 'La integral continua se aproxima como suma de rectángulos de ancho h (esa ES la idea de diferencias finitas aplicada a integrales). eigh normaliza a ‖ψ‖=1; el re-escalado ajusta el factor 1/√h para que la suma discreta dé exactamente 1.',
++  },
++  {
++    q: '¿Qué significa que result tenga wavefunctions_bohr Y wavefunctions_angstrom?',
++    options: [
++      'Son dos cálculos distintos',
++      'Son las mismas ψ convertidas: ψ se mide en 1/√longitud, así que se divide entre √Bohr→√Å',
++      'Una es real y la otra compleja',
++      'Es un error de diseño',
++    ],
++    correct: 1,
++    why: 'TISEResult guarda gemelas en unidades atómicas y físicas. Como [ψ] = L^(-1/2) (porque ∫|ψ|²dx=1), la conversión lleva raíz cuadrada: ψ_Å = ψ_Bohr/√0.529177. Un clásico que cae en examen.',
++  },
++  {
++    q: '¿Por qué en la gráfica las ψ se dibujan como E_n + psi_scale·ψₙ?',
++    options: [
++      'Para normalizarlas',
++      'La SUMA desplaza la curva hasta su nivel de energía y el PRODUCTO la escala para que quepa (~25% de la ventana)',
++      'Porque ψ tiene unidades de energía',
++      'Es solo decoración sin sentido',
++    ],
++    correct: 1,
++    why: 'ψ en unidades naturales (1/√Bohr) no se ve junto a energías en eV. El re-escalado es cosmético y COMPARABLE entre estados (todas comparten psi_scale). El desplazamiento ubica cada estado sobre su nivel: la convención de los libros.',
++  },
++]
++
++// ============ Chuleta: posibles preguntas del profesor ============
++export type CheatItem = { q: string; a: string }
++
++export const CHEAT: CheatItem[] = [
++  {
++    q: '¿Qué problema resuelve tise_solver?',
++    a: 'La ecuación de Schrödinger independiente del tiempo en 1D: dado V(x), hallar las energías E permitidas y sus funciones de onda ψ(x), cuando no existe solución analítica (nuestro pozo: V(x) = −1/√((x−x₀)²+1), una Coulomb suavizada en unidades atómicas).',
++  },
++  {
++    q: '¿Cómo lo convierte en un problema de álgebra?',
++    a: 'Malla de N puntos con paso h; ψ″ por diferencias finitas de 3 puntos: ψ″(xₙ) ≈ (ψₙ₊₁−2ψₙ+ψₙ₋₁)/h². Sustituyendo en −½ψ″+Vψ=Eψ queda un sistema lineal N×N: H·ψ = E·ψ. Las energías son autovalores; las ψ, autovectores.',
++  },
++  {
++    q: '¿De dónde salen exactamente los coeficientes 1/h² y −1/(2h²)?',
++    a: 'De Taylor: ψ(x±h) = ψ ± hψ′ + h²/2 ψ″ ± ... Sumando ψ(x+h)+ψ(x−h) se cancelan los términos impares y despejando: ψ″ ≈ (ψₙ₊₁−2ψₙ+ψₙ₋₁)/h². En unidades atómicas −½·eso da diagonal +1/h² y vecinos −1/(2h²). El primer término descartado es O(h²): por eso el error escala así.',
++  },
++  {
++    q: '¿Por qué unidades atómicas y por qué Bohr/Hartree?',
++    a: 'Con ħ = mₑ = e = 1 la ecuación queda −½ψ″+Vψ=Eψ: sin constantes físicas arrastradas y con números de tamaño ~1 (el fondo del pozo es −1.0, no −4.36e−18 J). 1 Bohr = 0.529177 Å, 1 Hartree = 27.2114 eV. Internamente TODO es atómico; las gemelas en eV/Å existen solo para reportar.',
++  },
++  {
++    q: '¿Qué hace eigh y por qué tarda lo que tarda?',
++    a: 'eigh (LAPACK) diagonaliza matrices simétricas: primero reduce H a forma tridiagonal (Householder, ~4/3·N³ operaciones, inevitable) y luego extrae autovalores/vectores. Con subset_by_index usa dsyevr: solo los k más bajos. Coste total O(N³): medimos 0.52 s (N=2000) → 4.14 s (4000) → 32 s (8000): ×8 por duplicación.',
++  },
++  {
++    q: '¿Cuánta RAM usó tu corrida y por qué?',
++    a: 'La matriz H es N×N doubles: N²·8 bytes. N=20000 → 3.2 GB; eigh copia la matriz (no la destruye), pico ≈ 2×: ~6.5 GB. Con 16 GB corre, pero hay que vigilar el Administrador de tareas: CPU alta = trabajando; RAM al 95% y disco al 100% = swapping → abortar.',
++  },
++  {
++    q: '¿Diferencia entre periodic y non-periodic?',
++    a: 'Non-periodic: ψ=0 en los bordes (caja muy grande, la ψ decae exponencialmente antes de llegar). Periodic: el punto N−1 conecta con el 0 (la caja es un anillo): añade dos esquinas H[0,N−1]=H[N−1,0]=−1/(2h²). Con L=2000 Bohr la ψ nunca llega a los bordes → ambos dan lo mismo a 1e−15.',
++  },
++  {
++    q: '¿Por qué tu energía con h=0.1 difiere 0.002 eV de la de h=0.05?',
++    a: 'E(h) = E_exacta + C·h²: es el error de truncamiento del stencil. De h=0.05 a 0.1 el error se multiplica ×4 → ~0.002 eV de diferencia. Convergencia verificada: al duplicar N el error se divide entre 4 (medido en el laboratorio de esta página).',
++  },
++  {
++    q: '¿Por qué usaste interpolate(new_h=0.1) si el archivo ya venía con h=0.05?',
++    a: 'N=40000 → matriz de 12.8 GB: no cabe bien en 16 GB. Con new_h=0.1 el spline re-muestrea a N=20000 → 3.2 GB (cabe) con error O(h²) ~0.002 eV: el compromiso consciente resolución/memoria. Nota: como new_h > h original, fue un des-muestreo, no un refinado.',
++  },
++  {
++    q: 'Si te piden correrlo con otro potencial, ¿qué tocas?',
++    a: 'Nada del paquete: solo los datos. Cualquier V(x) en un pickle [h, V] (o dict) con sus unidades declaradas en load(..., unit_x=..., unit_v=...). El paquete valida entradas, convierte unidades, construye H, diagonaliza y dibuja: la física está generalizada.',
++  },
++]
++
++// Constantes compartidas por las demos (idénticas a las del paquete Python)
++export const BOHR_TO_ANGSTROM = 0.52917721092
++export const HARTREE_TO_EV = 27.211386245988
+diff --git a/src/lib/store.ts b/src/lib/store.ts
+index 468020a..ad2927b 100644
+--- a/src/lib/store.ts
++++ b/src/lib/store.ts
+@@ -17,6 +17,7 @@ export type View =
+   | { name: 'decision-tree'; nodeId?: string }
+   | { name: 'model-problem'; problemId: string }
+   | { name: 'visualizations'; preset?: string }
++  | { name: 'tise-solver' }
+   | { name: 'exam' }
+   | { name: 'training'; preset?: 'book-review' }
+   | { name: 'review' }

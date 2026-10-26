@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, BookOpen, ListChecks, GitBranch, Network, Atom,
   GraduationCap, Timer, BarChart3, ChevronDown, ChevronRight, Waves, Brain, Star, Share2, X, Zap, CalendarDays,
-  BookMarked, Spline
+  BookMarked, Spline, Sigma
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -110,6 +110,7 @@ export function Sidebar() {
             {navItem('Árbol de decisión', Network, view.name === 'decision-tree', go(() => setView({ name: 'decision-tree' })))}
             {navItem('¿Qué hace Griffiths?', GraduationCap, view.name === 'model-problem', go(() => setView({ name: 'model-problem', problemId: MODEL_PROBLEMS[0].id })), MODEL_PROBLEMS.length)}
             {navItem('Visualizaciones', Waves, view.name === 'visualizations', go(() => setView({ name: 'visualizations' })))}
+            {navItem('tise_solver (interactivo)', Sigma, view.name === 'tise-solver', go(() => setView({ name: 'tise-solver' })))}
 
             <div className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Capítulo {chapter.number} — secciones
